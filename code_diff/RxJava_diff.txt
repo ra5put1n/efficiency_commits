@@ -1,0 +1,218 @@
+commit 7ede8ee2a26f4d842b90e1e331c5812d64911eaa
+Author: David Karnok <akarnokd@gmail.com>
+Date:   Mon Feb 19 21:18:41 2018 +0100
+
+    2.x: Add efficient mergeWith(Single|Maybe|Completable) overloads. (#5847)
+    
+    * 2.x: Add efficient mergeWith(Single|Maybe|Completable) overloads.
+    
+    * Compact tests, use named constants
+
+commit 12c0e3011726b15fc34ebc4dd1a4c67589210898
+Author: David Karnok <akarnokd@gmail.com>
+Date:   Fri Feb 16 12:37:37 2018 +0100
+
+    2.x: Add efficient concatWith(Single|Maybe|Completable) overloads (#5845)
+    
+    * 2.x: Add efficient concatWith(Single|Maybe|Completable) overloads
+    
+    * Correct the concatWith(Completable) TCK file name
+    
+    * Increase coverage
+    
+    * Change local variable names.
+
+commit 06c1b057055cf396e61f69f0e50ae5ae941ce230
+Author: Ben Christensen <benjchristensen@netflix.com>
+Date:   Mon Jun 23 19:38:24 2014 -0700
+
+    Parallel Operator Rewrite
+    
+    A rewrite of the `parallel` operator that is more efficient by not using `groupBy` and ready to support backpressure.
+
+commit 78cecddcb805584598e4156bab10ae282a4dea71
+Author: Ben Christensen <benjchristensen@netflix.com>
+Date:   Tue Sep 10 12:39:01 2013 -0700
+
+    Operators: throttleWithTimeout, throttleFirst, throttleLast
+    
+    - javadocs explaining differences
+    - link between throttleLast and sample (aliase)
+    - refactored throttleFirst to be a more efficient implementations
+    - concurrency changes to throttleWithTimeout
+commit 10da2ae1c826c688af3d1236eb8aac237f1db397
+Author: John Marks <john@johnmarks.co.uk>
+Date:   Tue Oct 15 11:18:14 2013 +0100
+
+    Improved efficiency of SerialSubscription and unit tested Timeout
+
+diff --git a/rxjava-core/src/main/java/rx/subscriptions/SerialSubscription.java b/rxjava-core/src/main/java/rx/subscriptions/SerialSubscription.java
+index a39ff45a1..c1235afda 100644
+--- a/rxjava-core/src/main/java/rx/subscriptions/SerialSubscription.java
++++ b/rxjava-core/src/main/java/rx/subscriptions/SerialSubscription.java
+@@ -30,15 +30,19 @@ public class SerialSubscription implements Subscription {
+ 
+     @Override
+     public void unsubscribe() {
++        Subscription toUnsubscribe = null;
+         synchronized (gate) {
+             if (!unsubscribed) {
+                 if (subscription != null) {
+-                    subscription.unsubscribe();
++                    toUnsubscribe = subscription;
+                     subscription = null;
+                 }
+                 unsubscribed = true;
+             }
+         }
++        if (toUnsubscribe != null) {
++            toUnsubscribe.unsubscribe();
++        }
+     }
+ 
+     public Subscription getSubscription() {
+@@ -48,15 +52,19 @@ public class SerialSubscription implements Subscription {
+     }
+ 
+     public void setSubscription(Subscription subscription) {
++        Subscription toUnsubscribe = null;
+         synchronized (gate) {
+             if (!unsubscribed) {
+                 if (this.subscription != null) {
+-                    this.subscription.unsubscribe();
++                    toUnsubscribe = this.subscription;
+                 }
+                 this.subscription = subscription;
+             } else {
+-                subscription.unsubscribe();
++                toUnsubscribe = subscription;
+             }
+         }
++        if (toUnsubscribe != null) {
++            toUnsubscribe.unsubscribe();
++        }
+     }
+ }
+diff --git a/rxjava-core/src/test/java/rx/TimeoutTests.java b/rxjava-core/src/test/java/rx/TimeoutTests.java
+new file mode 100644
+index 000000000..532ae42eb
+--- /dev/null
++++ b/rxjava-core/src/test/java/rx/TimeoutTests.java
+@@ -0,0 +1,117 @@
++/**
++ * Copyright 2013 Netflix, Inc.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package rx;
++
++import org.junit.Before;
++import org.junit.Test;
++import org.mockito.MockitoAnnotations;
++import rx.concurrency.TestScheduler;
++import rx.subjects.PublishSubject;
++
++import java.util.concurrent.TimeUnit;
++import java.util.concurrent.TimeoutException;
++
++import static org.mockito.Matchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++
++public class TimeoutTests {
++    private PublishSubject<String> underlyingSubject;
++    private TestScheduler testScheduler;
++    private Observable<String> withTimeout;
++    private static final long TIMEOUT = 3;
++    private static final TimeUnit TIME_UNIT = TimeUnit.SECONDS;
++
++    @Before
++    public void setUp() {
++        MockitoAnnotations.initMocks(this);
++
++        underlyingSubject = PublishSubject.create();
++        testScheduler = new TestScheduler();
++        withTimeout = underlyingSubject.timeout(TIMEOUT, TIME_UNIT, testScheduler);
++    }
++
++    @Test
++    public void shouldNotTimeoutIfOnNextWithinTimeout() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onNext("One");
++        verify(observer).onNext("One");
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        verify(observer, never()).onError(any(Throwable.class));
++        subscription.unsubscribe();
++    }
++
++    @Test
++    public void shouldNotTimeoutIfSecondOnNextWithinTimeout() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onNext("One");
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onNext("Two");
++        verify(observer).onNext("Two");
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        verify(observer, never()).onError(any(Throwable.class));
++        subscription.unsubscribe();
++    }
++
++    @Test
++    public void shouldTimeoutIfOnNextNotWithinTimeout() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(TIMEOUT + 1, TimeUnit.SECONDS);
++        verify(observer).onError(any(TimeoutException.class));
++        subscription.unsubscribe();
++    }
++
++    @Test
++    public void shouldTimeoutIfSecondOnNextNotWithinTimeout() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onNext("One");
++        verify(observer).onNext("One");
++        testScheduler.advanceTimeBy(TIMEOUT + 1, TimeUnit.SECONDS);
++        verify(observer).onError(any(TimeoutException.class));
++        subscription.unsubscribe();
++    }
++
++    @Test
++    public void shouldCompleteIfUnderlyingComletes() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onCompleted();
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        verify(observer).onCompleted();
++        verify(observer, never()).onError(any(Throwable.class));
++        subscription.unsubscribe();
++    }
++
++    @Test
++    public void shouldErrorIfUnderlyingErrors() {
++        Observer<String> observer = mock(Observer.class);
++        Subscription subscription = withTimeout.subscribe(observer);
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        underlyingSubject.onError(new UnsupportedOperationException());
++        testScheduler.advanceTimeBy(2, TimeUnit.SECONDS);
++        verify(observer).onError(any(UnsupportedOperationException.class));
++        subscription.unsubscribe();
++    }
++}

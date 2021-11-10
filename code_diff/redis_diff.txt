@@ -1,0 +1,2609 @@
+commit ea36d4de17101f05b03d267a4afbae0f7b33a27c
+Author: Viktor Söderqvist <viktor.soderqvist@est.tech>
+Date:   Tue Sep 14 16:48:06 2021 +0200
+
+    Modules: Add remaining list API functions (#8439)
+    
+    List functions operating on elements by index:
+    
+    * RM_ListGet
+    * RM_ListSet
+    * RM_ListInsert
+    * RM_ListDelete
+    
+    Iteration is done using a simple for loop over indices.
+    The index based functions use an internal iterator as an optimization.
+    This is explained in the docs:
+    
+    ```
+     * Many of the list functions access elements by index. Since a list is in
+     * essence a doubly-linked list, accessing elements by index is generally an
+     * O(N) operation. However, if elements are accessed sequentially or with
+     * indices close together, the functions are optimized to seek the index from
+     * the previous index, rather than seeking from the ends of the list.
+     *
+     * This enables iteration to be done efficiently using a simple for loop:
+     *
+     *     long n = RM_ValueLength(key);
+     *     for (long i = 0; i < n; i++) {
+     *         RedisModuleString *elem = RedisModule_ListGet(key, i);
+     *         // Do stuff...
+     *     }
+    ```
+
+commit 01495c674a9b468734f778e29b5176572e73c9dd
+Author: Binbin <binloveplay1314@qq.com>
+Date:   Sun May 30 22:56:04 2021 +0800
+
+    Extend freeSlotsToKeysMapAsync and freeTrackingRadixTreeAsync to check LAZYFREE_THRESHOLD. (#8969)
+    
+    Without this fix, FLUSHALL ASYNC would have freed these in a background thread,
+    even if they didn't contain many elements (unlike how it works with other structures), which could be inefficient.
+
+commit 5b48d900498c85bbf4772c1d466c214439888115
+Author: KinWaiYuen <529054658@qq.com>
+Date:   Fri Mar 12 14:40:35 2021 +0800
+
+    Optimize CLUSTER SLOTS reply by reducing unneeded loops (#8541)
+    
+    This commit more efficiently computes the cluster bulk slots response
+    by looping over the entire slot space once, instead of for each node.
+
+commit 62b1f32062b8f688179a8262959a5b80d0ad4de7
+Author: Oran Agra <oran@redislabs.com>
+Date:   Sun Feb 7 16:55:11 2021 +0200
+
+    Optimize HRANDFIELD and ZRANDMEMBER case 4 when ziplist encoded (#8444)
+    
+    It is inefficient to repeatedly pick a single random element from a
+    ziplist.
+    For CASE4, which is when the user requested a low number of unique
+    random picks from the collectoin, we used thta pattern.
+    
+    Now we use a different algorithm that picks unique elements from a
+    ziplist, and guarentee no duplicate but doesn't provide random order
+    (which is only needed in the non-unique random picks case)
+    
+    Unrelated changes:
+    * change ziplist count and indexes variables to unsigned
+    * solve compilation warnings about uninitialized vars in gcc 10.2
+    
+    Co-authored-by: xinluton <xinluton@qq.com>
+
+commit b9a0500f16d0cd016398133cc7ac256ad927b679
+Author: Yang Bodong <bodong.ybd@alibaba-inc.com>
+Date:   Fri Jan 29 16:47:28 2021 +0800
+
+    Add HRANDFIELD and ZRANDMEMBER. improvements to SRANDMEMBER (#8297)
+    
+    New commands:
+    `HRANDFIELD [<count> [WITHVALUES]]`
+    `ZRANDMEMBER [<count> [WITHSCORES]]`
+    Algorithms are similar to the one in SRANDMEMBER.
+    
+    Both return a simple bulk response when no arguments are given, and an array otherwise.
+    In case values/scores are requested, RESP2 returns a long array, and RESP3 a nested array.
+    note: in all 3 commands, the only option that also provides random order is the one with negative count.
+    
+    Changes to SRANDMEMBER
+    * Optimization when count is 1, we can use the more efficient algorithm of non-unique random
+    * optimization: work with sds strings rather than robj
+    
+    Other changes:
+    * zzlGetScore: when zset needs to convert string to double, we use safer memcpy (in
+      case the buffer is too small)
+    * Solve a "bug" in SRANDMEMBER test: it intended to test a positive count (case 3 or
+      case 4) and by accident used a negative count
+    
+    Co-authored-by: xinluton <xinluton@qq.com>
+    Co-authored-by: Oran Agra <oran@redislabs.com>
+
+commit 6bb5503524fbc15c4d6a5ac5eb08aedee18d3189
+Author: guybe7 <guy.benoish@redislabs.com>
+Date:   Mon Dec 7 20:31:35 2020 +0100
+
+    More efficient self-XCLAIM (#8098)
+    
+    when the same consumer re-claim an entry that it already has, there's
+    no need to remove-and-insert if it's the same rax.
+    we do need to update the idle time though.
+    this commit only improves efficiency (doesn't change behavior).
+
+commit 9122379abc3b15dfd2af3624586cc1e3f826eb55
+Author: Oran Agra <oran@redislabs.com>
+Date:   Tue Nov 3 14:56:57 2020 +0200
+
+    Propagate GETSET and SET-GET as SET (#7957)
+    
+    - Generates a more backwards compatible command stream
+    - Slightly more efficient execution in replica/AOF
+    - Add a test for coverage
+
+commit 7d117d7591656e947f526f5d5f8a022b88b38ad9
+Author: Yossi Gottlieb <yossigo@gmail.com>
+Date:   Mon Oct 5 17:06:35 2020 +0300
+
+    Modules: add RM_GetCommandKeys().
+    
+    This is essentially the same as calling COMMAND GETKEYS but provides a
+    more efficient interface that can be used in every context (i.e. not a
+    Redis command).
+
+commit 445a4b669a3a7232a18bf23340c5f7d580aa92c7
+Author: Wang Yuan <wangyuan21@baidu.com>
+Date:   Thu Sep 17 21:01:45 2020 +0800
+
+    Implement redisAtomic to replace _Atomic C11 builtin (#7707)
+    
+    Redis 6.0 introduces I/O threads, it is so cool and efficient, we use C11
+    _Atomic to establish inter-thread synchronization without mutex. But the
+    compiler that must supports C11 _Atomic can compile redis code, that brings a
+    lot of inconvenience since some common platforms can't support by default such
+    as CentOS7, so we want to implement redis atomic type to make it more portable.
+    
+    We have implemented our atomic variable for redis that only has 'relaxed'
+    operations in src/atomicvar.h, so we implement some operations with
+    'sequentially-consistent', just like the default behavior of C11 _Atomic that
+    can establish inter-thread synchronization. And we replace all uses of C11
+    _Atomic with redis atomic variable.
+    
+    Our implementation of redis atomic variable uses C11 _Atomic, __atomic or
+    __sync macros if available, it supports most common platforms, and we will
+    detect automatically which feature we use. In Makefile we use a dummy file to
+    detect if the compiler supports C11 _Atomic. Now for gcc, we can compile redis
+    code theoretically if your gcc version is not less than 4.1.2(starts to support
+    __sync_xxx operations). Otherwise, we remove use mutex fallback to implement
+    redis atomic variable for performance and test. You will get compiling errors
+    if your compiler doesn't support all features of above.
+    
+    For cover redis atomic variable tests, we add other CI jobs that build redis on
+    CentOS6 and CentOS7 and workflow daily jobs that run the tests on them.
+    For them, we just install gcc by default in order to cover different compiler
+    versions, gcc is 4.4.7 by default installation on CentOS6 and 4.8.5 on CentOS7.
+    
+    We restore the feature that we can test redis with Helgrind to find data race
+    errors. But you need install Valgrind in the default path configuration firstly
+    before running your tests, since we use macros in helgrind.h to tell Helgrind
+    inter-thread happens-before relationship explicitly for avoiding false positives.
+    Please open an issue on github if you find data race errors relate to this commit.
+    
+    Unrelated:
+    - Fix redefinition of typedef 'RedisModuleUserChangedFunc'
+      For some old version compilers, they will report errors or warnings, if we
+      re-define function type.
+
+commit 6f11acbd67f65c5f3fd84223bf07fefd75cfdc37
+Author: Tyson Andre <tyson.andre@uwaterloo.ca>
+Date:   Tue Aug 11 04:55:06 2020 -0400
+
+    Implement SMISMEMBER key member [member ...] (#7615)
+    
+    This is a rebased version of #3078 originally by shaharmor
+    with the following patches by TysonAndre made after rebasing
+    to work with the updated C API:
+    
+    1. Add 2 more unit tests
+       (wrong argument count error message, integer over 64 bits)
+    2. Use addReplyArrayLen instead of addReplyMultiBulkLen.
+    3. Undo changes to src/help.h - for the ZMSCORE PR,
+       I heard those should instead be automatically
+       generated from the redis-doc repo if it gets updated
+    
+    Motivations:
+    
+    - Example use case: Client code to efficiently check if each element of a set
+      of 1000 items is a member of a set of 10 million items.
+      (Similar to reasons for working on #7593)
+    - HMGET and ZMSCORE already exist. This may lead to developers deciding
+      to implement functionality that's best suited to a regular set with a
+      data type of sorted set or hash map instead, for the multi-get support.
+    
+    Currently, multi commands or lua scripting to call sismember multiple times
+    would almost definitely be less efficient than a native smismember
+    for the following reasons:
+    
+    - Need to fetch the set from the string every time
+      instead of reusing the C pointer.
+    - Using pipelining or multi-commands would result in more bytes sent
+      and received by the client for the repeated SISMEMBER KEY sections.
+    - Need to specially encode the data and decode it from the client
+      for lua-based solutions.
+    - Proposed solutions using Lua or SADD/SDIFF could trigger writes to
+      memory, which is undesirable on a redis replica server
+      or when commands get replicated to replicas.
+    
+    Co-Authored-By: Shahar Mor <shahar@peer5.com>
+    Co-Authored-By: Tyson Andre <tysonandre775@hotmail.com>
+
+commit f11f26cc53f25767c26b98ceb21e1b1fc3aef2d2
+Author: Tyson Andre <tyson.andre@uwaterloo.ca>
+Date:   Tue Aug 4 10:49:33 2020 -0400
+
+    Add a ZMSCORE command returning an array of scores. (#7593)
+    
+    Syntax: `ZMSCORE KEY MEMBER [MEMBER ...]`
+    
+    This is an extension of #2359
+    amended by Tyson Andre to work with the changed unstable API,
+    add more tests, and consistently return an array.
+    
+    - It seemed as if it would be more likely to get reviewed
+      after updating the implementation.
+    
+    Currently, multi commands or lua scripting to call zscore multiple times
+    would almost definitely be less efficient than a native ZMSCORE
+    for the following reasons:
+    
+    - Need to fetch the set from the string every time instead of reusing the C
+      pointer.
+    - Using pipelining or multi-commands would result in more bytes sent by
+      the client for the repeated `ZMSCORE KEY` sections.
+    - Need to specially encode the data and decode it from the client
+      for lua-based solutions.
+    - The fastest solution I've seen for large sets(thousands or millions)
+      involves lua and a variadic ZADD, then a ZINTERSECT, then a ZRANGE 0 -1,
+      then UNLINK of a temporary set (or lua). This is still inefficient.
+    
+    Co-authored-by: Tyson Andre <tysonandre775@hotmail.com>
+
+commit 28ef18a8946815e0d83a1c0a9b6baf9d27022461
+Author: Oran Agra <oran@redislabs.com>
+Date:   Wed Feb 5 18:24:14 2020 +0200
+
+    RM_Scan disable dict rehashing
+    
+    The callback approach we took is very efficient, the module can do any
+    filtering of keys without building any list and cloning strings, it can
+    also read data from the key's value. but if the user tries to re-open
+    the key, or any other key, this can cause dict re-hashing (dictFind does
+    that), and that's very bad to do from inside dictScan.
+    
+    this commit protects the dict from doing any rehashing during scan, but
+    also warns the user not to attempt any writes or command calls from
+    within the callback, for fear of unexpected side effects and crashes.
+
+commit a7122f451895200f23f7b5794e5569d374e8356b
+Merge: 70016f786 c426bbf3a
+Author: Salvatore Sanfilippo <antirez@gmail.com>
+Date:   Tue Nov 19 10:54:00 2019 +0100
+
+    Merge pull request #6579 from oranagra/rm_reply_string_opt
+    
+    Slightly more efficient RM_ReplyWithEmptyString
+
+commit c426bbf3a54939775fceac1a318f2fa22778ee08
+Author: Oran Agra <oran@redislabs.com>
+Date:   Thu Nov 14 09:46:46 2019 +0200
+
+    Slightly more efficient RM_ReplyWithEmptyString
+    
+    trimming talk about RESP protocol from API docs (should be independent to that anyway)
+
+commit bf680b6f8cdaee2c5588c5c8932a7f3b7fa70b15
+Author: Oran Agra <oran@redislabs.com>
+Date:   Wed Feb 21 20:18:34 2018 +0200
+
+    slave buffers were wasteful and incorrectly counted causing eviction
+    
+    A) slave buffers didn't count internal fragmentation and sds unused space,
+       this caused them to induce eviction although we didn't mean for it.
+    
+    B) slave buffers were consuming about twice the memory of what they actually needed.
+    - this was mainly due to sdsMakeRoomFor growing to twice as much as needed each time
+      but networking.c not storing more than 16k (partially fixed recently in 237a38737).
+    - besides it wasn't able to store half of the new string into one buffer and the
+      other half into the next (so the above mentioned fix helped mainly for small items).
+    - lastly, the sds buffers had up to 30% internal fragmentation that was wasted,
+      consumed but not used.
+    
+    C) inefficient performance due to starting from a small string and reallocing many times.
+    
+    what i changed:
+    - creating dedicated buffers for reply list, counting their size with zmalloc_size
+    - when creating a new reply node from, preallocate it to at least 16k.
+    - when appending a new reply to the buffer, first fill all the unused space of the
+      previous node before starting a new one.
+    
+    other changes:
+    - expose mem_not_counted_for_evict info field for the benefit of the test suite
+    - add a test to make sure slave buffers are counted correctly and that they don't cause eviction
+
+commit 548e478e4092e8a17faf638d84bb6e05d155f72b
+Author: antirez <antirez@gmail.com>
+Date:   Fri Feb 23 17:42:24 2018 +0100
+
+    ae.c: introduce the concept of read->write barrier.
+    
+    AOF fsync=always, and certain Redis Cluster bus operations, require to
+    fsync data on disk before replying with an acknowledge.
+    In such case, in order to implement Group Commits, we want to be sure
+    that queries that are read in a given cycle of the event loop, are never
+    served to clients in the same event loop iteration. This way, by using
+    the event loop "before sleep" callback, we can fsync the information
+    just one time before returning into the event loop for the next cycle.
+    This is much more efficient compared to calling fsync() multiple times.
+    
+    Unfortunately because of a bug, this was not always guaranteed: the
+    actual way the events are installed was the sole thing that could
+    control. Normally this problem is hard to trigger when AOF is enabled
+    with fsync=always, because we try to flush the output buffers to the
+    socekt directly in the beforeSleep() function of Redis. However if the
+    output buffers are full, we actually install a write event, and in such
+    a case, this bug could happen.
+    
+    This change to ae.c modifies the event loop implementation to make this
+    concept explicit. Write events that are registered with:
+    
+        AE_WRITABLE|AE_BARRIER
+    
+    Are guaranteed to never fire after the readable event was fired for the
+    same file descriptor. In this way we are sure that data is persisted to
+    disk before the client performing the operation receives an
+    acknowledged.
+    
+    However note that this semantics does not provide all the guarantees
+    that one may believe are automatically provided. Take the example of the
+    blocking list operations in Redis.
+    
+    With AOF and fsync=always we could have:
+    
+        Client A doing: BLPOP myqueue 0
+        Client B doing: RPUSH myqueue a b c
+    
+    In this scenario, Client A will get the "a" elements immediately after
+    the Client B RPUSH will be executed, even before the operation is persisted.
+    However when Client B will get the acknowledge, it can be sure that
+    "b,c" are already safe on disk inside the list.
+    
+    What to note here is that it cannot be assumed that Client A receiving
+    the element is a guaranteed that the operation succeeded from the point
+    of view of Client B.
+    
+    This is due to the fact that the barrier exists within the same socket,
+    and not between different sockets. However in the case above, the
+    element "a" was not going to be persisted regardless, so it is a pretty
+    synthetic argument.
+
+commit 0540803288dd137c0a0f3fc345165c6a87f0957e
+Author: antirez <antirez@gmail.com>
+Date:   Fri Sep 29 12:40:29 2017 +0200
+
+    Streams: XADD MAXLEN implementation.
+    
+    The core of this change is the implementation of stream trimming, and
+    the resulting MAXLEN option of XADD as a trivial result of having
+    trimming functionalities. MAXLEN already works but in order to be more
+    efficient listpack GC should be implemented, currently marked as a TODO
+    item inside the comments.
+
+commit f24d3a7de05d213f702621186f31a4c227f366c6
+Author: antirez <antirez@gmail.com>
+Date:   Thu Sep 28 16:55:46 2017 +0200
+
+    Streams: delta encode IDs based on key. Add count + deleted fields.
+    
+    We used to have the master ID stored at the start of the listpack,
+    however using the key directly makes more sense in order to create a
+    space efficient representation: anyway the key at the radix tree is very
+    unlikely to change because of how the stream is implemented. Moreover on
+    nodes merging, to rewrite the merged listpacks is anyway the most
+    sensible operation, and we can use the iterator and the append-to-stream
+    function in order to avoid re-implementing the code needed for merging.
+    
+    This commit also adds two items at the start of the listpack: the
+    number of valid items inside the listpack, and the number of items
+    marked as deleted. This means that there is no need to scan a listpack
+    in order to understand if it's a good candidate for garbage collection,
+    if the ration between valid/deleted items triggers the GC.
+
+commit 6468cb2e825cf8258654f83e82324332e9879745
+Author: antirez <antirez@gmail.com>
+Date:   Sat Sep 9 11:10:59 2017 +0200
+
+    Streams: fix XREAD ready-key signaling.
+    
+    With lists we need to signal only on key creation, but streams can
+    provide data to clients listening at every new item added.
+    To make this slightly more efficient we now track different classes of
+    blocked clients to avoid signaling keys when there is nobody listening.
+    A typical case is when the stream is used as a time series DB and
+    accessed only by range with XRANGE.
+
+commit 5e176e1af599637f4b5df1c60b22d110c6b1ae0c
+Author: antirez <antirez@gmail.com>
+Date:   Mon Jun 27 18:02:33 2016 +0200
+
+    Fix quicklistReplaceAtIndex() by updating the quicklist ziplist size.
+    
+    The quicklist takes a cached version of the ziplist representation size
+    in bytes. The implementation must update this length every time the
+    underlying ziplist changes. However quicklistReplaceAtIndex() failed to
+    fix the length.
+    
+    During LSET calls, the size of the ziplist blob and the cached size
+    inside the quicklist diverged. Later, when this size is used in an
+    authoritative way, for example during nodes splitting in order to copy
+    the nodes, we end with a duplicated node that may contain random
+    garbage.
+    
+    This commit should fix issue #3343, however several problems were found
+    reviewing the quicklist.c code in search of this bug that should be
+    addressed soon or later.
+    
+    For example:
+    
+    1. To take a cached ziplist length is fragile since failing to update it
+    leads to this kind of issues.
+    
+    2. The node splitting code needs auditing. For example it works just for
+    a side effect of ziplistDeleteRange() to be able to cope with a wrong
+    count of elements to remove. The code inside quicklist.c assumes that
+    -1 means "delete till the end" while actually it's just a count of how
+    many elements to delete, and is an unsigned count. So -1 gets converted
+    into the maximum integer, and just by chance the ziplist code stops
+    deleting elements after there are no more to delete.
+    
+    3. Node splitting is extremely inefficient, it copies the node and
+    removes elements from both nodes even when actually there is to move a
+    single entry from one node to the other, or when the new resulting node
+    is empty at all so there is nothing to copy but just to create a new
+    node.
+    
+    However at least for Redis 3.2 to introduce fresh code inside
+    quicklist.c may be even more risky, so instead I'm writing a better
+    fuzzy tester to stress the internals a bit more in order to anticipate
+    other possible bugs.
+    
+    This bug was found using a fuzzy tester written after having some clue
+    about where the bug could be. The tester eventually created a ~2000
+    commands sequence able to always crash Redis. I wrote a better version
+    of the tester that searched for the smallest sequence that could crash
+    Redis automatically. Later this smaller sequence was minimized by
+    removing random commands till it still crashed the server. This resulted
+    into a sequence of 7 commands. With this small sequence it was just a
+    matter of filling the code with enough printf() to understand enough
+    state to fix the bug.
+
+commit 10aafdad56fa79bd7f95d9b190054b2e56b6cddd
+Author: antirez <antirez@gmail.com>
+Date:   Fri Oct 17 11:36:12 2014 +0200
+
+    Diskless replication: rio fdset target new supports buffering.
+    
+    To perform a socket write() for each RDB rio API write call was
+    extremely unefficient, so now rio has minimal buffering capabilities.
+    Writes are accumulated into a buffer and only when a given limit is
+    reacehd are actually wrote to the N slaves FDs.
+    
+    Trivia: rio lacked support for buffering since our targets were:
+    
+    1) Memory buffers.
+    2) C standard I/O.
+    
+    Both were buffered already.
+
+commit a953c883815bada9365504940af52306d9a413ea
+Author: Matt Stancliff <matt@genges.com>
+Date:   Thu Jun 26 08:52:53 2014 -0400
+
+    Allow atomic memory count update with C11 builtins
+    
+    From mailing list post https://groups.google.com/forum/#!topic/redis-db/QLjiQe4D7LA
+    
+    In zmalloc.c the following primitives are currently used
+    to synchronize access to single global variable:
+    __sync_add_and_fetch
+    __sync_sub_and_fetch
+    
+    In some architectures such as powerpc these primitives are overhead
+    intensive. More efficient C11 __atomic builtins are available with
+    newer GCC versions, see
+    http://gcc.gnu.org/onlinedocs/gcc-4.8.2/gcc/_005f_005fatomic-Builtins.html#_005f_005fatomic-Builtins
+    
+    By substituting the following  __atomic… builtins:
+    __atomic_add_fetch
+    __atomic_sub_fetch
+    
+    the performance improvement on certain architectures such as powerpc can be significant,
+    around 10% to 15%, over the implementation using __sync builtins while there is only slight uptick on
+    Intel architectures because it was already enforcing Intel Strongly ordered memory semantics.
+    
+    The selection of __atomic built-ins can be predicated on the definition of ATOMIC_RELAXED
+    which Is available on in gcc 4.8.2 and later versions.
+
+commit 0bd6d68e34bc41cd80cd7fc44aab9cf3884de8dc
+Author: antirez <antirez@gmail.com>
+Date:   Wed May 16 16:23:09 2012 +0200
+
+    New commands: BITOP and BITCOUNT.
+    
+    The motivation for this new commands is to be search in the usage of
+    Redis for real time statistics. See the article "Fast real time metrics
+    using Redis".
+    
+    http://blog.getspool.com/2011/11/29/fast-easy-realtime-metrics-using-redis-bitmaps/
+    
+    In general Redis strings when used as bitmaps using the SETBIT/GETBIT
+    command provide a very space-efficient and fast way to store statistics.
+    For instance in a web application with users, every user can be
+    associated with a key that shows every day in which the user visited the
+    web service. This information can be really valuable to extract user
+    behaviour information.
+    
+    With Redis bitmaps doing this is very simple just saying that a given
+    day is 0 (the data the service was put online) and all the next days are
+    1, 2, 3, and so forth. So with SETBIT it is possible to set the bit
+    corresponding to the current day every time the user visits the site.
+    
+    It is possible to take the count of the bit sets on the run, this is
+    extremely easy using a Lua script. However a fast bit count native
+    operation can be useful, especially if it can operate on ranges, or when
+    the string is small like in the case of days (even if you consider many
+    years it is still extremely little data).
+    
+    For this reason BITOP was introduced. The command counts the number of
+    bits set to 1 in a string, with optional range:
+    
+    BITCOUNT key [start end]
+    
+    The start/end parameters are similar to GETRANGE. If omitted the whole
+    string is tested.
+    
+    Population counting is more useful when bit-level operations like AND,
+    OR and XOR are avaialble. For instance I can test multiple users to see
+    the number of days three users visited the site at the same time. To do
+    this we can take the AND of all the bitmaps, and then count the set bits.
+    
+    For this reason the BITOP command was introduced:
+    
+    BITOP [AND|OR|XOR|NOT] dest_key src_key1 src_key2 src_key3 ... src_keyN
+    
+    In the special case of NOT (that inverts the bits) only one source key
+    can be passed.
+    
+    The judicious use of BITCOUNT and BITOP combined can lead to interesting
+    use cases with very space efficient representation of data.
+    
+    The implementation provided is still not tested and optimized for speed,
+    next commits will introduce unit tests. Later the implementation will be
+    profiled to see if it is possible to gain an important amount of speed
+    without making the code much more complex.
+
+commit c4705381422ead4ad99f4b7a3bc11f059c460401
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Fri Aug 13 19:28:49 2010 +0200
+
+    Make ziplist schema more efficient for strings with length > 15
+commit 77d3c6bff30331fb94a8570adc29872368e15ca2
+Author: perryitay <85821686+perryitay@users.noreply.github.com>
+Date:   Wed Nov 3 14:12:33 2021 +0200
+
+    fix: lookupKey on SETNX and SETXX only once (#9640)
+    
+    When using SETNX and SETXX we could end up doing key lookup twice.
+    This presents a small inefficiency price.
+    Also once we have statistics of write hit and miss they'll be wrong (recording the same key hit twice)
+
+diff --git a/src/bitops.c b/src/bitops.c
+index 5190e1035..f69e6b4c6 100644
+--- a/src/bitops.c
++++ b/src/bitops.c
+@@ -777,7 +777,7 @@ void bitopCommand(client *c) {
+     /* Store the computed value into the target key */
+     if (maxlen) {
+         o = createObject(OBJ_STRING,res);
+-        setKey(c,c->db,targetkey,o);
++        setKey(c,c->db,targetkey,o,0);
+         notifyKeyspaceEvent(NOTIFY_STRING,"set",targetkey,c->db->id);
+         decrRefCount(o);
+         server.dirty++;
+diff --git a/src/db.c b/src/db.c
+index 4ae0d768d..8a90d3215 100644
+--- a/src/db.c
++++ b/src/db.c
+@@ -243,25 +243,29 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
+  * 1) The ref count of the value object is incremented.
+  * 2) clients WATCHing for the destination key notified.
+  * 3) The expire time of the key is reset (the key is made persistent),
+- *    unless 'keepttl' is true.
++ *    unless 'SETKEY_KEEPTTL' is enabled in flags.
++ * 4) The key lookup can take place outside this interface outcome will be
++ *    delivered with 'SETKEY_ALREADY_EXIST' or 'SETKEY_DOESNT_EXIST'
+  *
+  * All the new keys in the database should be created via this interface.
+  * The client 'c' argument may be set to NULL if the operation is performed
+  * in a context where there is no clear client performing the operation. */
+-void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, int signal) {
+-    if (lookupKeyWrite(db,key) == NULL) {
++void setKey(client *c, redisDb *db, robj *key, robj *val, int flags) {
++    int keyfound = 0;
++
++    if (flags & SETKEY_ALREADY_EXIST)
++        keyfound = 1;
++    else if (!(flags & SETKEY_DOESNT_EXIST))
++        keyfound = (lookupKeyWrite(db,key) != NULL);
++
++    if (!keyfound) {
+         dbAdd(db,key,val);
+     } else {
+         dbOverwrite(db,key,val);
+     }
+     incrRefCount(val);
+-    if (!keepttl) removeExpire(db,key);
+-    if (signal) signalModifiedKey(c,db,key);
+-}
+-
+-/* Common case for genericSetKey() where the TTL is not retained. */
+-void setKey(client *c, redisDb *db, robj *key, robj *val) {
+-    genericSetKey(c,db,key,val,0,1);
++    if (!(flags & SETKEY_KEEPTTL)) removeExpire(db,key);
++    if (!(flags & SETKEY_NO_SIGNAL)) signalModifiedKey(c,db,key);
+ }
+ 
+ /* Return a random key, in form of a Redis object.
+diff --git a/src/geo.c b/src/geo.c
+index d60cebf53..26feea698 100644
+--- a/src/geo.c
++++ b/src/geo.c
+@@ -820,7 +820,7 @@ void georadiusGeneric(client *c, int srcKeyIndex, int flags) {
+ 
+         if (returned_items) {
+             zsetConvertToListpackIfNeeded(zobj,maxelelen,totelelen);
+-            setKey(c,c->db,storekey,zobj);
++            setKey(c,c->db,storekey,zobj,0);
+             decrRefCount(zobj);
+             notifyKeyspaceEvent(NOTIFY_ZSET,flags & GEOSEARCH ? "geosearchstore" : "georadiusstore",storekey,
+                                 c->db->id);
+diff --git a/src/module.c b/src/module.c
+index 37bfa2173..53ba70f77 100644
+--- a/src/module.c
++++ b/src/module.c
+@@ -3079,7 +3079,7 @@ int RM_GetToDbIdFromOptCtx(RedisModuleKeyOptCtx *ctx) {
+ int RM_StringSet(RedisModuleKey *key, RedisModuleString *str) {
+     if (!(key->mode & REDISMODULE_WRITE) || key->iter) return REDISMODULE_ERR;
+     RM_DeleteKey(key);
+-    genericSetKey(key->ctx->client,key->db,key->key,str,0,0);
++    setKey(key->ctx->client,key->db,key->key,str,SETKEY_NO_SIGNAL);
+     key->value = str;
+     return REDISMODULE_OK;
+ }
+@@ -3159,7 +3159,7 @@ int RM_StringTruncate(RedisModuleKey *key, size_t newlen) {
+     if (key->value == NULL) {
+         /* Empty key: create it with the new size. */
+         robj *o = createObject(OBJ_STRING,sdsnewlen(NULL, newlen));
+-        genericSetKey(key->ctx->client,key->db,key->key,o,0,0);
++        setKey(key->ctx->client,key->db,key->key,o,SETKEY_NO_SIGNAL);
+         key->value = o;
+         decrRefCount(o);
+     } else {
+@@ -5437,7 +5437,7 @@ int RM_ModuleTypeSetValue(RedisModuleKey *key, moduleType *mt, void *value) {
+     if (!(key->mode & REDISMODULE_WRITE) || key->iter) return REDISMODULE_ERR;
+     RM_DeleteKey(key);
+     robj *o = createModuleObject(mt,value);
+-    genericSetKey(key->ctx->client,key->db,key->key,o,0,0);
++    setKey(key->ctx->client,key->db,key->key,o,SETKEY_NO_SIGNAL);
+     decrRefCount(o);
+     key->value = o;
+     return REDISMODULE_OK;
+diff --git a/src/server.h b/src/server.h
+index fd5762db9..9eca98230 100644
+--- a/src/server.h
++++ b/src/server.h
+@@ -2645,8 +2645,12 @@ int objectSetLRUOrLFU(robj *val, long long lfu_freq, long long lru_idle,
+ void dbAdd(redisDb *db, robj *key, robj *val);
+ int dbAddRDBLoad(redisDb *db, sds key, robj *val);
+ void dbOverwrite(redisDb *db, robj *key, robj *val);
+-void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, int signal);
+-void setKey(client *c, redisDb *db, robj *key, robj *val);
++
++#define SETKEY_KEEPTTL 1
++#define SETKEY_NO_SIGNAL 2
++#define SETKEY_ALREADY_EXIST 4
++#define SETKEY_DOESNT_EXIST 8
++void setKey(client *c, redisDb *db, robj *key, robj *val, int flags);
+ robj *dbRandomKey(redisDb *db);
+ int dbSyncDelete(redisDb *db, robj *key);
+ int dbDelete(redisDb *db, robj *key);
+diff --git a/src/sort.c b/src/sort.c
+index 1eb61f83a..436c7fb0e 100644
+--- a/src/sort.c
++++ b/src/sort.c
+@@ -570,7 +570,7 @@ void sortCommandGeneric(client *c, int readonly) {
+             }
+         }
+         if (outputlen) {
+-            setKey(c,c->db,storekey,sobj);
++            setKey(c,c->db,storekey,sobj,0);
+             notifyKeyspaceEvent(NOTIFY_LIST,"sortstore",storekey,
+                                 c->db->id);
+             server.dirty += outputlen;
+diff --git a/src/t_set.c b/src/t_set.c
+index 72743a6fd..ec9749f13 100644
+--- a/src/t_set.c
++++ b/src/t_set.c
+@@ -987,7 +987,7 @@ void sinterGenericCommand(client *c, robj **setkeys,
+         /* Store the resulting set into the target, if the intersection
+          * is not an empty set. */
+         if (setTypeSize(dstset) > 0) {
+-            setKey(c,c->db,dstkey,dstset);
++            setKey(c,c->db,dstkey,dstset,0);
+             addReplyLongLong(c,setTypeSize(dstset));
+             notifyKeyspaceEvent(NOTIFY_SET,"sinterstore",
+                 dstkey,c->db->id);
+@@ -1191,7 +1191,7 @@ void sunionDiffGenericCommand(client *c, robj **setkeys, int setnum,
+         /* If we have a target key where to store the resulting set
+          * create this key with the result set inside */
+         if (setTypeSize(dstset) > 0) {
+-            setKey(c,c->db,dstkey,dstset);
++            setKey(c,c->db,dstkey,dstset,0);
+             addReplyLongLong(c,setTypeSize(dstset));
+             notifyKeyspaceEvent(NOTIFY_SET,
+                 op == SET_OP_UNION ? "sunionstore" : "sdiffstore",
+diff --git a/src/t_string.c b/src/t_string.c
+index f1c1fdca2..e1917958b 100644
+--- a/src/t_string.c
++++ b/src/t_string.c
+@@ -77,6 +77,9 @@ static int getExpireMillisecondsOrReply(client *c, robj *expire, int flags, int
+ 
+ void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply) {
+     long long milliseconds = 0; /* initialized to avoid any harmness warning */
++    int found = 0;
++    int setkey_flags = 0;
++
+     if (expire && getExpireMillisecondsOrReply(c, expire, flags, unit, &milliseconds) != C_OK) {
+         return;
+     }
+@@ -85,8 +88,10 @@ void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire,
+         if (getGenericCommand(c) == C_ERR) return;
+     }
+ 
+-    if ((flags & OBJ_SET_NX && lookupKeyWrite(c->db,key) != NULL) ||
+-        (flags & OBJ_SET_XX && lookupKeyWrite(c->db,key) == NULL))
++    found = (lookupKeyWrite(c->db,key) != NULL);
++
++    if ((flags & OBJ_SET_NX && found) ||
++        (flags & OBJ_SET_XX && !found))
+     {
+         if (!(flags & OBJ_SET_GET)) {
+             addReply(c, abort_reply ? abort_reply : shared.null[c->resp]);
+@@ -94,7 +99,10 @@ void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire,
+         return;
+     }
+ 
+-    genericSetKey(c,c->db,key, val,flags & OBJ_KEEPTTL,1);
++    setkey_flags |= (flags & OBJ_KEEPTTL) ? SETKEY_KEEPTTL : 0;
++    setkey_flags |= found ? SETKEY_ALREADY_EXIST : SETKEY_DOESNT_EXIST;
++
++    setKey(c,c->db,key,val,setkey_flags);
+     server.dirty++;
+     notifyKeyspaceEvent(NOTIFY_STRING,"set",key,c->db->id);
+ 
+@@ -418,7 +426,7 @@ void getdelCommand(client *c) {
+ void getsetCommand(client *c) {
+     if (getGenericCommand(c) == C_ERR) return;
+     c->argv[2] = tryObjectEncoding(c->argv[2]);
+-    setKey(c,c->db,c->argv[1],c->argv[2]);
++    setKey(c,c->db,c->argv[1],c->argv[2],0);
+     notifyKeyspaceEvent(NOTIFY_STRING,"set",c->argv[1],c->db->id);
+     server.dirty++;
+ 
+@@ -567,7 +575,7 @@ void msetGenericCommand(client *c, int nx) {
+ 
+     for (j = 1; j < c->argc; j += 2) {
+         c->argv[j+1] = tryObjectEncoding(c->argv[j+1]);
+-        setKey(c,c->db,c->argv[j],c->argv[j+1]);
++        setKey(c,c->db,c->argv[j],c->argv[j+1],0);
+         notifyKeyspaceEvent(NOTIFY_STRING,"set",c->argv[j],c->db->id);
+     }
+     server.dirty += (c->argc-1)/2;
+diff --git a/src/t_zset.c b/src/t_zset.c
+index 952d24709..06c2d2372 100644
+--- a/src/t_zset.c
++++ b/src/t_zset.c
+@@ -2762,7 +2762,7 @@ void zunionInterDiffGenericCommand(client *c, robj *dstkey, int numkeysIndex, in
+     if (dstkey) {
+         if (dstzset->zsl->length) {
+             zsetConvertToListpackIfNeeded(dstobj, maxelelen, totelelen);
+-            setKey(c, c->db, dstkey, dstobj);
++            setKey(c, c->db, dstkey, dstobj, 0);
+             addReplyLongLong(c, zsetLength(dstobj));
+             notifyKeyspaceEvent(NOTIFY_ZSET,
+                                 (op == SET_OP_UNION) ? "zunionstore" :
+@@ -2955,7 +2955,7 @@ static void zrangeResultEmitLongLongForStore(zrange_result_handler *handler,
+ static void zrangeResultFinalizeStore(zrange_result_handler *handler, size_t result_count)
+ {
+     if (result_count) {
+-        setKey(handler->client, handler->client->db, handler->dstkey, handler->dstobj);
++        setKey(handler->client, handler->client->db, handler->dstkey, handler->dstobj, 0);
+         addReplyLongLong(handler->client, result_count);
+         notifyKeyspaceEvent(NOTIFY_ZSET, "zrangestore", handler->dstkey, handler->client->db->id);
+         server.dirty++;
+
+commit c396fd91a039feb5114e79f6f91459a0b1f74346
+Author: Wang Yuan <wangyuan21@baidu.com>
+Date:   Tue Jun 8 18:40:12 2021 +0800
+
+    Mem efficiency, make full use of client struct memory for reply buffers (#8968)
+    
+    When we allocate a client struct with 16k reply buffer, the allocator we may give us 20K,
+    This commit makes use of that extra space.
+    Additionally, it tries to store whatever it can from the reply into the static 'buf' before
+    allocating a new node for the reply list.
+
+diff --git a/README.md b/README.md
+index e4d64d58f..eecb61daa 100644
+--- a/README.md
++++ b/README.md
+@@ -304,8 +304,8 @@ struct client {
+     redisDb *db;
+     int flags;
+     list *reply;
+-    char buf[PROTO_REPLY_CHUNK_BYTES];
+     // ... many other fields ...
++    char buf[PROTO_REPLY_CHUNK_BYTES];
+ }
+ ```
+ The client structure defines a *connected client*:
+diff --git a/src/aof.c b/src/aof.c
+index e9929204d..38da4bf31 100644
+--- a/src/aof.c
++++ b/src/aof.c
+@@ -651,6 +651,7 @@ struct client *createAOFClient(void) {
+     c->original_argv = NULL;
+     c->argv_len_sum = 0;
+     c->bufpos = 0;
++    c->buf_usable_size = zmalloc_usable_size(c)-offsetof(client,buf);
+ 
+     /*
+      * The AOF client should never be blocked (unlike master
+diff --git a/src/networking.c b/src/networking.c
+index 6824f1ff3..70bafb5ea 100644
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -131,6 +131,7 @@ client *createClient(connection *conn) {
+     c->conn = conn;
+     c->name = NULL;
+     c->bufpos = 0;
++    c->buf_usable_size = zmalloc_usable_size(c)-offsetof(client,buf);
+     c->qb_pos = 0;
+     c->querybuf = sdsempty();
+     c->pending_querybuf = sdsempty();
+@@ -279,30 +280,23 @@ int prepareClientToWrite(client *c) {
+  * -------------------------------------------------------------------------- */
+ 
+ /* Attempts to add the reply to the static buffer in the client struct.
+- * Returns C_ERR if the buffer is full, or the reply list is not empty,
+- * in which case the reply must be added to the reply list. */
+-int _addReplyToBuffer(client *c, const char *s, size_t len) {
+-    size_t available = sizeof(c->buf)-c->bufpos;
+-
+-    if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return C_OK;
++ * Returns the length of data that is added to the reply buffer. */
++size_t _addReplyToBuffer(client *c, const char *s, size_t len) {
++    size_t available = c->buf_usable_size - c->bufpos;
+ 
+     /* If there already are entries in the reply list, we cannot
+      * add anything more to the static buffer. */
+-    if (listLength(c->reply) > 0) return C_ERR;
+-
+-    /* Check that the buffer has enough space available for this string. */
+-    if (len > available) return C_ERR;
++    if (listLength(c->reply) > 0) return 0;
+ 
+-    memcpy(c->buf+c->bufpos,s,len);
+-    c->bufpos+=len;
+-    return C_OK;
++    size_t reply_len = len > available ? available : len;
++    memcpy(c->buf+c->bufpos,s,reply_len);
++    c->bufpos+=reply_len;
++    return reply_len;
+ }
+ 
+ /* Adds the reply to the reply linked list.
+  * Note: some edits to this function need to be relayed to AddReplyFromClient. */
+ void _addReplyProtoToList(client *c, const char *s, size_t len) {
+-    if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
+-
+     listNode *ln = listLast(c->reply);
+     clientReplyBlock *tail = ln? listNodeValue(ln): NULL;
+ 
+@@ -324,10 +318,11 @@ void _addReplyProtoToList(client *c, const char *s, size_t len) {
+     if (len) {
+         /* Create a new node, make sure it is allocated to at
+          * least PROTO_REPLY_CHUNK_BYTES */
++        size_t usable_size;
+         size_t size = len < PROTO_REPLY_CHUNK_BYTES? PROTO_REPLY_CHUNK_BYTES: len;
+-        tail = zmalloc(size + sizeof(clientReplyBlock));
++        tail = zmalloc_usable(size + sizeof(clientReplyBlock), &usable_size);
+         /* take over the allocation's internal fragmentation */
+-        tail->size = zmalloc_usable_size(tail) - sizeof(clientReplyBlock);
++        tail->size = usable_size - sizeof(clientReplyBlock);
+         tail->used = len;
+         memcpy(tail->buf, s, len);
+         listAddNodeTail(c->reply, tail);
+@@ -337,6 +332,13 @@ void _addReplyProtoToList(client *c, const char *s, size_t len) {
+     }
+ }
+ 
++void _addReplyToBufferOrList(client *c, const char *s, size_t len) {
++    if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
++
++    size_t reply_len = _addReplyToBuffer(c,s,len);
++    if (len > reply_len) _addReplyProtoToList(c,s+reply_len,len-reply_len);
++}
++
+ /* -----------------------------------------------------------------------------
+  * Higher level functions to queue data on the client output buffer.
+  * The following functions are the ones that commands implementations will call.
+@@ -347,16 +349,14 @@ void addReply(client *c, robj *obj) {
+     if (prepareClientToWrite(c) != C_OK) return;
+ 
+     if (sdsEncodedObject(obj)) {
+-        if (_addReplyToBuffer(c,obj->ptr,sdslen(obj->ptr)) != C_OK)
+-            _addReplyProtoToList(c,obj->ptr,sdslen(obj->ptr));
++        _addReplyToBufferOrList(c,obj->ptr,sdslen(obj->ptr));
+     } else if (obj->encoding == OBJ_ENCODING_INT) {
+         /* For integer encoded strings we just convert it into a string
+          * using our optimized function, and attach the resulting string
+          * to the output buffer. */
+         char buf[32];
+         size_t len = ll2string(buf,sizeof(buf),(long)obj->ptr);
+-        if (_addReplyToBuffer(c,buf,len) != C_OK)
+-            _addReplyProtoToList(c,buf,len);
++        _addReplyToBufferOrList(c,buf,len);
+     } else {
+         serverPanic("Wrong obj->encoding in addReply()");
+     }
+@@ -370,8 +370,7 @@ void addReplySds(client *c, sds s) {
+         sdsfree(s);
+         return;
+     }
+-    if (_addReplyToBuffer(c,s,sdslen(s)) != C_OK)
+-        _addReplyProtoToList(c,s,sdslen(s));
++    _addReplyToBufferOrList(c,s,sdslen(s));
+     sdsfree(s);
+ }
+ 
+@@ -385,8 +384,7 @@ void addReplySds(client *c, sds s) {
+  * in the list of objects. */
+ void addReplyProto(client *c, const char *s, size_t len) {
+     if (prepareClientToWrite(c) != C_OK) return;
+-    if (_addReplyToBuffer(c,s,len) != C_OK)
+-        _addReplyProtoToList(c,s,len);
++    _addReplyToBufferOrList(c,s,len);
+ }
+ 
+ /* Low level function called by the addReplyError...() functions.
+@@ -956,12 +954,20 @@ void AddReplyFromClient(client *dst, client *src) {
+  * The function takes care of freeing the old output buffers of the
+  * destination client. */
+ void copyClientOutputBuffer(client *dst, client *src) {
+-    listRelease(dst->reply);
++    listEmpty(dst->reply);
+     dst->sentlen = 0;
+-    dst->reply = listDup(src->reply);
+-    memcpy(dst->buf,src->buf,src->bufpos);
+-    dst->bufpos = src->bufpos;
+-    dst->reply_bytes = src->reply_bytes;
++    dst->bufpos = 0;
++    dst->reply_bytes = 0;
++
++    /* First copy src static buffer into dst (either static buffer or reply
++     * list, maybe clients have different 'usable_buffer_size'). */
++    _addReplyToBufferOrList(dst,src->buf,src->bufpos);
++
++    /* Copy src reply list into the dest. */
++    list* reply = listDup(src->reply);
++    listJoin(dst->reply,reply);
++    dst->reply_bytes += src->reply_bytes;
++    listRelease(reply);
+ }
+ 
+ /* Return true if the specified client has pending reply buffers to write to
+diff --git a/src/scripting.c b/src/scripting.c
+index 71830dede..740ef2766 100644
+--- a/src/scripting.c
++++ b/src/scripting.c
+@@ -748,7 +748,7 @@ int luaRedisGenericCommand(lua_State *lua, int raise_error) {
+     /* Convert the result of the Redis command into a suitable Lua type.
+      * The first thing we need is to create a single string from the client
+      * output buffers. */
+-    if (listLength(c->reply) == 0 && c->bufpos < PROTO_REPLY_CHUNK_BYTES) {
++    if (listLength(c->reply) == 0 && (size_t)c->bufpos < c->buf_usable_size) {
+         /* This is a fast path for the common case of a reply inside the
+          * client static buffer. Don't create an SDS string but just use
+          * the client buffer directly. */
+diff --git a/src/server.h b/src/server.h
+index dfc34cfc2..dd0ef2e8d 100644
+--- a/src/server.h
++++ b/src/server.h
+@@ -969,6 +969,12 @@ typedef struct client {
+     int      client_cron_last_memory_type;
+     /* Response buffer */
+     int bufpos;
++    size_t buf_usable_size; /* Usable size of buffer. */
++    /* Note that 'buf' must be the last field of client struct, because memory
++     * allocator may give us more memory than our apply for reducing fragments,
++     * but we want to make full use of given memory, i.e. we may access the
++     * memory after 'buf'. To avoid make others fields corrupt, 'buf' must be
++     * the last one. */
+     char buf[PROTO_REPLY_CHUNK_BYTES];
+ } client;
+ 
+
+commit a9897b0084919d85c64e6a41a0fea0f882550760
+Author: Oran Agra <oran@redislabs.com>
+Date:   Sun Apr 18 15:12:34 2021 +0300
+
+    Fix timing of new replication test (#8807)
+    
+    In github actions CI with valgrind, i saw that even the fast replica
+    (one that wasn't paused), didn't get to complete the replication fast
+    enough, and ended up getting disconnected by timeout.
+    
+    Additionally, due to a typo in uname, we didn't get to actually run the
+    CPU efficiency part of the test.
+
+diff --git a/tests/integration/replication.tcl b/tests/integration/replication.tcl
+index 74936e2af..1a089ef4b 100644
+--- a/tests/integration/replication.tcl
++++ b/tests/integration/replication.tcl
+@@ -597,7 +597,7 @@ start_server {tags {"repl"}} {
+     $master debug populate 20000 test 10000
+     $master config set rdbcompression no
+     # If running on Linux, we also measure utime/stime to detect possible I/O handling issues
+-    set os [catch {exec unamee}]
++    set os [catch {exec uname}]
+     set measure_time [expr {$os == "Linux"} ? 1 : 0]
+     foreach all_drop {no slow fast all timeout} {
+         test "diskless $all_drop replicas drop during rdb pipe" {
+@@ -616,7 +616,7 @@ start_server {tags {"repl"}} {
+                     # so that the whole rdb generation process is bound to that
+                     set loglines [count_log_lines -1]
+                     [lindex $replicas 0] config set repl-diskless-load swapdb
+-                    [lindex $replicas 0] config set key-load-delay 100
++                    [lindex $replicas 0] config set key-load-delay 100 ;# 20k keys and 100 microseconds sleep means at least 2 seconds
+                     [lindex $replicas 0] replicaof $master_host $master_port
+                     [lindex $replicas 1] replicaof $master_host $master_port
+ 
+@@ -648,10 +648,10 @@ start_server {tags {"repl"}} {
+                         set replicas_alive [lreplace $replicas_alive 0 0]
+                     }
+                     if {$all_drop == "timeout"} {
+-                        $master config set repl-timeout 1
+-                        # we want this replica to hang on a key for very long so it'll reach repl-timeout
++                        $master config set repl-timeout 2
++                        # we want the slow replica to hang on a key for very long so it'll reach repl-timeout
+                         exec kill -SIGSTOP [srv -1 pid]
+-                        after 3000
++                        after 2000
+                     }
+ 
+                     # wait for rdb child to exit
+
+commit 6bb5503524fbc15c4d6a5ac5eb08aedee18d3189
+Author: guybe7 <guy.benoish@redislabs.com>
+Date:   Mon Dec 7 20:31:35 2020 +0100
+
+    More efficient self-XCLAIM (#8098)
+    
+    when the same consumer re-claim an entry that it already has, there's
+    no need to remove-and-insert if it's the same rax.
+    we do need to update the idle time though.
+    this commit only improves efficiency (doesn't change behavior).
+
+diff --git a/src/t_stream.c b/src/t_stream.c
+index 320c5a2fe..684328de2 100644
+--- a/src/t_stream.c
++++ b/src/t_stream.c
+@@ -2601,15 +2601,15 @@ void xclaimCommand(client *c) {
+                 mstime_t this_idle = now - nack->delivery_time;
+                 if (this_idle < minidle) continue;
+             }
+-            /* Remove the entry from the old consumer.
+-             * Note that nack->consumer is NULL if we created the
+-             * NACK above because of the FORCE option. */
+-            if (nack->consumer)
+-                raxRemove(nack->consumer->pel,buf,sizeof(buf),NULL);
+-            /* Update the consumer and idle time. */
+             if (consumer == NULL)
+                 consumer = streamLookupConsumer(group,c->argv[3]->ptr,SLC_NONE,NULL);
+-            nack->consumer = consumer;
++            if (nack->consumer != consumer) {
++                /* Remove the entry from the old consumer.
++                 * Note that nack->consumer is NULL if we created the
++                 * NACK above because of the FORCE option. */
++                if (nack->consumer)
++                    raxRemove(nack->consumer->pel,buf,sizeof(buf),NULL);
++            }
+             nack->delivery_time = deliverytime;
+             /* Set the delivery attempts counter if given, otherwise
+              * autoincrement unless JUSTID option provided */
+@@ -2618,8 +2618,11 @@ void xclaimCommand(client *c) {
+             } else if (!justid) {
+                 nack->delivery_count++;
+             }
+-            /* Add the entry in the new consumer local PEL. */
+-            raxInsert(consumer->pel,buf,sizeof(buf),nack,NULL);
++            if (nack->consumer != consumer) {
++                /* Add the entry in the new consumer local PEL. */
++                raxInsert(consumer->pel,buf,sizeof(buf),nack,NULL);
++                nack->consumer = consumer;
++            }
+             /* Send the reply for this entry. */
+             if (justid) {
+                 addReplyStreamID(c,&id);
+diff --git a/tests/unit/type/stream-cgroups.tcl b/tests/unit/type/stream-cgroups.tcl
+index 41e2ab979..1d1a68a35 100644
+--- a/tests/unit/type/stream-cgroups.tcl
++++ b/tests/unit/type/stream-cgroups.tcl
+@@ -235,6 +235,12 @@ start_server {
+         ]
+         assert {[llength [lindex $reply 0 1 0 1]] == 2}
+         assert {[lindex $reply 0 1 0 1] eq {a 1}}
++
++        # make sure the entry is present in both the gorup, and the right consumer
++        assert {[llength [r XPENDING mystream mygroup - + 10]] == 1}
++        assert {[llength [r XPENDING mystream mygroup - + 10 client1]] == 1}
++        assert {[llength [r XPENDING mystream mygroup - + 10 client2]] == 0}
++
+         r debug sleep 0.2
+         set reply [
+             r XCLAIM mystream mygroup client2 10 $id1
+@@ -242,6 +248,11 @@ start_server {
+         assert {[llength [lindex $reply 0 1]] == 2}
+         assert {[lindex $reply 0 1] eq {a 1}}
+ 
++        # make sure the entry is present in both the gorup, and the right consumer
++        assert {[llength [r XPENDING mystream mygroup - + 10]] == 1}
++        assert {[llength [r XPENDING mystream mygroup - + 10 client1]] == 0}
++        assert {[llength [r XPENDING mystream mygroup - + 10 client2]] == 1}
++
+         # Client 1 reads another 2 items from stream
+         r XREADGROUP GROUP mygroup client1 count 2 STREAMS mystream >
+         r debug sleep 0.2
+@@ -311,6 +322,27 @@ start_server {
+         assert {[lindex $reply 0 3] == 2}
+     }
+ 
++    test {XCLAIM same consumer} {
++        # Add 3 items into the stream, and create a consumer group
++        r del mystream
++        set id1 [r XADD mystream * a 1]
++        set id2 [r XADD mystream * b 2]
++        set id3 [r XADD mystream * c 3]
++        r XGROUP CREATE mystream mygroup 0
++
++        set reply [r XREADGROUP GROUP mygroup client1 count 1 STREAMS mystream >]
++        assert {[llength [lindex $reply 0 1 0 1]] == 2}
++        assert {[lindex $reply 0 1 0 1] eq {a 1}}
++        r debug sleep 0.2
++        # re-claim with the same consumer that already has it
++        assert {[llength [r XCLAIM mystream mygroup client1 10 $id1]] == 1}
++
++        # make sure the entry is still in the PEL
++        set reply [r XPENDING mystream mygroup - + 10]
++        assert {[llength $reply] == 1}
++        assert {[lindex $reply 0 1] eq {client1}}
++    }
++
+     test {XINFO FULL output} {
+         r del x
+         r XADD x 100 a 1
+
+commit f4ca3d8757d6abb3536610ddb7b9ab3ad39e81df
+Author: Egor Seredin <4819888+agmt@users.noreply.github.com>
+Date:   Wed Nov 4 20:38:46 2020 +0900
+
+    Allow '\0' inside of result of sdscatvprintf, and efficiency improvements (#6260)
+    
+    This will allow to use: RedisModule_CreateStringPrintf(ctx, "%s %c %s", "string1", 0, "string2");
+    
+    On large string, the previous code would incrementally retry to double the output buffer.
+    now it uses the the return value of snprintf and grows to the right size in one step.
+    
+    and also avoids an excessive strlen in sdscat at the end.
+
+diff --git a/src/sds.c b/src/sds.c
+index 4cbbabfbb..f72eac921 100644
+--- a/src/sds.c
++++ b/src/sds.c
+@@ -545,6 +545,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+     va_list cpy;
+     char staticbuf[1024], *buf = staticbuf, *t;
+     size_t buflen = strlen(fmt)*2;
++    int bufstrlen;
+ 
+     /* We try to start using a static buffer for speed.
+      * If not possible we revert to heap allocation. */
+@@ -555,16 +556,19 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+         buflen = sizeof(staticbuf);
+     }
+ 
+-    /* Try with buffers two times bigger every time we fail to
++    /* Alloc enough space for buffer and \0 after failing to
+      * fit the string in the current buffer size. */
+     while(1) {
+-        buf[buflen-2] = '\0';
+         va_copy(cpy,ap);
+-        vsnprintf(buf, buflen, fmt, cpy);
++        bufstrlen = vsnprintf(buf, buflen, fmt, cpy);
+         va_end(cpy);
+-        if (buf[buflen-2] != '\0') {
++        if (bufstrlen < 0) {
+             if (buf != staticbuf) s_free(buf);
+-            buflen *= 2;
++            return NULL;
++        }
++        if (((size_t)bufstrlen) >= buflen) {
++            if (buf != staticbuf) s_free(buf);
++            buflen = ((size_t)bufstrlen) + 1;
+             buf = s_malloc(buflen);
+             if (buf == NULL) return NULL;
+             continue;
+@@ -573,7 +577,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+     }
+ 
+     /* Finally concat the obtained string to the SDS string and return it. */
+-    t = sdscat(s, buf);
++    t = sdscatlen(s, buf, bufstrlen);
+     if (buf != staticbuf) s_free(buf);
+     return t;
+ }
+@@ -1182,6 +1186,22 @@ int sdsTest(int argc, char **argv) {
+         test_cond("sdscatprintf() seems working in the base case",
+             sdslen(x) == 3 && memcmp(x,"123\0",4) == 0)
+ 
++        sdsfree(x);
++        x = sdscatprintf(sdsempty(),"a%cb",0);
++        test_cond("sdscatprintf() seems working with \\0 inside of result",
++            sdslen(x) == 3 && memcmp(x,"a\0""b\0",4) == 0)
++
++        {
++            sdsfree(x);
++            char etalon[1024*1024];
++            for (size_t i = 0; i < sizeof(etalon); i++) {
++                etalon[i] = '0';
++            }
++            x = sdscatprintf(sdsempty(),"%0*d",(int)sizeof(etalon),0);
++            test_cond("sdscatprintf() can print 1MB",
++                sdslen(x) == sizeof(etalon) && memcmp(x,etalon,sizeof(etalon)) == 0)
++        }
++
+         sdsfree(x);
+         x = sdsnew("--");
+         x = sdscatfmt(x, "Hello %s World %I,%I--", "Hi!", LLONG_MIN,LLONG_MAX);
+
+commit 6b836b6b4148a3623e35807e998097865b9ebb3a
+Author: antirez <antirez@gmail.com>
+Date:   Fri Jul 24 10:15:04 2015 +0200
+
+    Jemalloc: use LG_QUANTUM of 3 for AMD64 and I386.
+    
+    This gives us a 24 bytes size class which is dict.c dictEntry size, thus
+    improving the memory efficiency of Redis significantly.
+    Moreover other non 16 bytes aligned tiny classes are added that further
+    reduce the fragmentation of the allocator.
+    
+    Technically speaking LG_QUANTUM should be 4 on i386 / AMD64 because of
+    SSE types and other 16 bytes types, however we don't use those, and our
+    jemalloc only targets Redis.
+    
+    New versions of Jemalloc will have an explicit configure switch in order
+    to specify the quantum value for a platform without requiring any change
+    to the Jemalloc source code: we'll switch to this system when available.
+    
+    This change was originally proposed by Oran Agra (@oranagra) as a change
+    to the Jemalloc script to generate the size classes define. We ended
+    doing it differently by changing LG_QUANTUM since it is apparently the
+    supported Jemalloc method to obtain a 24 bytes size class, moreover it
+    also provides us other potentially useful size classes.
+    
+    Related to issue #2510.
+
+diff --git a/deps/jemalloc/include/jemalloc/internal/jemalloc_internal.h.in b/deps/jemalloc/include/jemalloc/internal/jemalloc_internal.h.in
+index 574bbb141..df266abb7 100644
+--- a/deps/jemalloc/include/jemalloc/internal/jemalloc_internal.h.in
++++ b/deps/jemalloc/include/jemalloc/internal/jemalloc_internal.h.in
+@@ -242,7 +242,7 @@ static const bool config_ivsalloc =
+  */
+ #ifndef LG_QUANTUM
+ #  if (defined(__i386__) || defined(_M_IX86))
+-#    define LG_QUANTUM		4
++#    define LG_QUANTUM		3
+ #  endif
+ #  ifdef __ia64__
+ #    define LG_QUANTUM		4
+@@ -254,7 +254,7 @@ static const bool config_ivsalloc =
+ #    define LG_QUANTUM		4
+ #  endif
+ #  if (defined(__amd64__) || defined(__x86_64__) || defined(_M_X64))
+-#    define LG_QUANTUM		4
++#    define LG_QUANTUM		3
+ #  endif
+ #  ifdef __arm__
+ #    define LG_QUANTUM		3
+
+commit 5e3dcc522b13d5441d6cdf4ee6ff48bd25df13cb
+Author: antirez <antirez@gmail.com>
+Date:   Tue Feb 10 14:47:45 2015 +0100
+
+    Faster memory efficiency test.
+    
+    This test on Linux was extremely slow, since in Tcl we can't enable
+    easily tcp-nodelay, so the busy loop used to take *a lot* with bigger
+    writes. Fixed using pipelining.
+
+diff --git a/tests/unit/memefficiency.tcl b/tests/unit/memefficiency.tcl
+index 14e135ced..7ca9a705b 100644
+--- a/tests/unit/memefficiency.tcl
++++ b/tests/unit/memefficiency.tcl
+@@ -1,15 +1,20 @@
+ proc test_memory_efficiency {range} {
+     r flushall
++    set rd [redis_deferring_client]
+     set base_mem [s used_memory]
+     set written 0
+     for {set j 0} {$j < 10000} {incr j} {
+         set key key:$j
+         set val [string repeat A [expr {int(rand()*$range)}]]
+-        r set $key $val
++        $rd set $key $val
+         incr written [string length $key]
+         incr written [string length $val]
+         incr written 2 ;# A separator is the minimum to store key-value data.
+     }
++    for {set j 0} {$j < 10000} {incr j} {
++        $rd read ; # Discard replies
++    }
++
+     set current_mem [s used_memory]
+     set used [expr {$current_mem-$base_mem}]
+     set efficiency [expr {double($written)/$used}]
+
+commit 8a7ccc58a16954a250fcb8f5ea6d184094d14653
+Author: antirez <antirez@gmail.com>
+Date:   Tue Dec 2 16:57:23 2014 +0100
+
+    Mark PFCOUNT as read-only, even if not true.
+    
+    PFCOUNT is technically speaking a write command, since the cached value
+    of the HLL is exposed in the data structure (design error, mea culpa), and
+    can be modified by PFCOUNT.
+    
+    However if we flag PFCOUNT as "w", read only slaves can't execute the
+    command, which is a problem since there are environments where slaves
+    are used to scale PFCOUNT reads.
+    
+    Nor it is possible to just prevent PFCOUNT to modify the data structure
+    in slaves, since without the cache we lose too much efficiency.
+    
+    So while this commit allows slaves to create a temporary inconsistency
+    (the strings representing the HLLs in the master and slave can be
+    different in certain moments) it is actually harmless.
+    
+    In the long run this should be probably fixed by turning the HLL into a
+    more opaque representation, for example by storing the cached value in
+    the part of the string which is not exposed (this should be possible
+    with SDS strings).
+
+diff --git a/src/redis.c b/src/redis.c
+index 83e0946ef..db6aff38b 100644
+--- a/src/redis.c
++++ b/src/redis.c
+@@ -280,7 +280,7 @@ struct redisCommand redisCommandTable[] = {
+     {"command",commandCommand,0,"rlt",0,NULL,0,0,0,0,0},
+     {"pfselftest",pfselftestCommand,1,"r",0,NULL,0,0,0,0,0},
+     {"pfadd",pfaddCommand,-2,"wmF",0,NULL,1,1,1,0,0},
+-    {"pfcount",pfcountCommand,-2,"w",0,NULL,1,1,1,0,0},
++    {"pfcount",pfcountCommand,-2,"r",0,NULL,1,1,1,0,0},
+     {"pfmerge",pfmergeCommand,-2,"wm",0,NULL,1,-1,1,0,0},
+     {"pfdebug",pfdebugCommand,-3,"w",0,NULL,0,0,0,0,0},
+     {"latency",latencyCommand,-2,"arslt",0,NULL,0,0,0,0,0}
+
+commit fcebd9b0f9a7b1f78abaf556e9d1a8f3b857e614
+Author: antirez <antirez@gmail.com>
+Date:   Mon Nov 25 10:21:18 2013 +0100
+
+    Fix false positive in memory efficiency test.
+    
+    Fixes issue #1298.
+
+diff --git a/tests/unit/memefficiency.tcl b/tests/unit/memefficiency.tcl
+index 3612f06e5..14e135ced 100644
+--- a/tests/unit/memefficiency.tcl
++++ b/tests/unit/memefficiency.tcl
+@@ -22,7 +22,7 @@ start_server {tags {"memefficiency"}} {
+         64    0.25
+         128   0.35
+         1024  0.75
+-        16384 0.90
++        16384 0.82
+     } {
+         test "Memory efficiency with values in range $size_range" {
+             set efficiency [test_memory_efficiency $size_range]
+
+commit f79b1cb49e8dec1cb21bd4d7ccdee21931114429
+Author: antirez <antirez@gmail.com>
+Date:   Thu Aug 29 16:23:57 2013 +0200
+
+    Test: added a memory efficiency test.
+
+diff --git a/tests/test_helper.tcl b/tests/test_helper.tcl
+index 1c3049d32..d8de34e18 100644
+--- a/tests/test_helper.tcl
++++ b/tests/test_helper.tcl
+@@ -45,6 +45,7 @@ set ::all_tests {
+     unit/limits
+     unit/obuf-limits
+     unit/bitops
++    unit/memefficiency
+ }
+ # Index to the next test to run in the ::all_tests list.
+ set ::next_test 0
+diff --git a/tests/unit/memefficiency.tcl b/tests/unit/memefficiency.tcl
+new file mode 100644
+index 000000000..3612f06e5
+--- /dev/null
++++ b/tests/unit/memefficiency.tcl
+@@ -0,0 +1,32 @@
++proc test_memory_efficiency {range} {
++    r flushall
++    set base_mem [s used_memory]
++    set written 0
++    for {set j 0} {$j < 10000} {incr j} {
++        set key key:$j
++        set val [string repeat A [expr {int(rand()*$range)}]]
++        r set $key $val
++        incr written [string length $key]
++        incr written [string length $val]
++        incr written 2 ;# A separator is the minimum to store key-value data.
++    }
++    set current_mem [s used_memory]
++    set used [expr {$current_mem-$base_mem}]
++    set efficiency [expr {double($written)/$used}]
++    return $efficiency
++}
++
++start_server {tags {"memefficiency"}} {
++    foreach {size_range expected_min_efficiency} {
++        32    0.15
++        64    0.25
++        128   0.35
++        1024  0.75
++        16384 0.90
++    } {
++        test "Memory efficiency with values in range $size_range" {
++            set efficiency [test_memory_efficiency $size_range]
++            assert {$efficiency >= $expected_min_efficiency}
++        }
++    }
++}
+
+commit 9555f8f21b9f1780de307c19da268ef63f7c2ae9
+Author: antirez <antirez@gmail.com>
+Date:   Wed Mar 14 10:13:23 2012 +0100
+
+    sds.c new function sdsRemoveFreeSpace().
+    
+    The new function is used in order to resize the string allocation so
+    that only the minimal allocation possible is used, removing all the free
+    space at the end of the string normally used to improve efficiency of
+    concatenation operations.
+
+diff --git a/src/sds.c b/src/sds.c
+index 092a431e5..82d12e232 100644
+--- a/src/sds.c
++++ b/src/sds.c
+@@ -111,6 +111,18 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
+     return newsh->buf;
+ }
+ 
++/* Reallocate the sds string so that it has no free space at the end. The
++ * contained string remains not altered, but next concatenation operations
++ * will require a reallocation. */
++sds sdsRemoveFreeSpace(sds s) {
++    struct sdshdr *sh;
++
++    sh = (void*) (s-(sizeof(struct sdshdr)));
++    sh = zrealloc(sh, sizeof(struct sdshdr)+sh->len+1);
++    sh->free = 0;
++    return sh->buf;
++}
++
+ /* Increment the sds length and decrements the left free space at the
+  * end of the string accordingly to 'incr'. Also set the null term
+  * in the new end of the string.
+
+commit cd8788f26d06d8643828024537b8abe2b702759f
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Fri Oct 15 15:40:25 2010 +0200
+
+    Refactor request parsing code for efficiency
+
+diff --git a/src/networking.c b/src/networking.c
+index a1d8f5644..cc4c9341d 100644
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -28,13 +28,11 @@ redisClient *createClient(int fd) {
+     selectDb(c,0);
+     c->fd = fd;
+     c->querybuf = sdsempty();
+-    c->newline = NULL;
++    c->reqtype = 0;
+     c->argc = 0;
+     c->argv = NULL;
++    c->multibulklen = 0;
+     c->bulklen = -1;
+-    c->multibulk = 0;
+-    c->mbargc = 0;
+-    c->mbargv = NULL;
+     c->sentlen = 0;
+     c->flags = 0;
+     c->lastinteraction = time(NULL);
+@@ -374,13 +372,9 @@ void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
+ 
+ static void freeClientArgv(redisClient *c) {
+     int j;
+-
+     for (j = 0; j < c->argc; j++)
+         decrRefCount(c->argv[j]);
+-    for (j = 0; j < c->mbargc; j++)
+-        decrRefCount(c->mbargv[j]);
+     c->argc = 0;
+-    c->mbargc = 0;
+ }
+ 
+ void freeClient(redisClient *c) {
+@@ -461,7 +455,6 @@ void freeClient(redisClient *c) {
+     }
+     /* Release memory */
+     zfree(c->argv);
+-    zfree(c->mbargv);
+     freeClientMultiState(c);
+     zfree(c);
+ }
+@@ -549,6 +542,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
+ 
+         /* Close connection after entire reply has been sent. */
+         if (c->flags & REDIS_QUIT) freeClient(c);
++        if (c->flags & REDIS_CLOSE_AFTER_REPLY) freeClient(c);
+     }
+ }
+ 
+@@ -633,9 +627,9 @@ void sendReplyToClientWritev(aeEventLoop *el, int fd, void *privdata, int mask)
+ /* resetClient prepare the client to process the next command */
+ void resetClient(redisClient *c) {
+     freeClientArgv(c);
++    c->reqtype = 0;
++    c->multibulklen = 0;
+     c->bulklen = -1;
+-    c->multibulk = 0;
+-    c->newline = NULL;
+ }
+ 
+ void closeTimedoutClients(void) {
+@@ -666,95 +660,169 @@ void closeTimedoutClients(void) {
+     }
+ }
+ 
+-void processInputBuffer(redisClient *c) {
+-    int seeknewline = 0;
+-
+-again:
+-    /* Before to process the input buffer, make sure the client is not
+-     * waitig for a blocking operation such as BLPOP. Note that the first
+-     * iteration the client is never blocked, otherwise the processInputBuffer
+-     * would not be called at all, but after the execution of the first commands
+-     * in the input buffer the client may be blocked, and the "goto again"
+-     * will try to reiterate. The following line will make it return asap. */
+-    if (c->flags & REDIS_BLOCKED || c->flags & REDIS_IO_WAIT) return;
+-
+-    /* Never continue to process the input buffer after QUIT. After the output
+-     * buffer is flushed (with the OK), the connection will be dropped. */
+-    if (c->flags & REDIS_QUIT) return;
+-
+-    if (seeknewline && c->bulklen == -1) c->newline = strchr(c->querybuf,'\n');
+-    seeknewline = 1;
+-    if (c->bulklen == -1) {
+-        /* Read the first line of the query */
+-        size_t querylen;
+-
+-        if (c->newline) {
+-            char *p = c->newline;
+-            sds query, *argv;
+-            int argc, j;
+-
+-            c->newline = NULL;
+-            query = c->querybuf;
+-            c->querybuf = sdsempty();
+-            querylen = 1+(p-(query));
+-            if (sdslen(query) > querylen) {
+-                /* leave data after the first line of the query in the buffer */
+-                c->querybuf = sdscatlen(c->querybuf,query+querylen,sdslen(query)-querylen);
+-            }
+-            *p = '\0'; /* remove "\n" */
+-            if (*(p-1) == '\r') *(p-1) = '\0'; /* and "\r" if any */
+-            sdsupdatelen(query);
+-
+-            /* Now we can split the query in arguments */
+-            argv = sdssplitlen(query,sdslen(query)," ",1,&argc);
+-            sdsfree(query);
+-
+-            if (c->argv) zfree(c->argv);
+-            c->argv = zmalloc(sizeof(robj*)*argc);
+-
+-            for (j = 0; j < argc; j++) {
+-                if (sdslen(argv[j])) {
+-                    c->argv[c->argc] = createObject(REDIS_STRING,argv[j]);
+-                    c->argc++;
+-                } else {
+-                    sdsfree(argv[j]);
++int processInlineBuffer(redisClient *c) {
++    char *newline = strstr(c->querybuf,"\r\n");
++    int argc, j;
++    sds *argv;
++    size_t querylen;
++
++    /* Nothing to do without a \r\n */
++    if (newline == NULL)
++        return REDIS_ERR;
++
++    /* Split the input buffer up to the \r\n */
++    querylen = newline-(c->querybuf);
++    argv = sdssplitlen(c->querybuf,querylen," ",1,&argc);
++
++    /* Leave data after the first line of the query in the buffer */
++    c->querybuf = sdsrange(c->querybuf,querylen+2,-1);
++
++    /* Setup argv array on client structure */
++    if (c->argv) zfree(c->argv);
++    c->argv = zmalloc(sizeof(robj*)*argc);
++
++    /* Create redis objects for all arguments. */
++    for (c->argc = 0, j = 0; j < argc; j++) {
++        if (sdslen(argv[j])) {
++            c->argv[c->argc] = createObject(REDIS_STRING,argv[j]);
++            c->argc++;
++        } else {
++            sdsfree(argv[j]);
++        }
++    }
++    zfree(argv);
++    return REDIS_OK;
++}
++
++/* Helper function. Trims query buffer to make the function that processes
++ * multi bulk requests idempotent. */
++static void setProtocolError(redisClient *c, int pos) {
++    c->flags |= REDIS_CLOSE_AFTER_REPLY;
++    c->querybuf = sdsrange(c->querybuf,pos,-1);
++}
++
++int processMultibulkBuffer(redisClient *c) {
++    char *newline = NULL;
++    char *eptr;
++    int pos = 0, tolerr;
++    long bulklen;
++
++    if (c->multibulklen == 0) {
++        /* The client should have been reset */
++        redisAssert(c->argc == 0);
++
++        /* Multi bulk length cannot be read without a \r\n */
++        newline = strstr(c->querybuf,"\r\n");
++        if (newline == NULL)
++            return REDIS_ERR;
++
++        /* We know for sure there is a whole line since newline != NULL,
++         * so go ahead and find out the multi bulk length. */
++        redisAssert(c->querybuf[0] == '*');
++        c->multibulklen = strtol(c->querybuf+1,&eptr,10);
++        pos = (newline-c->querybuf)+2;
++        if (c->multibulklen <= 0) {
++            c->querybuf = sdsrange(c->querybuf,pos,-1);
++            return REDIS_OK;
++        }
++
++        /* Setup argv array on client structure */
++        if (c->argv) zfree(c->argv);
++        c->argv = zmalloc(sizeof(robj*)*c->multibulklen);
++
++        /* Search new newline */
++        newline = strstr(c->querybuf+pos,"\r\n");
++    }
++
++    redisAssert(c->multibulklen > 0);
++    while(c->multibulklen) {
++        /* Read bulk length if unknown */
++        if (c->bulklen == -1) {
++            newline = strstr(c->querybuf+pos,"\r\n");
++            if (newline != NULL) {
++                if (c->querybuf[pos] != '$') {
++                    addReplyErrorFormat(c,
++                        "Protocol error: expected '$', got '%c'",
++                        c->querybuf[pos]);
++                    setProtocolError(c,pos);
++                    return REDIS_ERR;
+                 }
++
++                bulklen = strtol(c->querybuf+pos+1,&eptr,10);
++                tolerr = (eptr[0] != '\r');
++                if (tolerr || bulklen == LONG_MIN || bulklen == LONG_MAX ||
++                    bulklen < 0 || bulklen > 1024*1024*1024)
++                {
++                    addReplyError(c,"Protocol error: invalid bulk length");
++                    setProtocolError(c,pos);
++                    return REDIS_ERR;
++                }
++                pos += eptr-(c->querybuf+pos)+2;
++                c->bulklen = bulklen;
++            } else {
++                /* No newline in current buffer, so wait for more data */
++                break;
+             }
+-            zfree(argv);
+-            if (c->argc) {
+-                /* Execute the command. If the client is still valid
+-                 * after processCommand() return and there is something
+-                 * on the query buffer try to process the next command. */
+-                if (processCommand(c) && sdslen(c->querybuf)) goto again;
++        }
++
++        /* Read bulk argument */
++        if (sdslen(c->querybuf)-pos < (unsigned)(c->bulklen+2)) {
++            /* Not enough data (+2 == trailing \r\n) */
++            break;
++        } else {
++            c->argv[c->argc++] = createStringObject(c->querybuf+pos,c->bulklen);
++            pos += c->bulklen+2;
++            c->bulklen = -1;
++            c->multibulklen--;
++        }
++    }
++
++    /* Trim to pos */
++    c->querybuf = sdsrange(c->querybuf,pos,-1);
++
++    /* We're done when c->multibulk == 0 */
++    if (c->multibulklen == 0) {
++        return REDIS_OK;
++    }
++    return REDIS_ERR;
++}
++
++void processInputBuffer(redisClient *c) {
++    /* Keep processing while there is something in the input buffer */
++    while(sdslen(c->querybuf)) {
++        /* Before to process the input buffer, make sure the client is not
++         * waitig for a blocking operation such as BLPOP. Note that the first
++         * iteration the client is never blocked, otherwise the processInputBuffer
++         * would not be called at all, but after the execution of the first commands
++         * in the input buffer the client may be blocked, and the "goto again"
++         * will try to reiterate. The following line will make it return asap. */
++        if (c->flags & REDIS_BLOCKED || c->flags & REDIS_IO_WAIT) return;
++
++        /* Never continue to process the input buffer after QUIT. After the output
++         * buffer is flushed (with the OK), the connection will be dropped. */
++        if (c->flags & REDIS_QUIT) return;
++
++        /* Determine request type when unknown. */
++        if (!c->reqtype) {
++            if (c->querybuf[0] == '*') {
++                c->reqtype = REDIS_REQ_MULTIBULK;
+             } else {
+-                /* Nothing to process, argc == 0. Just process the query
+-                 * buffer if it's not empty or return to the caller */
+-                if (sdslen(c->querybuf)) goto again;
++                c->reqtype = REDIS_REQ_INLINE;
+             }
+-            return;
+-        } else if (sdslen(c->querybuf) >= REDIS_REQUEST_MAX_SIZE) {
+-            redisLog(REDIS_VERBOSE, "Client protocol error");
+-            freeClient(c);
+-            return;
+         }
+-    } else {
+-        /* Bulk read handling. Note that if we are at this point
+-           the client already sent a command terminated with a newline,
+-           we are reading the bulk data that is actually the last
+-           argument of the command. */
+-        int qbl = sdslen(c->querybuf);
+-
+-        if (c->bulklen <= qbl) {
+-            /* Copy everything but the final CRLF as final argument */
+-            c->argv[c->argc] = createStringObject(c->querybuf,c->bulklen-2);
+-            c->argc++;
+-            c->querybuf = sdsrange(c->querybuf,c->bulklen,-1);
+-            /* Process the command. If the client is still valid after
+-             * the processing and there is more data in the buffer
+-             * try to parse it. */
+-            if (processCommand(c) && sdslen(c->querybuf)) goto again;
+-            return;
++
++        if (c->reqtype == REDIS_REQ_INLINE) {
++            if (processInlineBuffer(c) != REDIS_OK) break;
++        } else if (c->reqtype == REDIS_REQ_MULTIBULK) {
++            if (processMultibulkBuffer(c) != REDIS_OK) break;
++        } else {
++            redisPanic("Unknown request type");
+         }
++
++        /* Multibulk processing could see a <= 0 length. */
++        if (c->argc > 0)
++            processCommand(c);
++        resetClient(c);
+     }
+ }
+ 
+@@ -780,14 +848,8 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
+         return;
+     }
+     if (nread) {
+-        size_t oldlen = sdslen(c->querybuf);
+-        c->querybuf = sdscatlen(c->querybuf, buf, nread);
++        c->querybuf = sdscatlen(c->querybuf,buf,nread);
+         c->lastinteraction = time(NULL);
+-        /* Scan this new piece of the query for the newline. We do this
+-         * here in order to make sure we perform this scan just one time
+-         * per piece of buffer, leading to an O(N) scan instead of O(N*N) */
+-        if (c->bulklen == -1 && c->newline == NULL)
+-            c->newline = strchr(c->querybuf+oldlen,'\n');
+     } else {
+         return;
+     }
+diff --git a/src/redis.c b/src/redis.c
+index a1ac2a150..2d61733a4 100644
+--- a/src/redis.c
++++ b/src/redis.c
+@@ -889,79 +889,6 @@ void call(redisClient *c, struct redisCommand *cmd) {
+ int processCommand(redisClient *c) {
+     struct redisCommand *cmd;
+ 
+-    /* Handle the multi bulk command type. This is an alternative protocol
+-     * supported by Redis in order to receive commands that are composed of
+-     * multiple binary-safe "bulk" arguments. The latency of processing is
+-     * a bit higher but this allows things like multi-sets, so if this
+-     * protocol is used only for MSET and similar commands this is a big win. */
+-    if (c->multibulk == 0 && c->argc == 1 && ((char*)(c->argv[0]->ptr))[0] == '*') {
+-        c->multibulk = atoi(((char*)c->argv[0]->ptr)+1);
+-        if (c->multibulk <= 0) {
+-            resetClient(c);
+-            return 1;
+-        } else {
+-            decrRefCount(c->argv[c->argc-1]);
+-            c->argc--;
+-            return 1;
+-        }
+-    } else if (c->multibulk) {
+-        if (c->bulklen == -1) {
+-            if (((char*)c->argv[0]->ptr)[0] != '$') {
+-                addReplyError(c,"multi bulk protocol error");
+-                resetClient(c);
+-                return 1;
+-            } else {
+-                char *eptr;
+-                long bulklen = strtol(((char*)c->argv[0]->ptr)+1,&eptr,10);
+-                int perr = eptr[0] != '\0';
+-
+-                decrRefCount(c->argv[0]);
+-                if (perr || bulklen == LONG_MIN || bulklen == LONG_MAX ||
+-                    bulklen < 0 || bulklen > 1024*1024*1024)
+-                {
+-                    c->argc--;
+-                    addReplyError(c,"invalid bulk write count");
+-                    resetClient(c);
+-                    return 1;
+-                }
+-                c->argc--;
+-                c->bulklen = bulklen+2; /* add two bytes for CR+LF */
+-                return 1;
+-            }
+-        } else {
+-            c->mbargv = zrealloc(c->mbargv,(sizeof(robj*))*(c->mbargc+1));
+-            c->mbargv[c->mbargc] = c->argv[0];
+-            c->mbargc++;
+-            c->argc--;
+-            c->multibulk--;
+-            if (c->multibulk == 0) {
+-                robj **auxargv;
+-                int auxargc;
+-
+-                /* Here we need to swap the multi-bulk argc/argv with the
+-                 * normal argc/argv of the client structure. */
+-                auxargv = c->argv;
+-                c->argv = c->mbargv;
+-                c->mbargv = auxargv;
+-
+-                auxargc = c->argc;
+-                c->argc = c->mbargc;
+-                c->mbargc = auxargc;
+-
+-                /* We need to set bulklen to something different than -1
+-                 * in order for the code below to process the command without
+-                 * to try to read the last argument of a bulk command as
+-                 * a special argument. */
+-                c->bulklen = 0;
+-                /* continue below and process the command */
+-            } else {
+-                c->bulklen = -1;
+-                return 1;
+-            }
+-        }
+-    }
+-    /* -- end of multi bulk commands processing -- */
+-
+     /* The QUIT command is handled separately. Normal command procs will
+      * go through checking for replication and QUIT will cause trouble
+      * when FORCE_REPLICATION is enabled and would be implemented in
+@@ -970,7 +897,7 @@ int processCommand(redisClient *c) {
+     if (!strcasecmp(c->argv[0]->ptr,"quit")) {
+         c->flags |= REDIS_QUIT;
+         addReply(c,shared.ok);
+-        return 0;
++        return REDIS_ERR;
+     }
+ 
+     /* Now lookup the command and check ASAP about trivial error conditions
+@@ -979,46 +906,14 @@ int processCommand(redisClient *c) {
+     if (!cmd) {
+         addReplyErrorFormat(c,"unknown command '%s'",
+             (char*)c->argv[0]->ptr);
+-        resetClient(c);
+-        return 1;
++        return REDIS_OK;
+     } else if ((cmd->arity > 0 && cmd->arity != c->argc) ||
+                (c->argc < -cmd->arity)) {
+         addReplyErrorFormat(c,"wrong number of arguments for '%s' command",
+             cmd->name);
+-        resetClient(c);
+-        return 1;
+-    } else if (cmd->flags & REDIS_CMD_BULK && c->bulklen == -1) {
+-        /* This is a bulk command, we have to read the last argument yet. */
+-        char *eptr;
+-        long bulklen = strtol(c->argv[c->argc-1]->ptr,&eptr,10);
+-        int perr = eptr[0] != '\0';
+-
+-        decrRefCount(c->argv[c->argc-1]);
+-        if (perr || bulklen == LONG_MAX || bulklen == LONG_MIN ||
+-            bulklen < 0 || bulklen > 1024*1024*1024)
+-        {
+-            c->argc--;
+-            addReplyError(c,"invalid bulk write count");
+-            resetClient(c);
+-            return 1;
+-        }
+-        c->argc--;
+-        c->bulklen = bulklen+2; /* add two bytes for CR+LF */
+-        /* It is possible that the bulk read is already in the
+-         * buffer. Check this condition and handle it accordingly.
+-         * This is just a fast path, alternative to call processInputBuffer().
+-         * It's a good idea since the code is small and this condition
+-         * happens most of the times. */
+-        if ((signed)sdslen(c->querybuf) >= c->bulklen) {
+-            c->argv[c->argc] = createStringObject(c->querybuf,c->bulklen-2);
+-            c->argc++;
+-            c->querybuf = sdsrange(c->querybuf,c->bulklen,-1);
+-        } else {
+-            /* Otherwise return... there is to read the last argument
+-             * from the socket. */
+-            return 1;
+-        }
++        return REDIS_OK;
+     }
++
+     /* Let's try to encode the bulk object to save space. */
+     if (cmd->flags & REDIS_CMD_BULK)
+         c->argv[c->argc-1] = tryObjectEncoding(c->argv[c->argc-1]);
+@@ -1026,8 +921,7 @@ int processCommand(redisClient *c) {
+     /* Check if the user is authenticated */
+     if (server.requirepass && !c->authenticated && cmd->proc != authCommand) {
+         addReplyError(c,"operation not permitted");
+-        resetClient(c);
+-        return 1;
++        return REDIS_OK;
+     }
+ 
+     /* Handle the maxmemory directive.
+@@ -1040,8 +934,7 @@ int processCommand(redisClient *c) {
+         zmalloc_used_memory() > server.maxmemory)
+     {
+         addReplyError(c,"command not allowed when used memory > 'maxmemory'");
+-        resetClient(c);
+-        return 1;
++        return REDIS_OK;
+     }
+ 
+     /* Only allow SUBSCRIBE and UNSUBSCRIBE in the context of Pub/Sub */
+@@ -1050,8 +943,7 @@ int processCommand(redisClient *c) {
+         cmd->proc != subscribeCommand && cmd->proc != unsubscribeCommand &&
+         cmd->proc != psubscribeCommand && cmd->proc != punsubscribeCommand) {
+         addReplyError(c,"only (P)SUBSCRIBE / (P)UNSUBSCRIBE / QUIT allowed in this context");
+-        resetClient(c);
+-        return 1;
++        return REDIS_OK;
+     }
+ 
+     /* Exec the command */
+@@ -1066,10 +958,7 @@ int processCommand(redisClient *c) {
+             blockClientOnSwappedKeys(c,cmd)) return 1;
+         call(c,cmd);
+     }
+-
+-    /* Prepare the client for the next command */
+-    resetClient(c);
+-    return 1;
++    return REDIS_OK;
+ }
+ 
+ /*================================== Shutdown =============================== */
+diff --git a/src/redis.h b/src/redis.h
+index e525a99b0..f79b428a9 100644
+--- a/src/redis.h
++++ b/src/redis.h
+@@ -145,6 +145,12 @@
+ #define REDIS_IO_WAIT 32    /* The client is waiting for Virtual Memory I/O */
+ #define REDIS_DIRTY_CAS 64  /* Watched keys modified. EXEC will fail. */
+ #define REDIS_QUIT 128      /* Client will be disconnected after reply is sent */
++#define REDIS_CLOSE_AFTER_REPLY 256 /* Close connection immediately once the
++                                     * reply has been sent. */
++
++/* Client request types */
++#define REDIS_REQ_INLINE 1
++#define REDIS_REQ_MULTIBULK 2
+ 
+ /* Slave replication state - slave side */
+ #define REDIS_REPL_NONE 0   /* No active replication */
+@@ -286,11 +292,11 @@ typedef struct redisClient {
+     redisDb *db;
+     int dictid;
+     sds querybuf;
+-    robj **argv, **mbargv;
+-    char *newline;          /* pointing to the detected newline in querybuf */
+-    int argc, mbargc;
+-    long bulklen;            /* bulk read len. -1 if not in bulk read mode */
+-    int multibulk;          /* multi bulk command format active */
++    int argc;
++    robj **argv;
++    int reqtype;
++    int multibulklen;       /* number of multi bulk arguments left to read */
++    long bulklen;           /* length of bulk argument in multi bulk request */
+     list *reply;
+     int sentlen;
+     time_t lastinteraction; /* time of the last interaction, used for timeout */
+
+commit d433ebc6810b15c21120e502dea3a27fc2a5b348
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Thu Sep 16 15:36:36 2010 +0200
+
+    Finished code for sorted set memory efficiency
+
+diff --git a/src/rdb.c b/src/rdb.c
+index c15fc6f2f..a401a5b9d 100644
+--- a/src/rdb.c
++++ b/src/rdb.c
+@@ -730,13 +730,14 @@ robj *rdbLoadObject(int type, FILE *fp) {
+         /* Load every single element of the list/set */
+         while(zsetlen--) {
+             robj *ele;
+-            double *score = zmalloc(sizeof(double));
++            double score;
++            zskiplistNode *znode;
+ 
+             if ((ele = rdbLoadEncodedStringObject(fp)) == NULL) return NULL;
+             ele = tryObjectEncoding(ele);
+-            if (rdbLoadDoubleValue(fp,score) == -1) return NULL;
+-            dictAdd(zs->dict,ele,score);
+-            zslInsert(zs->zsl,*score,ele);
++            if (rdbLoadDoubleValue(fp,&score) == -1) return NULL;
++            znode = zslInsert(zs->zsl,score,ele);
++            dictAdd(zs->dict,ele,&znode->score);
+             incrRefCount(ele); /* added to skiplist */
+         }
+     } else if (type == REDIS_HASH) {
+diff --git a/src/t_zset.c b/src/t_zset.c
+index e528205a7..5df8f2883 100644
+--- a/src/t_zset.c
++++ b/src/t_zset.c
+@@ -663,25 +663,23 @@ void zunionInterGenericCommand(redisClient *c, robj *dstkey, int op) {
+              * from small to large, all src[i > 0].dict are non-empty too */
+             di = dictGetIterator(src[0].dict);
+             while((de = dictNext(di)) != NULL) {
+-                double *score = zmalloc(sizeof(double)), value;
+-                *score = src[0].weight * zunionInterDictValue(de);
++                double score, value;
++                score = src[0].weight * zunionInterDictValue(de);
+ 
+                 for (j = 1; j < setnum; j++) {
+                     dictEntry *other = dictFind(src[j].dict,dictGetEntryKey(de));
+                     if (other) {
+                         value = src[j].weight * zunionInterDictValue(other);
+-                        zunionInterAggregate(score, value, aggregate);
++                        zunionInterAggregate(&score,value,aggregate);
+                     } else {
+                         break;
+                     }
+                 }
+ 
+-                /* skip entry when not present in every source dict */
+-                if (j != setnum) {
+-                    zfree(score);
+-                } else {
++                /* Only continue when present in every source dict. */
++                if (j == setnum) {
+                     robj *o = dictGetEntryKey(de);
+-                    znode = zslInsert(dstzset->zsl,*score,o);
++                    znode = zslInsert(dstzset->zsl,score,o);
+                     incrRefCount(o); /* added to skiplist */
+                     dictAdd(dstzset->dict,o,&znode->score);
+                     incrRefCount(o); /* added to dictionary */
+@@ -695,11 +693,14 @@ void zunionInterGenericCommand(redisClient *c, robj *dstkey, int op) {
+ 
+             di = dictGetIterator(src[i].dict);
+             while((de = dictNext(di)) != NULL) {
++                double score, value;
++
+                 /* skip key when already processed */
+-                if (dictFind(dstzset->dict,dictGetEntryKey(de)) != NULL) continue;
++                if (dictFind(dstzset->dict,dictGetEntryKey(de)) != NULL)
++                    continue;
+ 
+-                double *score = zmalloc(sizeof(double)), value;
+-                *score = src[i].weight * zunionInterDictValue(de);
++                /* initialize score */
++                score = src[i].weight * zunionInterDictValue(de);
+ 
+                 /* because the zsets are sorted by size, its only possible
+                  * for sets at larger indices to hold this entry */
+@@ -707,12 +708,12 @@ void zunionInterGenericCommand(redisClient *c, robj *dstkey, int op) {
+                     dictEntry *other = dictFind(src[j].dict,dictGetEntryKey(de));
+                     if (other) {
+                         value = src[j].weight * zunionInterDictValue(other);
+-                        zunionInterAggregate(score, value, aggregate);
++                        zunionInterAggregate(&score,value,aggregate);
+                     }
+                 }
+ 
+                 robj *o = dictGetEntryKey(de);
+-                znode = zslInsert(dstzset->zsl,*score,o);
++                znode = zslInsert(dstzset->zsl,score,o);
+                 incrRefCount(o); /* added to skiplist */
+                 dictAdd(dstzset->dict,o,&znode->score);
+                 incrRefCount(o); /* added to dictionary */
+
+commit 36babc1e31f434e95fc49a6a1f611a75b3827ade
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Mon Aug 30 11:14:54 2010 +0200
+
+    Refactor reply parsing code in redis-benchmark for efficiency
+
+diff --git a/src/redis-benchmark.c b/src/redis-benchmark.c
+index 123d81180..ceeab2b91 100644
+--- a/src/redis-benchmark.c
++++ b/src/redis-benchmark.c
+@@ -206,16 +206,27 @@ static void clientDone(client c) {
+     }
+ }
+ 
++/* Read a length from the buffer pointed to by *p, store the length in *len,
++ * and return the number of bytes that the cursor advanced. */
++static int readLen(char *p, int *len) {
++    char *tail = strstr(p,"\r\n");
++    if (tail == NULL)
++        return 0;
++    *tail = '\0';
++    *len = atoi(p+1);
++    return tail+2-p;
++}
++
+ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask)
+ {
+-    char buf[1024];
+-    int nread;
++    char buf[1024], *p;
++    int nread, pos=0, len=0;
+     client c = privdata;
+     REDIS_NOTUSED(el);
+     REDIS_NOTUSED(fd);
+     REDIS_NOTUSED(mask);
+ 
+-    nread = read(c->fd, buf, 1024);
++    nread = read(c->fd,buf,sizeof(buf));
+     if (nread == -1) {
+         fprintf(stderr, "Reading from socket: %s\n", strerror(errno));
+         freeClient(c);
+@@ -228,82 +239,89 @@ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask)
+     }
+     c->totreceived += nread;
+     c->ibuf = sdscatlen(c->ibuf,buf,nread);
++    len = sdslen(c->ibuf);
+ 
+-processdata:
+-    /* Are we waiting for the first line of the command of for  sdf 
+-     * count in bulk or multi bulk operations? */
+     if (c->replytype == REPLY_INT ||
+-        c->replytype == REPLY_RETCODE ||
+-        (c->replytype == REPLY_BULK && c->readlen == -1) ||
+-        (c->replytype == REPLY_MBULK && c->readlen == -1) ||
+-        (c->replytype == REPLY_MBULK && c->mbulk == -1)) {
+-        char *p;
+-
+-        /* Check if the first line is complete. This is only true if
+-         * there is a newline inside the buffer. */
+-        if ((p = strchr(c->ibuf,'\n')) != NULL) {
+-            if (c->replytype == REPLY_BULK ||
+-                (c->replytype == REPLY_MBULK && c->mbulk != -1))
+-            {
+-                /* Read the count of a bulk reply (being it a single bulk or
+-                 * a multi bulk reply). "$<count>" for the protocol spec. */
+-                *p = '\0';
+-                *(p-1) = '\0';
+-                c->readlen = atoi(c->ibuf+1)+2;
+-                // printf("BULK ATOI: %s\n", c->ibuf+1);
+-                /* Handle null bulk reply "$-1" */
+-                if (c->readlen-2 == -1) {
+-                    clientDone(c);
+-                    return;
+-                }
+-                /* Leave all the rest in the input buffer */
+-                c->ibuf = sdsrange(c->ibuf,(p-c->ibuf)+1,-1);
+-                /* fall through to reach the point where the code will try
+-                 * to check if the bulk reply is complete. */
+-            } else if (c->replytype == REPLY_MBULK && c->mbulk == -1) {
+-                /* Read the count of a multi bulk reply. That is, how many
+-                 * bulk replies we have to read next. "*<count>" protocol. */
+-                *p = '\0';
+-                *(p-1) = '\0';
+-                c->mbulk = atoi(c->ibuf+1);
+-                /* Handle null bulk reply "*-1" */
+-                if (c->mbulk == -1) {
+-                    clientDone(c);
+-                    return;
++        c->replytype == REPLY_RETCODE)
++    {
++        /* Check if the first line is complete. This is everything we need
++         * when waiting for an integer or status code reply.*/
++        if ((p = strstr(c->ibuf,"\r\n")) != NULL)
++            goto done;
++    } else if (c->replytype == REPLY_BULK) {
++        int advance = 0;
++        if (c->readlen < 0) {
++            advance = readLen(c->ibuf+pos,&c->readlen);
++            if (advance) {
++                pos += advance;
++                if (c->readlen == -1) {
++                    goto done;
++                } else {
++                    /* include the trailing \r\n */
++                    c->readlen += 2;
+                 }
+-                // printf("%p) %d elements list\n", c, c->mbulk);
+-                /* Leave all the rest in the input buffer */
+-                c->ibuf = sdsrange(c->ibuf,(p-c->ibuf)+1,-1);
+-                goto processdata;
+             } else {
+-                c->ibuf = sdstrim(c->ibuf,"\r\n");
+-                clientDone(c);
+-                return;
++                goto skip;
+             }
+         }
+-    }
+-    /* bulk read, did we read everything? */
+-    if (((c->replytype == REPLY_MBULK && c->mbulk != -1) || 
+-         (c->replytype == REPLY_BULK)) && c->readlen != -1 &&
+-          (unsigned)c->readlen <= sdslen(c->ibuf))
+-    {
+-        // printf("BULKSTATUS mbulk:%d readlen:%d sdslen:%d\n",
+-        //    c->mbulk,c->readlen,sdslen(c->ibuf));
+-        if (c->replytype == REPLY_BULK) {
+-            clientDone(c);
+-        } else if (c->replytype == REPLY_MBULK) {
+-            // printf("%p) %d (%d)) ",c, c->mbulk, c->readlen);
+-            // fwrite(c->ibuf,c->readlen,1,stdout);
+-            // printf("\n");
+-            if (--c->mbulk == 0) {
+-                clientDone(c);
++
++        int canconsume;
++        if (c->readlen > 0) {
++            canconsume = c->readlen > (len-pos) ? (len-pos) : c->readlen;
++            c->readlen -= canconsume;
++            pos += canconsume;
++        }
++
++        if (c->readlen == 0)
++            goto done;
++    } else if (c->replytype == REPLY_MBULK) {
++        int advance = 0;
++        if (c->mbulk == -1) {
++            advance = readLen(c->ibuf+pos,&c->mbulk);
++            if (advance) {
++                pos += advance;
++                if (c->mbulk == -1)
++                    goto done;
++            } else {
++                goto skip;
++            }
++        }
++
++        int canconsume;
++        while(c->mbulk > 0 && pos < len) {
++            if (c->readlen > 0) {
++                canconsume = c->readlen > (len-pos) ? (len-pos) : c->readlen;
++                c->readlen -= canconsume;
++                pos += canconsume;
++                if (c->readlen == 0)
++                    c->mbulk--;
+             } else {
+-                c->ibuf = sdsrange(c->ibuf,c->readlen,-1);
+-                c->readlen = -1;
+-                goto processdata;
++                advance = readLen(c->ibuf+pos,&c->readlen);
++                if (advance) {
++                    pos += advance;
++                    if (c->readlen == -1) {
++                        c->mbulk--;
++                        continue;
++                    } else {
++                        /* include the trailing \r\n */
++                        c->readlen += 2;
++                    }
++                } else {
++                    goto skip;
++                }
+             }
+         }
++
++        if (c->mbulk == 0)
++            goto done;
+     }
++
++skip:
++    c->ibuf = sdsrange(c->ibuf,pos,-1);
++    return;
++done:
++    clientDone(c);
++    return;
+ }
+ 
+ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask)
+commit f1481d4a03e96c71a664bafadf0241e88794ca60
+Author: antirez <antirez@gmail.com>
+Date:   Fri Dec 14 17:10:40 2012 +0100
+
+    serverCron() frequency is now a runtime parameter (was REDIS_HZ).
+    
+    REDIS_HZ is the frequency our serverCron() function is called with.
+    A more frequent call to this function results into less latency when the
+    server is trying to handle very expansive background operations like
+    mass expires of a lot of keys at the same time.
+    
+    Redis 2.4 used to have an HZ of 10. This was good enough with almost
+    every setup, but the incremental key expiration algorithm was working a
+    bit better under *extreme* pressure when HZ was set to 100 for Redis
+    2.6.
+    
+    However for most users a latency spike of 30 milliseconds when million
+    of keys are expiring at the same time is acceptable, on the other hand a
+    default HZ of 100 in Redis 2.6 was causing idle instances to use some
+    CPU time compared to Redis 2.4. The CPU usage was in the order of 0.3%
+    for an idle instance, however this is a shame as more energy is consumed
+    by the server, if not important resources.
+    
+    This commit introduces HZ as a runtime parameter, that can be queried by
+    INFO or CONFIG GET, and can be modified with CONFIG SET. At the same
+    time the default frequency is set back to 10.
+    
+    In this way we default to a sane value of 10, but allows users to
+    easily switch to values up to 500 for near real-time applications if
+    needed and if they are willing to pay this small CPU usage penalty.
+
+diff --git a/redis.conf b/redis.conf
+index 751a3eb04..01abdbbfa 100644
+--- a/redis.conf
++++ b/redis.conf
+@@ -548,6 +548,23 @@ client-output-buffer-limit normal 0 0 0
+ client-output-buffer-limit slave 256mb 64mb 60
+ client-output-buffer-limit pubsub 32mb 8mb 60
+ 
++# Redis calls an internal function to perform many background tasks, like
++# closing connections of clients in timeot, purging expired keys that are
++# never requested, and so forth.
++#
++# Not all tasks are perforemd with the same frequency, but Redis checks for
++# tasks to perform accordingly to the specified "hz" value.
++#
++# By default "hz" is set to 10. Raising the value will use more CPU when
++# Redis is idle, but at the same time will make Redis more responsive when
++# there are many keys expiring at the same time, and timeouts may be
++# handled with more precision.
++#
++# The range is between 1 and 500, however a value over 100 is usually not
++# a good idea. Most users should use the default of 10 and raise this up to
++# 100 only in environments where very low latency is required.
++hz 10
++
+ ################################## INCLUDES ###################################
+ 
+ # Include one or more other config files here.  This is useful if you
+diff --git a/src/config.c b/src/config.c
+index 385e13c42..ec1786ae6 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -256,6 +256,10 @@ void loadServerConfigFromString(char *config) {
+             if ((server.daemonize = yesnotoi(argv[1])) == -1) {
+                 err = "argument must be 'yes' or 'no'"; goto loaderr;
+             }
++        } else if (!strcasecmp(argv[0],"hz") && argc == 2) {
++            server.hz = atoi(argv[1]);
++            if (server.hz < REDIS_MIN_HZ) server.hz = REDIS_MIN_HZ;
++            if (server.hz > REDIS_MAX_HZ) server.hz = REDIS_MAX_HZ;
+         } else if (!strcasecmp(argv[0],"appendonly") && argc == 2) {
+             int yes;
+ 
+@@ -482,6 +486,12 @@ void configSetCommand(redisClient *c) {
+             }
+             freeMemoryIfNeeded();
+         }
++    } else if (!strcasecmp(c->argv[2]->ptr,"hz")) {
++        if (getLongLongFromObject(o,&ll) == REDIS_ERR ||
++            ll < 0) goto badfmt;
++        server.hz = (int) ll;
++        if (server.hz < REDIS_MIN_HZ) server.hz = REDIS_MIN_HZ;
++        if (server.hz > REDIS_MAX_HZ) server.hz = REDIS_MAX_HZ;
+     } else if (!strcasecmp(c->argv[2]->ptr,"maxmemory-policy")) {
+         if (!strcasecmp(o->ptr,"volatile-lru")) {
+             server.maxmemory_policy = REDIS_MAXMEMORY_VOLATILE_LRU;
+@@ -798,6 +808,7 @@ void configGetCommand(redisClient *c) {
+     config_get_numerical_field("maxclients",server.maxclients);
+     config_get_numerical_field("watchdog-period",server.watchdog_period);
+     config_get_numerical_field("slave-priority",server.slave_priority);
++    config_get_numerical_field("hz",server.hz);
+ 
+     /* Bool (yes/no) values */
+     config_get_bool_field("no-appendfsync-on-rewrite",
+diff --git a/src/debug.c b/src/debug.c
+index 7d6fdf97d..39ddb4327 100644
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -891,7 +891,7 @@ void enableWatchdog(int period) {
+     /* If the configured period is smaller than twice the timer period, it is
+      * too short for the software watchdog to work reliably. Fix it now
+      * if needed. */
+-    min_period = (1000/REDIS_HZ)*2;
++    min_period = (1000/server.hz)*2;
+     if (period < min_period) period = min_period;
+     watchdogScheduleSignal(period); /* Adjust the current timer. */
+     server.watchdog_period = period;
+diff --git a/src/redis.c b/src/redis.c
+index 4d1da27c9..c77286d56 100644
+--- a/src/redis.c
++++ b/src/redis.c
+@@ -650,9 +650,9 @@ void activeExpireCycle(void) {
+ 
+     /* We can use at max REDIS_EXPIRELOOKUPS_TIME_PERC percentage of CPU time
+      * per iteration. Since this function gets called with a frequency of
+-     * REDIS_HZ times per second, the following is the max amount of
++     * server.hz times per second, the following is the max amount of
+      * microseconds we can spend in this function. */
+-    timelimit = 1000000*REDIS_EXPIRELOOKUPS_TIME_PERC/REDIS_HZ/100;
++    timelimit = 1000000*REDIS_EXPIRELOOKUPS_TIME_PERC/server.hz/100;
+     if (timelimit <= 0) timelimit = 1;
+ 
+     for (j = 0; j < server.dbnum; j++) {
+@@ -785,13 +785,13 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
+ }
+ 
+ void clientsCron(void) {
+-    /* Make sure to process at least 1/(REDIS_HZ*10) of clients per call.
+-     * Since this function is called REDIS_HZ times per second we are sure that
++    /* Make sure to process at least 1/(server.hz*10) of clients per call.
++     * Since this function is called server.hz times per second we are sure that
+      * in the worst case we process all the clients in 10 seconds.
+      * In normal conditions (a reasonable number of clients) we process
+      * all the clients in a shorter time. */
+     int numclients = listLength(server.clients);
+-    int iterations = numclients/(REDIS_HZ*10);
++    int iterations = numclients/(server.hz*10);
+ 
+     if (iterations < 50)
+         iterations = (numclients < 50) ? numclients : 50;
+@@ -813,7 +813,7 @@ void clientsCron(void) {
+     }
+ }
+ 
+-/* This is our timer interrupt, called REDIS_HZ times per second.
++/* This is our timer interrupt, called server.hz times per second.
+  * Here is where we do a number of things that need to be done asynchronously.
+  * For instance:
+  *
+@@ -827,7 +827,7 @@ void clientsCron(void) {
+  * - Replication reconnection.
+  * - Many more...
+  *
+- * Everything directly called here will be called REDIS_HZ times per second,
++ * Everything directly called here will be called server.hz times per second,
+  * so in order to throttle execution of things we want to do less frequently
+  * a macro is used: run_with_period(milliseconds) { .... }
+  */
+@@ -1009,7 +1009,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
+     }
+ 
+     server.cronloops++;
+-    return 1000/REDIS_HZ;
++    return 1000/server.hz;
+ }
+ 
+ /* This function gets called every time Redis is entering the
+@@ -1115,6 +1115,7 @@ void createSharedObjects(void) {
+ 
+ void initServerConfig() {
+     getRandomHexChars(server.runid,REDIS_RUN_ID_SIZE);
++    server.hz = REDIS_DEFAULT_HZ;
+     server.runid[REDIS_RUN_ID_SIZE] = '\0';
+     server.arch_bits = (sizeof(long) == 8) ? 64 : 32;
+     server.port = REDIS_SERVERPORT;
+@@ -1940,6 +1941,7 @@ sds genRedisInfoString(char *section) {
+             "tcp_port:%d\r\n"
+             "uptime_in_seconds:%ld\r\n"
+             "uptime_in_days:%ld\r\n"
++            "hz:%d\r\n"
+             "lru_clock:%ld\r\n",
+             REDIS_VERSION,
+             redisGitSHA1(),
+@@ -1959,6 +1961,7 @@ sds genRedisInfoString(char *section) {
+             server.port,
+             uptime,
+             uptime/(3600*24),
++            server.hz,
+             (unsigned long) server.lruclock);
+     }
+ 
+diff --git a/src/redis.h b/src/redis.h
+index f25d86eb6..be8f6a5d5 100644
+--- a/src/redis.h
++++ b/src/redis.h
+@@ -67,7 +67,9 @@
+ #define REDIS_ERR               -1
+ 
+ /* Static server configuration */
+-#define REDIS_HZ                100     /* Time interrupt calls/sec. */
++#define REDIS_DEFAULT_HZ        10      /* Time interrupt calls/sec. */
++#define REDIS_MIN_HZ            1
++#define REDIS_MAX_HZ            500 
+ #define REDIS_SERVERPORT        6379    /* TCP port */
+ #define REDIS_MAXIDLETIME       0       /* default client timeout: infinite */
+ #define REDIS_DEFAULT_DBNUM     16
+@@ -291,8 +293,8 @@
+ 
+ /* Using the following macro you can run code inside serverCron() with the
+  * specified period, specified in milliseconds.
+- * The actual resolution depends on REDIS_HZ. */
+-#define run_with_period(_ms_) if (!(server.cronloops%((_ms_)/(1000/REDIS_HZ))))
++ * The actual resolution depends on server.hz. */
++#define run_with_period(_ms_) if ((_ms_ <= 1000/server.hz) || !(server.cronloops%((_ms_)/(1000/server.hz))))
+ 
+ /* We can print the stacktrace, so our assert is defined this way: */
+ #define redisAssertWithInfo(_c,_o,_e) ((_e)?(void)0 : (_redisAssertWithInfo(_c,_o,#_e,__FILE__,__LINE__),_exit(1)))
+@@ -621,6 +623,7 @@ typedef struct {
+ 
+ struct redisServer {
+     /* General */
++    int hz;                     /* serverCron() calls frequency in hertz */
+     redisDb *db;
+     dict *commands;             /* Command table hash table */
+     aeEventLoop *el;
+diff --git a/src/replication.c b/src/replication.c
+index 720cd4c19..36afd83c5 100644
+--- a/src/replication.c
++++ b/src/replication.c
+@@ -778,7 +778,7 @@ void replicationCron(void) {
+      * So slaves can implement an explicit timeout to masters, and will
+      * be able to detect a link disconnection even if the TCP connection
+      * will not actually go down. */
+-    if (!(server.cronloops % (server.repl_ping_slave_period * REDIS_HZ))) {
++    if (!(server.cronloops % (server.repl_ping_slave_period * server.hz))) {
+         listIter li;
+         listNode *ln;
+ 

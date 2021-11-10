@@ -1,0 +1,3149 @@
+commit 992051231d05ec78f6bf22f596b8b0862b6ae810
+Merge: 525e397a481 6b3b561bc0e
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Thu Feb 25 13:52:27 2021 -0800
+
+    Merge pull request #99021 from wojtek-t/efficient_watch_resumption_beta
+    
+    Efficient watch resumption beta
+
+commit 6b3b561bc0eaba67de5b7543a64cbf3c65cc893a
+Author: wojtekt <wojtekt@google.com>
+Date:   Fri Feb 12 11:33:48 2021 +0100
+
+    Promote efficient watch resumption to beta
+
+commit 0f39af90ed39794ceea426aa0f77de67b1392308
+Merge: d66695653cf af61e8fbdf3
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Sep 25 15:42:48 2020 -0700
+
+    Merge pull request #94364 from wojtek-t/efficient_watch_resumption
+    
+    Efficient watch resumption
+
+commit 4820b6cbdbf4abab4c5b15a1d00b0bd9f1b57f88
+Merge: d92fdebd858 3758ab62d12
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Mon Apr 20 15:54:25 2020 -0700
+
+    Merge pull request #90242 from wojtek-t/efficient_alias_ranges
+    
+    Avoid unnecessary GCE API calls for IP-alias calls
+
+commit 462b75388f2e977774d34151b39e88828d1057f0
+Author: Haowei Cai <haoweic@google.com>
+Date:   Mon Mar 9 23:23:28 2020 -0700
+
+    let image cache do sort on write instead of on read to avoid data
+    
+    race and improve efficienty
+
+commit e397797f9ece9d8a172a6bf08c6cd5b2a9216c70
+Merge: 40df9f82d05 18fa7bdb6ea
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Dec 17 17:35:57 2019 -0800
+
+    Merge pull request #85735 from alvaroaleman/make-node-initialization-more-efficient
+    
+    Cloud node controller: Only call once into cloud provider
+
+commit 6e0c915f43319c8a1d7106f2069dd0f7bcb9e839
+Merge: 74c561ba674 0d704f1ce21
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Nov 1 18:07:41 2019 -0700
+
+    Merge pull request #84060 from yutedz/gc-ref-diff
+    
+    Traverse OwnerReference maps more efficiently
+
+commit 0d704f1ce210e24a5eb7e9357b130321dd23ec78
+Author: Ted Yu <yute@vmware.com>
+Date:   Sat Oct 19 17:56:11 2019 -0700
+
+    Traverse OwnerReference maps more efficiently
+
+commit 8e7de45034226c1339856ceecd31b22fdc5fe0aa
+Author: Rob Scott <robertjscott@google.com>
+Date:   Thu Sep 19 12:58:18 2019 -0700
+
+    Reworking kube-proxy to only compute endpointChanges on apply.
+    
+    Computing EndpointChanges is a relatively expensive operation for
+    kube-proxy when Endpoint Slices are used. This had been computed on
+    every EndpointSlice update which became quite inefficient at high levels
+    of scale when multiple EndpointSlice update events would be triggered
+    before a syncProxyRules call.
+    
+    Profiling results showed that computing this on each update could
+    consume ~80% of total kube-proxy CPU utilization at high levels of
+    scale. This change reduced that to as little as 3% of total kube-proxy
+    utilization at high levels of scale.
+    
+    It's worth noting that the difference is minimal when there is a 1:1
+    relationship between EndpointSlice updates and proxier syncs. This is
+    primarily beneficial when there are many EndpointSlice updates between
+    proxier sync loops.
+
+commit 37b9e6d1eadbf801b3dae4bdf7738b5eae39bf44
+Author: Abdullah Gharaibeh <ahg@google.com>
+Date:   Tue Sep 24 12:39:27 2019 -0400
+
+    An interface that allows pre-filter plugins to update their pre-calculated.
+    
+    This is needed to allow efficient preemption simulations: during preemption, we remove/add pods from each node before running the filter plugins again to evaluate whether removing/adding specific pods will allow the incoming pod to be scheduled on the node. Instead of calling prefilter again, we should allow the plugin to do incremental update to its pre-computed state.
+
+commit 946350d99ee1a4258b2a28bb3a8d4ebced304a16
+Merge: c431353ff6e 12bbbcc61b1
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Sep 17 09:30:33 2019 -0700
+
+    Merge pull request #82780 from wojtek-t/remove_unnecessary_conversions
+    
+    Remove unnecessary (inefficient) manual conversions
+
+commit d631f9b7e9e9bec131d171a7a859455498fdeb49
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Wed Jul 10 18:37:24 2019 -0400
+
+    Use metadata informers instead of dynamic informers in controller manager
+    
+    All controllers in controller-manager that deal with objects generically
+    work with those objects without needing the full object. Update the GC
+    and quota controller to use PartialObjectMetadata input objects which
+    is faster and more efficient.
+
+commit a57af6dadd493b3c629c5c2c636c03e8371f95c3
+Merge: 2933d0ab6c2 9e73e69f494
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Jul 2 14:27:37 2019 -0700
+
+    Merge pull request #79646 from tedyu/backoff-rw
+    
+    Utilize RWMutex for efficient backoff operations
+
+commit 9e73e69f4947c88e0d9b6e35ea115086d917a2a2
+Author: Ted Yu <yuzhihong@gmail.com>
+Date:   Tue Jul 2 16:12:43 2019 +0800
+
+    Utilize RWMutex for efficient backoff operations
+
+commit 89481f8c27cb3cb96e9055eec6fb314fcd138f33
+Author: Alexander Kanevskiy <alexander.kanevskiy@intel.com>
+Date:   Fri May 31 17:07:48 2019 +0300
+
+    Use go standard library for common bit operations
+    
+    PR#72913 introduced own versions of the bit operations that are
+    less efficient than ones from standard library.
+
+commit c8edfa241714009defb7fad608ceb582e7685cdd
+Author: Mike Crute <crutem@amazon.com>
+Date:   Wed Apr 17 21:45:32 2019 -0700
+
+    Avoid using tag filters for EC2 API where possible
+    
+    For very large clusters these tag filters are not efficient within the
+    EC2 API and will result in rate limiting. Most of these queries have
+    filters that are targeted narrowly enough that the elimination of the
+    tags filter will not return significantly more data but will be executed
+    more efficiently by the EC2 API.
+    
+    Additionally, some API wrappers did not support pagination despite the
+    underlying API calls being paginated. This change adds pagination to
+    prevent truncating the returned results.
+
+commit 46436240847abdf5dca0b26010d9ed685b5eecfa
+Author: Patrick Ohly <patrick.ohly@intel.com>
+Date:   Wed Feb 13 20:46:49 2019 +0100
+
+    e2e/storage: remove test pattern filtering
+    
+    The recommended approach for not running unsuitable tests is to skip
+    them at runtime with an explanation. Filtering out unsuitable test
+    patters and thus not even defining unsuitable tests was done earlier
+    because it was faster than skipping tests at runtime.
+    
+    But now these tests can be skipped efficiently, so this special case
+    can be removed.
+
+commit f73ac0da3e647ca5f501b2cd42f651a2349ba176
+Author: Rostislav M. Georgiev <rostislavg@vmware.com>
+Date:   Fri Dec 7 17:15:43 2018 +0200
+
+    kubeadm: Replace MigrateOldConfigFromFile
+    
+    MigrateOldConfigFromFile is a function, whose purpose is to migrate one config
+    into another. It is working OK for now, but it has some issues:
+    
+    - It is incredibly inefficient. It can reload and re-parse a single config file
+      for up to 3 times.
+    
+    - Because of the reloads, it has to take a file containing the configuration
+      (not a byte slice as most of the rest config functions). However, it returns
+      the migrated config in a byte slice (rather asymmetric from the input
+      method).
+    
+    - Due to the above points it's difficult to implement a proper interface for
+      deprecated kubeadm config versions.
+    
+    To fix the issues of MigrateOldConfigFromFile, the following is done:
+    
+    - Re-implement the function by removing the calls to file loading package
+      public APIs and replacing them with newly extracted package private APIs that
+      do the job with pre-provided input data in the form of
+      map[GroupVersionKind][]byte.
+    
+    - Take a byte slice of the input configuration as an argument. This makes the
+      function input symmetric to its output. Also, it's now renamed to
+      MigrateOldConfig to represent the change from config file path as an input
+      to byte slice.
+    
+    - As a bonus (actually forgotten from a previous change) BytesToInternalConfig
+      is renamed to the more descriptive BytesToInitConfiguration.
+    
+    Signed-off-by: Rostislav M. Georgiev <rostislavg@vmware.com>
+
+commit e10dcf07d776897060c367f1ea8cef1defd617de
+Author: Rostislav M. Georgiev <rostislavg@vmware.com>
+Date:   Thu Dec 6 17:06:07 2018 +0200
+
+    kubeadm: Introduce ValidateSupportedVersion in place of DetectUnsupportedVersion
+    
+    DetectUnsupportedVersion is somewhat uncomfortable, complex and inefficient
+    function to use. It takes an entire YAML document as bytes, splits it up to
+    byte slices of the different YAML sub-documents and group-version-kinds and
+    searches through those to detect an unsupported kubeadm config. If such config
+    is detected, the function returns an error, if it is not (i.e. the normal
+    function operation) everything done so far is discarded.
+    
+    This could have been acceptable, if not the fact, that in all cases that this
+    function is called, the YAML document bytes are split up and an iteration on
+    GVK map is performed yet again. Hence, we don't need DetectUnsupportedVersion
+    in its current form as it's inefficient, complex and takes only YAML document
+    bytes.
+    
+    This change replaces DetectUnsupportedVersion with ValidateSupportedVersion,
+    which takes a GroupVersion argument and checks if it is on the list of
+    unsupported config versions. In that case an error is returned.
+    ValidateSupportedVersion relies on the caller to read and split the YAML
+    document and then iterate on its GVK map checking if the particular
+    GroupVersion is supported or not.
+    
+    Signed-off-by: Rostislav M. Georgiev <rostislavg@vmware.com>
+
+commit 1f3057b7fb9b24b8fb20433a77e0e7e8fc625aa1
+Merge: f38cc955057 b4fd11512ac
+Author: k8s-ci-robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Nov 16 20:27:35 2018 -0800
+
+    Merge pull request #70898 from Huang-Wei/preemption-issue
+    
+    ensure scheduler preemptor behaves in an efficient/correct path
+
+commit b4fd11512ac3cce6e7932a08db77db798167af1b
+Author: Wei Huang <wei.huang1@ibm.com>
+Date:   Fri Nov 16 14:22:15 2018 -0800
+
+    ensure scheduler preemptor behaves in an efficient/correct path
+    
+    - don't update nominatedMap cache when Pop() an element from activeQ
+    - instead, delete the nominated info from cache when it's "assumed"
+    - unit test behavior adjusted
+    - expose SchedulingQueue in factory.Config
+
+commit 3222a7033cf9128b76c0677887f4e383821d0475
+Author: Haowei Cai <haoweic@google.com>
+Date:   Thu Nov 15 11:02:11 2018 -0800
+
+    Apiextensions-apiserver aggregates CRD schemas
+    
+    efficiently without checking conflicts, and wire up CRD discovery
+    controller to serve OpenAPI spec.
+
+commit ec77ddfe19166deebc4822c78407894dd58acae1
+Merge: b22b7853459 271ae45901f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Feb 22 23:46:15 2018 -0800
+
+    Merge pull request #59463 from dixudx/add_verify_spelling
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    add spelling checking script
+    
+    **What this PR does / why we need it**:
+    Add spell checking script to avoid involving any typos.
+    
+    Currently many small PRs are fixing those annoying typos, which is time-consuming and low efficient. We should add such a preflight check before a PR gets merged.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    /sig testing
+    /area test-infra
+    /sig release
+    /cc @ixdy
+    /assign @liggitt @smarterclayton
+    
+    **Release note**:
+    
+    ```release-note
+    add spelling checking script
+    ```
+
+commit 45131d7a596d14f674905908850dcb7a9eda2a5b
+Merge: 370540f90df efa63b7a587
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Tue Feb 20 13:51:37 2018 -0800
+
+    Merge pull request #60090 from mikedanese/bzl2
+    
+    Automatic merge from submit-queue (batch tested with PRs 59391, 58097, 60057, 60090). If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    bzl: use --local_test_jobs
+    
+    We originally seperated build and test so that only 4 integration tests
+    would be run at a time, but we didn't want to slow down build, however
+    we didn't know --local_test_jobs existed. This achieves the same result
+    but more efficiently.
+    
+    ```release-note
+    NONE
+    ```
+
+commit efa63b7a5877252a3e542bc866cd0fe637933aed
+Author: Mike Danese <mikedanese@google.com>
+Date:   Tue Feb 20 10:57:39 2018 -0800
+
+    bzl: use --local_test_jobs
+    
+    We originally seperated build and test so that only 4 integration tests
+    would be run at a time, but we didn't want to slow down build, however
+    we didn't know --local_test_jobs existed. This achieves the same result
+    but more efficiently.
+
+commit 317853c90c674920bfbbdac54fe66092ddc9f15f
+Merge: 21eff150569 521146e62dd
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Feb 10 22:12:45 2018 -0800
+
+    Merge pull request #59464 from dixudx/fix_all_typos
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    fix all the typos across the project
+    
+    **What this PR does / why we need it**:
+    There are lots of typos across the project. We should avoid small PRs on fixing those annoying typos, which is time-consuming and low efficient.
+    
+    This PR does fix all the typos across the project currently. And with #59463, typos could be avoided when a new PR gets merged.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    /sig testing
+    /area test-infra
+    /sig release
+    /cc @ixdy
+    /assign @fejta
+    
+    **Release note**:
+    
+    ```release-note
+    None
+    ```
+
+commit 0df0ecd5280fd90f58314aaefc9072bc54b77019
+Merge: ba43ffa9b87 5388e0aa47f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Feb 1 11:23:47 2018 -0800
+
+    Merge pull request #57582 from m1093782566/ipset-owners
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    add pkg/util/ipset OWNERS file
+    
+    **What this PR does / why we need it**:
+    
+    I initialized `pkg/util/ipset` for wraping ipset exec call and authored most of the commits.
+    
+    This package is used in IPVS proxier for reducing iptables call - possibly we can use ipset in iptables proxier in the future. Because reviewing this package needs some ipset background knowledge, I am creating this OWNERS file for efficient code review. Also, I am willing to share code review burden.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    
+    /assign @brendandburns @thockin because I also added your names.
+
+commit d3ea100ad95ccbc572b4b4562d9a428454b8ef47
+Merge: 8f4f07fcc1b 1793e6eb182
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Wed Dec 20 21:58:58 2017 -0800
+
+    Merge pull request #57292 from m1093782566/ipvs-ownerfile
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    Add pkg/util/ipvs OWNERS file
+    
+    **What this PR does / why we need it**:
+    
+    This PR adds `pkg/util/ipvs/OWNERS` file, including two people: @thockin, @m1093782566(me).
+    
+    I created `pkg/util/ipvs` package for wrapping netlink IPVS call, which is used by IPVS proxier. Because reviewing this package needs some IPVS background knowledge, I create this OWNERS file for efficient code review. And, I am willing to share code review burden of this util package :)
+    
+    **Which issue(s) this PR fixes**:
+    Fixes #57361
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    
+    /sig network
+
+commit 5353d588b6c2dd600f132f5db5c6771d19848744
+Merge: ec036d9c0e2 1a11a1886f4
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Tue Nov 21 05:58:23 2017 -0800
+
+    Merge pull request #55611 from stewart-yu/regexMatch
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    using Regexp Match
+    
+    **What this PR does / why we need it**:
+    using regexp match achieve find efficiently
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+
+commit 1a11a1886f47267f0be90186f42f60280449a5e1
+Author: stewart-yu <yuchuanjian@huawei.com>
+Date:   Mon Nov 13 22:31:33 2017 +0800
+
+    using regexp match achieve find efficiently
+
+commit 12e5db561e5c4fb5b837e61a01265666dc81f6ba
+Merge: c87d3d91dbe 4780ad02978
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sun Oct 29 15:59:54 2017 -0700
+
+    Merge pull request #53768 from smarterclayton/chunking_cli
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    Support api chunking in kubectl get
+    
+    This enables chunking in the resource builder to make it easy to
+    retrieve resources in pages and visit partial result sets. This adds
+    `--chunk-size` to `kubectl get` only so that users can get comfortable
+    with the use of chunking in beta. Future changes will enable chunking
+    for all CLI commands so that bulk actions can be performed more
+    efficiently.
+    
+    ```
+    $ kubectl get pods --all-namespaces
+    ... print batch of 500 pods ...
+    ... print second batch of 500 pods ...
+    ...
+    ```
+    
+    @kubernetes/sig-cli-pr-reviews @kubernetes/sig-api-machinery-pr-reviews
+    
+    ```release-note
+    `kubectl get` will by default fetch large lists of resources in chunks of up to 500 items rather than requesting all resources up front from the server. This reduces the perceived latency of managing large clusters since the server returns the first set of results to the client much more quickly.  A new flag `--chunk-size=SIZE` may be used to alter the number of items or disable this feature when `0` is passed.  This is a beta feature.
+    ```
+
+commit 4780ad02978e7aea80f3b50ec20c9abeec13ce69
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Thu Oct 12 00:06:17 2017 -0400
+
+    Support api chunking in kubectl get
+    
+    This enables chunking in the resource builder to make it easy to
+    retrieve resources in pages and visit partial result sets. This adds
+    `--chunk-size` to `kubectl get` only so that users can get comfortable
+    with the use of chunking in beta. Future changes will enable chunking
+    for all CLI commands so that bulk actions can be performed more
+    efficiently.
+
+commit 4d5bcda6640d21ee5157807f39eb66d3766c9565
+Merge: 3f3e8a732cd 7fa9f2ad590
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Sep 23 06:16:09 2017 -0700
+
+    Merge pull request #52015 from m1093782566/flush-ipvs
+    
+    Automatic merge from submit-queue (batch tested with PRs 51929, 52015, 51906, 52069, 51542). If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>..
+    
+    Support IPVS Flush API
+    
+    **What this PR does / why we need it**:
+    
+    Currently, we implement IPVS flush API by deleting IPVS services one by one, which is inefficient.
+    
+    **Which issue this PR fixes**:
+    
+    fixes #52070
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+
+commit 4ba2b625c5b4867e84f4e7b82a57820722d1e4e4
+Merge: 2a2f499455f 87d406569d7
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Mon Aug 28 05:11:19 2017 -0700
+
+    Merge pull request #50805 from bsalamat/preemption_metacompute
+    
+    Automatic merge from submit-queue
+    
+    Add support to modify precomputed predicate metadata upon adding/removal of a pod
+    
+    **What this PR does / why we need it**: This PR adds capability to change precomputed predicate metadata and let's us add/remove pods to the precomputed metadata efficiently without the need ot recomputing everything upon addition/removal of pods. This PR is needed as a part of adding preemption logic to the scheduler.
+    
+    **Which issue this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close that issue when PR gets merged)*: fixes #
+    
+    **Special notes for your reviewer**:
+    To make the review process a bit easier, there are three commits. The cleanup commit is only moving code and renaming some functions, without logic changes.
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    ref/ #47604
+    ref/ #48646
+    
+    /assign @wojtek-t
+    
+    @kubernetes/sig-scheduling-pr-reviews @davidopp
+
+commit d1783e0bd61efe259b78b8ff6b05cda3c83ed856
+Merge: d7102a0f364 6e08007ce17
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Aug 25 04:11:13 2017 -0700
+
+    Merge pull request #51194 from bskiba/run_on_each_node
+    
+    Automatic merge from submit-queue (batch tested with PRs 51244, 50559, 49770, 51194, 50901)
+    
+    Distribute pods efficiently in CA scalability tests
+    
+    **What this PR does / why we need it**:
+    Instead of using runReplicatedPodOnEachNode method
+    which is suited to a small number of nodes,
+    distribute pods on the nodes with desired load
+    using RCs that eat up all the space we want to be
+    empty after distribution.
+    
+    **Release note**:
+    ```
+    NONE
+    ```
+
+commit 6e08007ce17baaaa224058062ac73f273bfddaff
+Author: Beata Skiba <bskiba@google.com>
+Date:   Wed Aug 23 12:02:55 2017 +0200
+
+    Distribute pods efficiently in CA scalability tests
+    
+    Instead of using runReplicatedPodOnEachNode method
+    which is suited to a small number of nodes,
+    distribute pods on the nodes with desired load
+    using RCs that eat up all the space we want to be
+    empty after distribution.
+
+commit 5727a5d75051035838a20b9253050c6330505a32
+Merge: dc0946b403f bffc827630f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Wed Aug 2 16:25:40 2017 -0700
+
+    Merge pull request #49989 from caesarxuchao/increase-timeout
+    
+    Automatic merge from submit-queue
+    
+    Increase gc e2e test timeout
+    
+    Fix https://github.com/kubernetes/kubernetes/issues/49966. The reasoning is in https://github.com/kubernetes/kubernetes/issues/49966.
+    
+    We should revert the change when we make the GC's periodic API discovery more efficient.
+    
+    cc @liggitt  @jpbetz
+
+commit 8f40622d36bfa7d512b5bee821c7d8ddc737b690
+Merge: f11258ad813 df590da6ab5
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Mar 25 14:27:24 2017 -0700
+
+    Merge pull request #42770 from eparis/efficient-debug
+    
+    Automatic merge from submit-queue (batch tested with PRs 42672, 42770, 42818, 42820, 40849)
+    
+    Return early from eviction debug helpers if !glog.V(3)
+    
+    Should keep us from running a bunch of loops needlessly.
+    
+    ```release-note
+    NONE
+    ```
+
+commit ebc8dc85aaa5f7859dbe7981e1bbd453ff4c0433
+Merge: c02a9c6aad0 4f363f54474
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sun Nov 6 06:42:49 2016 -0800
+
+    Merge pull request #36207 from smarterclayton/optimize_self_link
+    
+    Automatic merge from submit-queue
+    
+    SetSelfLink is inefficient
+    
+    Generating self links, especially for lists, is inefficient.  Replace
+    use of net.URL.String() call with direct encoding that reduces number of
+    allocations. Switch from calling meta.ExtractList|SetList to a function
+    that iterates over each object in the list.
+    
+    In steady state for nodes performing frequently small get/list
+    operations, and for larger LISTs significantly reduces CPU and
+    allocations.
+    
+    @wojtek-t this is the next big chunk of CPU use during the large N nodes simulation test (11% of master CPU). Takes a few allocations out of the critical path
+
+commit 4f363f54474bf363f0890c0c899dc331b7b34673
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Thu Nov 3 23:08:56 2016 -0400
+
+    SetSelfLink is inefficient
+    
+    Generating self links, especially for lists, is inefficient.  Replace
+    use of net.URL.String() with direct encoding that reduces number of
+    allocations. Switch from calling meta.ExtractList|SetList to a function
+    that iterates over each object in the list.
+    
+    In steady state for nodes performing frequently small get/list
+    operations, and for larger LISTs significantly reduces CPU and
+    allocations.
+
+commit c6df88991da0ae90b620337bfc842e9f5ac57f36
+Merge: 90c4a13312e 9c91da7a22c
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Oct 20 20:45:22 2016 -0700
+
+    Merge pull request #35194 from wojtek-t/efficient_selector
+    
+    Automatic merge from submit-queue
+    
+    Optimize label selector
+    
+    The number of values for a given label is generally pretty small (in huge majority of cases it is exactly one value).
+    Currently computing selectors is up to 50% of CPU usage in both apiserver and scheduler.
+    
+    Changing the structure in which those values are stored from map to slice improves the performance of typical usecase for computing selectors.
+    
+    Early results:
+    - scheduler throughput it ~15% higher
+    - apiserver cpu-usage is also lower (seems to be also ~10-15%)
+
+commit 9c91da7a22c9c69170a0acec9b810281880b8b52
+Author: Wojciech Tyczynski <wojtekt@google.com>
+Date:   Thu Oct 20 11:46:03 2016 +0200
+
+    More efficient selector
+
+commit d5a596bca13f5a9678c67957b5b4ffd6229d638e
+Author: Wojciech Tyczynski <wojtekt@google.com>
+Date:   Tue Aug 23 16:34:02 2016 +0200
+
+    More efficient field selectors
+
+commit d12efc4702b1e7646cda8c4541ffdb5c3a91a23c
+Merge: 1e5a5a2eacc 992afd9c45f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Mon Aug 22 04:17:03 2016 -0700
+
+    Merge pull request #31044 from caesarxuchao/fix-ratelimiter-gc
+    
+    Automatic merge from submit-queue
+    
+    [GarbageCollector] Make Rate Limiter registration more efficient in GC
+    
+    <!--  Thanks for sending a pull request!  Here are some tips for you:
+    1. If this is your first time, read our contributor guidelines https://github.com/kubernetes/kubernetes/blob/master/CONTRIBUTING.md and developer guide https://github.com/kubernetes/kubernetes/blob/master/docs/devel/development.md
+    2. If you want *faster* PR reviews, read how: https://github.com/kubernetes/kubernetes/blob/master/docs/devel/faster_reviews.md
+    3. Follow the instructions for writing a release note: https://github.com/kubernetes/kubernetes/blob/master/docs/devel/pull-requests.md#release-notes
+    -->
+    
+    **What this PR does / why we need it**:
+    Decrease the CPU consumption of the garbage collector
+    
+    **Which issue this PR fixes**
+    #30759
+    
+    **Special notes for your reviewer**:
+    I observed dramatic improvement (dropped from 0.8cpu to 0.3cpu) in load test.
+    
+    **Release note**:
+    <!--  Steps to write your release note:
+    1. Use the release-note-* labels to set the release note state (if you have access)
+    2. Enter your extended release note in the below block; leaving it blank means using the PR title as the release note. If no release note is required, just write `NONE`.
+    -->
+    ```release-note
+    ```
+    
+    
+    
+    @wojtek-t @lavalamp @gmarek
+
+commit e84a8ec45aa2e355080a033e24e3ed6286d20cb6
+Merge: 6f0bc852057 3973856ac29
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Aug 5 15:45:46 2016 -0700
+
+    Merge pull request #28991 from ZTE-PaaS/zhangke-patch-008
+    
+    Automatic merge from submit-queue
+    
+    optimize conditions of ServiceReplenishmentUpdateFunc to replenish service
+    
+    Originally, the  replenishQuota method didn't focus on the third parameter object even if others transfered to it, i think the function is not efficient and perfect. then i use the third param to get MatchResources, it will be more exact. for example, if the old pod was quota tracked and the new was not, the replenishQuota only focus on usage resource of the old pod, still if  the third parameter object is nil, the process will be same as before
+
+commit 9c2566572d3d8c72688d624b872b3171aaf446a6
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Fri Jun 17 23:16:07 2016 -0400
+
+    GCE Multizone: Allow volumes to be created in non-master zone
+    
+    We had a long-lasting bug which prevented creation of volumes in
+    non-master zones, because the cloudprovider in the volume label
+    admission controller is not initialized with the multizone setting
+    (issue #27656).
+    
+    This implements a simple workaround: if the volume is created with the
+    failure-domain zone label, we look for the volume in that zone.  This is
+    more efficient, avoids introducing a new semantic, and allows users (and
+    the dynamic provisioner) to create volumes in non-master zones.
+    
+    Fixes #27657
+
+commit b2a01d4d94090b5efd81d0b71cb21bbb932c053a
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Tue May 17 00:35:40 2016 -0400
+
+    Add an int64 quantity implementation
+    
+    Provides fast transformations of int64 scaled values with overflow to
+    inf.Dec as needed. Attempts to reduce allocations and expensive
+    operations in the critical path.
+    
+    Alters the public signature of Quantity to encourage more efficient use
+
+commit 88d0ac4a67d5dde30eb93636b4963311776e4f90
+Merge: e84fee21898 e2ebc506483
+Author: k8s-merge-robot <k8s.production.user@gmail.com>
+Date:   Mon Mar 7 02:39:24 2016 -0800
+
+    Merge pull request #22628 from wojtek-t/efficient_resource_quota_controller
+    
+    Auto commit by PR queue bot
+
+commit 5367a32ee9ff484acf942bdfd58b7fcdd42046c1
+Author: Abhishek Shah <abshah@google.com>
+Date:   Thu Oct 29 14:45:29 2015 -0700
+
+    Read Iptables-save output in a more-memory-efficient way
+
+commit 8c365d51c77dd8a9e99864da5117acaace7af04d
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Sat Jun 13 12:24:26 2015 -0400
+
+    servicecontroller relies on cloudprovider to delete LB if needed
+    
+    We previously made the cloudproviders take on the responsibility of deleting
+    existing load balancers; this lets us simplify the servicecontroller logic
+    and also lays the groundwork for more efficient cloudprovider LB implementations
+    to do an in-place change on a LB.
+
+commit 87df1d6fb687ca36cdae0a7738b83beaa7e5d9e6
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Sat Jun 13 11:58:39 2015 -0400
+
+    Change CreateTCPLoadBalancer -> EnsureTCPLoadBalancer; implementations auto-delete if already exists
+    
+    Previously the servicecontroller would do the delete, but by having the cloudprovider
+    take that task on, we can later remove it from the servicecontroller, and the
+    cloudprovider can do something more efficient.
+
+commit c12303eaa373a34dccb9fb25898e13c38ab93630
+Merge: 0682e158148 2ed8eed0044
+Author: Eric Tune <etune@google.com>
+Date:   Fri Mar 6 14:11:12 2015 -0800
+
+    Merge pull request #4749 from derekwaynecarr/make_quota_more_efficient
+    
+    Make admission control plug-ins work from indexes
+
+commit 4859aa7cd8431e68f595a274624b14165163299c
+Merge: c2b7652887b c0ce15c588f
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Tue Feb 17 14:48:11 2015 -0500
+
+    Merge pull request #4453 from derekwaynecarr/make_quota_more_efficient
+    
+    Make ListWatch work with a ListFunc and WatchFunc
+
+commit 899127701edefc682d5198c0ca141a35ccc7fd09
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Fri Jul 25 13:23:23 2014 -0400
+
+    Build all commands at the same time
+    
+    In Go it's much more efficient to build several commands in the same
+    `go build` because the build has to load most of the dependency tree
+    each time.  Roughly 50% on my machine:
+    
+    Together (go1.2 on OS X):
+    
+        real  0m4.049s
+        user  0m8.387s
+        sys   0m2.766s
+    
+    Separate:
+    
+        real  0m13.392s
+        user  0m12.420s
+        sys   0m6.882s
+commit faaae714274c2fd0eb6ce71a77d54106b7689e3d
+Merge: c98ccce62fe 3c197c55ffb
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Thu Jan 14 07:15:17 2021 -0800
+
+    Merge pull request #97794 from chendave/cleanup_status
+    
+    Refactor: rewrite `Merge` method to address readability and efficiency
+
+commit 3c197c55ffb4ed824bf664731eff0d8ff5a0adb3
+Author: Dave Chen <dave.jungler@gmail.com>
+Date:   Thu Jan 7 16:36:30 2021 +0800
+
+    Refactor: rewrite `Merge` method to address readability and efficiency
+    
+    Signed-off-by: Dave Chen <dave.chen@arm.com>
+
+diff --git a/pkg/scheduler/framework/interface.go b/pkg/scheduler/framework/interface.go
+index c1a392135b6..64bfcae1119 100644
+--- a/pkg/scheduler/framework/interface.go
++++ b/pkg/scheduler/framework/interface.go
+@@ -77,6 +77,15 @@ const (
+ // This list should be exactly the same as the codes iota defined above in the same order.
+ var codes = []string{"Success", "Error", "Unschedulable", "UnschedulableAndUnresolvable", "Wait", "Skip"}
+ 
++// statusPrecedence defines a map from status to its precedence, larger value means higher precedent.
++var statusPrecedence = map[Code]int{
++	Error:                        3,
++	UnschedulableAndUnresolvable: 2,
++	Unschedulable:                1,
++	// Any other statuses we know today, `Skip` or `Wait`, will take precedence over `Success`.
++	Success: -1,
++}
++
+ func (c Code) String() string {
+ 	return codes[c]
+ }
+@@ -184,28 +193,19 @@ func (p PluginToStatus) Merge() *Status {
+ 	}
+ 
+ 	finalStatus := NewStatus(Success)
+-	var hasUnschedulableAndUnresolvable, hasUnschedulable bool
+ 	for _, s := range p {
+ 		if s.Code() == Error {
+ 			finalStatus.err = s.AsError()
+-		} else if s.Code() == UnschedulableAndUnresolvable {
+-			hasUnschedulableAndUnresolvable = true
+-		} else if s.Code() == Unschedulable {
+-			hasUnschedulable = true
+ 		}
+-		finalStatus.code = s.Code()
++		if statusPrecedence[s.Code()] > statusPrecedence[finalStatus.code] {
++			finalStatus.code = s.Code()
++		}
++
+ 		for _, r := range s.reasons {
+ 			finalStatus.AppendReason(r)
+ 		}
+ 	}
+ 
+-	if finalStatus.err != nil {
+-		finalStatus.code = Error
+-	} else if hasUnschedulableAndUnresolvable {
+-		finalStatus.code = UnschedulableAndUnresolvable
+-	} else if hasUnschedulable {
+-		finalStatus.code = Unschedulable
+-	}
+ 	return finalStatus
+ }
+ 
+
+commit 245189b8a198e9e29494b2d992dc05bd7164c973
+Merge: 1679bed8034 55881f2fc4b
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Oct 15 07:11:52 2019 -0700
+
+    Merge pull request #83747 from JohnStrunk/csi-fsgroup-fix
+    
+    Improve efficiency of csiMountMgr.GetAttributes
+
+commit 55881f2fc4b8dacdba32a317d92e4ca1f1013512
+Author: John Strunk <jstrunk@redhat.com>
+Date:   Thu Oct 10 13:51:50 2019 -0400
+
+    Improve efficiency of csiMountMgr.GetAttributes
+    
+    GetAttributes is called repeatedly while setting the fsGroup of a
+    volume. Previously, it recalculated whether SELinux was supported during
+    each call. This resulted in volume.SetVolumeOwnership taking a long
+    time, delaying pod startup for high file count volumes.
+    
+    This change checks the SELinux status once, right after node publish,
+    allowing GetAttributes to simply build and return a struct.
+    
+    Signed-off-by: John Strunk <jstrunk@redhat.com>
+
+diff --git a/pkg/volume/csi/csi_mounter.go b/pkg/volume/csi/csi_mounter.go
+index b14476a4c1f..2cce6de579c 100644
+--- a/pkg/volume/csi/csi_mounter.go
++++ b/pkg/volume/csi/csi_mounter.go
+@@ -67,6 +67,7 @@ type csiMountMgr struct {
+ 	volumeID            string
+ 	specVolumeID        string
+ 	readOnly            bool
++	supportsSELinux     bool
+ 	spec                *volume.Spec
+ 	pod                 *api.Pod
+ 	podUID              types.UID
+@@ -259,6 +260,11 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error
+ 		return errors.New(log("mounter.SetupAt failed: %v", err))
+ 	}
+ 
++	c.supportsSELinux, err = c.kubeVolHost.GetHostUtil().GetSELinuxSupport(dir)
++	if err != nil {
++		klog.V(2).Info(log("error checking for SELinux support: %s", err))
++	}
++
+ 	// apply volume ownership
+ 	// The following logic is derived from https://github.com/kubernetes/kubernetes/issues/66323
+ 	// if fstype is "", then skip fsgroup (could be indication of non-block filesystem)
+@@ -328,18 +334,10 @@ func (c *csiMountMgr) podAttributes() (map[string]string, error) {
+ }
+ 
+ func (c *csiMountMgr) GetAttributes() volume.Attributes {
+-	path := c.GetPath()
+-	hu := c.kubeVolHost.GetHostUtil()
+-	supportSelinux, err := hu.GetSELinuxSupport(path)
+-	if err != nil {
+-		klog.V(2).Info(log("error checking for SELinux support: %s", err))
+-		// Best guess
+-		supportSelinux = false
+-	}
+ 	return volume.Attributes{
+ 		ReadOnly:        c.readOnly,
+ 		Managed:         !c.readOnly,
+-		SupportsSELinux: supportSelinux,
++		SupportsSELinux: c.supportsSELinux,
+ 	}
+ }
+ 
+
+commit 273e1a4605e438ccfcfe5c2080e08d308b9b9066
+Merge: 91bec13163b 8c10d929cac
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Wed Aug 28 03:09:38 2019 -0700
+
+    Merge pull request #81896 from liggitt/webhook-efficiency
+    
+    Compute webhook selectors and client once per webhookconfig revision
+
+commit f1693efe3713f065d33a5f0d31df0bec0a966bc0
+Merge: 4e8dd70234e cea9d65a2c9
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Apr 5 10:21:44 2019 -0700
+
+    Merge pull request #76196 from kubernetes/revert-75547-improve_the_efficiency_of_delivery_watch_events
+    
+    Revert "delivery event non blocking firstly"
+
+commit c19dc742c4e05fb7c53e54e527f43eccd174ecc1
+Merge: be374388f6f 8910abfdf3d
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Wed Apr 3 03:23:43 2019 -0700
+
+    Merge pull request #75547 from hormes/improve_the_efficiency_of_delivery_watch_events
+    
+    delivery event non blocking firstly
+
+commit ad6d3b4de082ef80e0343408b93762261b71c39d
+Merge: c0d248ad3ad dba032d5e74
+Author: k8s-ci-robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Mon Nov 5 04:22:56 2018 -0800
+
+    Merge pull request #70629 from code-sleuth/develop
+    
+    Improve`kubectl get` sorting efficiency
+
+commit dba032d5e74dded1f6bb75c9ca444e3e7a3fb6e9
+Author: Ibrahim Mbaziira <code.ibra@gmail.com>
+Date:   Sun Nov 4 22:29:40 2018 +0300
+
+    improve sorting efficiency
+
+diff --git a/pkg/kubectl/sorter.go b/pkg/kubectl/sorter.go
+index b7c339dfb2b..e485f9065bb 100644
+--- a/pkg/kubectl/sorter.go
++++ b/pkg/kubectl/sorter.go
+@@ -306,8 +306,9 @@ func (r *RuntimeSort) OriginalPosition(ix int) int {
+ }
+ 
+ type TableSorter struct {
+-	field string
+-	obj   *metav1beta1.Table
++	field      string
++	obj        *metav1beta1.Table
++	parsedRows [][][]reflect.Value
+ }
+ 
+ func (t *TableSorter) Len() int {
+@@ -319,32 +320,8 @@ func (t *TableSorter) Swap(i, j int) {
+ }
+ 
+ func (t *TableSorter) Less(i, j int) bool {
+-	iObj := t.obj.Rows[i].Object.Object
+-	jObj := t.obj.Rows[j].Object.Object
+-
+-	var iValues [][]reflect.Value
+-	var jValues [][]reflect.Value
+-	var err error
+-
+-	parser := jsonpath.New("sorting").AllowMissingKeys(true)
+-	err = parser.Parse(t.field)
+-	if err != nil {
+-		glog.Fatalf("sorting error: %v\n", err)
+-	}
+-
+-	// TODO(juanvallejo): this is expensive for very large sets.
+-	// To improve runtime complexity, build an array which contains all
+-	// resolved fields, and sort that instead.
+-	iValues, err = findJSONPathResults(parser, iObj)
+-	if err != nil {
+-		glog.Fatalf("Failed to get i values for %#v using %s (%#v)", iObj, t.field, err)
+-	}
+-
+-	jValues, err = findJSONPathResults(parser, jObj)
+-	if err != nil {
+-		glog.Fatalf("Failed to get j values for %#v using %s (%v)", jObj, t.field, err)
+-	}
+-
++	iValues := t.parsedRows[i]
++	jValues := t.parsedRows[j]
+ 	if len(iValues) == 0 || len(iValues[0]) == 0 || len(jValues) == 0 || len(jValues[0]) == 0 {
+ 		glog.Fatalf("couldn't find any field with path %q in the list of objects", t.field)
+ 	}
+@@ -354,7 +331,7 @@ func (t *TableSorter) Less(i, j int) bool {
+ 
+ 	less, err := isLess(iField, jField)
+ 	if err != nil {
+-		glog.Fatalf("Field %s in %T is an unsortable type: %s, err: %v", t.field, iObj, iField.Kind().String(), err)
++		glog.Fatalf("Field %s in %T is an unsortable type: %s, err: %v", t.field, t.parsedRows, iField.Kind().String(), err)
+ 	}
+ 	return less
+ }
+@@ -365,16 +342,31 @@ func (t *TableSorter) Sort() error {
+ }
+ 
+ func NewTableSorter(table *metav1beta1.Table, field string) *TableSorter {
++	var parsedRows [][][]reflect.Value
++
++	parser := jsonpath.New("sorting").AllowMissingKeys(true)
++	err := parser.Parse(field)
++	if err != nil {
++		glog.Fatalf("sorting error: %v\n", err)
++	}
++
++	for i := range table.Rows {
++		parsedRow, err := findJSONPathResults(parser, table.Rows[i].Object.Object)
++		if err != nil {
++			glog.Fatalf("Failed to get values for %#v using %s (%#v)", parsedRow, field, err)
++		}
++		parsedRows = append(parsedRows, parsedRow)
++	}
++
+ 	return &TableSorter{
+-		obj:   table,
+-		field: field,
++		obj:        table,
++		field:      field,
++		parsedRows: parsedRows,
+ 	}
+ }
+-
+ func findJSONPathResults(parser *jsonpath.JSONPath, from runtime.Object) ([][]reflect.Value, error) {
+ 	if unstructuredObj, ok := from.(*unstructured.Unstructured); ok {
+ 		return parser.FindResults(unstructuredObj.Object)
+ 	}
+-
+ 	return parser.FindResults(reflect.ValueOf(from).Elem().Interface())
+ }
+
+commit 4a44cda40aea2c7a01eaf0d751213c9b765a19f1
+Merge: 15cd3552819 3a2e3bcc70e
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Wed May 30 08:42:11 2018 -0700
+
+    Merge pull request #63328 from vikaschoudhary16/probe-watcher-duplicate
+    
+    Automatic merge from submit-queue (batch tested with PRs 63328, 64316, 64444, 64449, 64453). If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    Add probe based mechanism for kubelet plugin discovery
+    
+    **Which issue(s) this PR fixes**
+    Fixes #56944
+    [Design Doc](https://docs.google.com/document/d/1dtHpGY-gPe9sY7zzMGnm8Ywo09zJfNH-E1KEALFV39s/edit#heading=h.7fe6spexljh6)
+    
+    **Notes For Reviewers**:
+    Original PR is https://github.com/kubernetes/kubernetes/pull/59963. But because of too many comments(171) that PR does not open sometimes. Therefore this new PR is created to get the github link working.
+    
+    Related PR is https://github.com/kubernetes/kubernetes/pull/58755
+    For review efficiency, separating out of the commits or original PR here.
+    
+    ```release-note
+    Add probe based mechanism for kubelet plugin discovery
+    ```
+    /sig node
+    /area hw-accelerators
+    /cc @jiayingz @RenaudWasTaken @vishh @ScorpioCPH @sjenning @derekwaynecarr @jeremyeder @lichuqiang @tengqm @saad-ali @chakri-nelluri @ConnorDoyle @vladimirvivien
+
+commit ce9f3bcfefdbbaaec2c2c3f71f81c617dbd1e242
+Author: Andrzej Wasylkowski <wasylkowski@google.com>
+Date:   Thu Jun 1 13:13:18 2017 +0200
+
+    Added an end-to-end test measuring autoscaling's efficiency.
+
+diff --git a/test/e2e/autoscaling/BUILD b/test/e2e/autoscaling/BUILD
+index 1517a3c440f..d257c00fbac 100644
+--- a/test/e2e/autoscaling/BUILD
++++ b/test/e2e/autoscaling/BUILD
+@@ -10,6 +10,7 @@ load(
+ go_library(
+     name = "go_default_library",
+     srcs = [
++        "autoscaling_timer.go",
+         "cluster_size_autoscaling.go",
+         "dns_autoscaling.go",
+         "horizontal_pod_autoscaling.go",
+diff --git a/test/e2e/autoscaling/autoscaling_timer.go b/test/e2e/autoscaling/autoscaling_timer.go
+new file mode 100644
+index 00000000000..c0b71930c42
+--- /dev/null
++++ b/test/e2e/autoscaling/autoscaling_timer.go
+@@ -0,0 +1,111 @@
++/*
++Copyright 2017 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++package autoscaling
++
++import (
++	"strings"
++	"time"
++
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/kubernetes/pkg/api/v1"
++	"k8s.io/kubernetes/test/e2e/common"
++	"k8s.io/kubernetes/test/e2e/framework"
++
++	. "github.com/onsi/ginkgo"
++	. "github.com/onsi/gomega"
++)
++
++var _ = framework.KubeDescribe("[Feature:ClusterSizeAutoscalingScaleUp] [Slow] Autoscaling", func() {
++	f := framework.NewDefaultFramework("autoscaling")
++
++	framework.KubeDescribe("Autoscaling a service", func() {
++		BeforeEach(func() {
++			// Check if Cloud Autoscaler is enabled by trying to get its ConfigMap.
++			_, err := f.ClientSet.CoreV1().ConfigMaps("kube-system").Get("cluster-autoscaler-status", metav1.GetOptions{})
++			if err != nil {
++				framework.Skipf("test expects Cluster Autoscaler to be enabled")
++			}
++		})
++
++		Context("from 1 pod and 3 nodes to 8 pods and >=4 nodes", func() {
++			const nodesNum = 3       // Expect there to be 3 nodes before and after the test.
++			var nodeGroupName string // Set by BeforeEach, used by AfterEach to scale this node group down after the test.
++			var nodes *v1.NodeList   // Set by BeforeEach, used by Measure to calculate CPU request based on node's sizes.
++
++			BeforeEach(func() {
++				// Make sure there is only 1 node group, otherwise this test becomes useless.
++				nodeGroups := strings.Split(framework.TestContext.CloudConfig.NodeInstanceGroup, ",")
++				if len(nodeGroups) != 1 {
++					framework.Skipf("test expects 1 node group, found %d", len(nodeGroups))
++				}
++				nodeGroupName = nodeGroups[0]
++
++				// Make sure the node group has exactly 'nodesNum' nodes, otherwise this test becomes useless.
++				nodeGroupSize, err := framework.GroupSize(nodeGroupName)
++				framework.ExpectNoError(err)
++				if nodeGroupSize != nodesNum {
++					framework.Skipf("test expects %d nodes, found %d", nodesNum, nodeGroupSize)
++				}
++
++				// Make sure all nodes are schedulable, otherwise we are in some kind of a problem state.
++				nodes = framework.GetReadySchedulableNodesOrDie(f.ClientSet)
++				schedulableCount := len(nodes.Items)
++				Expect(schedulableCount).To(Equal(nodeGroupSize), "not all nodes are schedulable")
++			})
++
++			AfterEach(func() {
++				// Scale down back to only 'nodesNum' nodes, as expected at the start of the test.
++				framework.ExpectNoError(framework.ResizeGroup(nodeGroupName, nodesNum))
++				framework.ExpectNoError(framework.WaitForClusterSize(f.ClientSet, nodesNum, 15*time.Minute))
++			})
++
++			Measure("takes less than 15 minutes", func(b Benchmarker) {
++				// Measured over multiple samples, scaling takes 10 +/- 2 minutes, so 15 minutes should be fully sufficient.
++				const timeToWait = 15 * time.Minute
++
++				// Calculate the CPU request of the service.
++				// This test expects that 8 pods will not fit in 'nodesNum' nodes, but will fit in >='nodesNum'+1 nodes.
++				// Make it so that 'nodesNum' pods fit perfectly per node (in practice other things take space, so less than that will fit).
++				nodeCpus := nodes.Items[0].Status.Capacity[v1.ResourceCPU]
++				nodeCpuMillis := (&nodeCpus).MilliValue()
++				cpuRequestMillis := int64(nodeCpuMillis / nodesNum)
++
++				// Start the service we want to scale and wait for it to be up and running.
++				nodeMemoryBytes := nodes.Items[0].Status.Capacity[v1.ResourceMemory]
++				nodeMemoryMB := (&nodeMemoryBytes).Value() / 1024 / 1024
++				memRequestMB := nodeMemoryMB / 10 // Ensure each pod takes not more than 10% of node's total memory.
++				replicas := 1
++				resourceConsumer := common.NewDynamicResourceConsumer("resource-consumer", common.KindDeployment, replicas, 0, 0, 0, cpuRequestMillis, memRequestMB, f)
++				defer resourceConsumer.CleanUp()
++				resourceConsumer.WaitForReplicas(replicas, 1*time.Minute) // Should finish ~immediately, so 1 minute is more than enough.
++
++				// Enable Horizontal Pod Autoscaler with 50% target utilization and
++				// scale up the CPU usage to trigger autoscaling to 8 pods for target to be satisfied.
++				targetCpuUtilizationPercent := int32(50)
++				hpa := common.CreateCPUHorizontalPodAutoscaler(resourceConsumer, targetCpuUtilizationPercent, 1, 10)
++				defer common.DeleteHorizontalPodAutoscaler(resourceConsumer, hpa.Name)
++				cpuLoad := 8 * cpuRequestMillis * int64(targetCpuUtilizationPercent) / 100 // 8 pods utilized to the target level
++				resourceConsumer.ConsumeCPU(int(cpuLoad))
++
++				// Measure the time it takes for the service to scale to 8 pods with 50% CPU utilization each.
++				b.Time("total scale-up time", func() {
++					resourceConsumer.WaitForReplicas(8, timeToWait)
++				})
++			}, 1) // Increase to run the test more than once.
++		})
++	})
++})
+
+commit ec1d79da191c33e5b16b58e808880d522d3313d2
+Author: Jordan Liggitt <jliggitt@redhat.com>
+Date:   Mon May 22 21:15:14 2017 -0400
+
+    gonum: directed acyclic graph
+    
+    Implements graph.Directed capable of storing at most one edge between any two nodes.
+    Uses the Undirected implementation for space efficiency (~30% space savings).
+
+diff --git a/third_party/forked/gonum/graph/simple/BUILD b/third_party/forked/gonum/graph/simple/BUILD
+index a5c9b446a4b..b4f8db1897b 100644
+--- a/third_party/forked/gonum/graph/simple/BUILD
++++ b/third_party/forked/gonum/graph/simple/BUILD
+@@ -10,7 +10,10 @@ load(
+ 
+ go_test(
+     name = "go_default_test",
+-    srcs = ["undirected_test.go"],
++    srcs = [
++        "directed_acyclic_test.go",
++        "undirected_test.go",
++    ],
+     library = ":go_default_library",
+     tags = ["automanaged"],
+     deps = ["//third_party/forked/gonum/graph:go_default_library"],
+@@ -19,6 +22,7 @@ go_test(
+ go_library(
+     name = "go_default_library",
+     srcs = [
++        "directed_acyclic.go",
+         "simple.go",
+         "undirected.go",
+     ],
+diff --git a/third_party/forked/gonum/graph/simple/directed_acyclic.go b/third_party/forked/gonum/graph/simple/directed_acyclic.go
+new file mode 100644
+index 00000000000..20ed2f658a9
+--- /dev/null
++++ b/third_party/forked/gonum/graph/simple/directed_acyclic.go
+@@ -0,0 +1,55 @@
++package simple
++
++import (
++	"k8s.io/kubernetes/third_party/forked/gonum/graph"
++)
++
++// DirectedAcyclicGraph implements graph.Directed using UndirectedGraph,
++// which only stores one edge for any node pair.
++type DirectedAcyclicGraph struct {
++	*UndirectedGraph
++}
++
++func NewDirectedAcyclicGraph(self, absent float64) *DirectedAcyclicGraph {
++	return &DirectedAcyclicGraph{
++		UndirectedGraph: NewUndirectedGraph(self, absent),
++	}
++}
++
++func (g *DirectedAcyclicGraph) HasEdgeFromTo(u, v graph.Node) bool {
++	edge := g.UndirectedGraph.EdgeBetween(u, v)
++	if edge == nil {
++		return false
++	}
++	return (edge.From().ID() == u.ID())
++}
++
++func (g *DirectedAcyclicGraph) From(n graph.Node) []graph.Node {
++	if !g.Has(n) {
++		return nil
++	}
++
++	fid := n.ID()
++	nodes := make([]graph.Node, 0, len(g.UndirectedGraph.edges[n.ID()]))
++	for _, edge := range g.UndirectedGraph.edges[n.ID()] {
++		if edge.From().ID() == fid {
++			nodes = append(nodes, g.UndirectedGraph.nodes[edge.To().ID()])
++		}
++	}
++	return nodes
++}
++
++func (g *DirectedAcyclicGraph) To(n graph.Node) []graph.Node {
++	if !g.Has(n) {
++		return nil
++	}
++
++	tid := n.ID()
++	nodes := make([]graph.Node, 0, len(g.UndirectedGraph.edges[n.ID()]))
++	for _, edge := range g.UndirectedGraph.edges[n.ID()] {
++		if edge.To().ID() == tid {
++			nodes = append(nodes, g.UndirectedGraph.nodes[edge.From().ID()])
++		}
++	}
++	return nodes
++}
+diff --git a/third_party/forked/gonum/graph/simple/directed_acyclic_test.go b/third_party/forked/gonum/graph/simple/directed_acyclic_test.go
+new file mode 100644
+index 00000000000..0f3454d8a71
+--- /dev/null
++++ b/third_party/forked/gonum/graph/simple/directed_acyclic_test.go
+@@ -0,0 +1,62 @@
++// Copyright ©2014 The gonum Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package simple
++
++import (
++	"math"
++	"testing"
++
++	"k8s.io/kubernetes/third_party/forked/gonum/graph"
++)
++
++var _ graph.Graph = &DirectedAcyclicGraph{}
++var _ graph.Directed = &DirectedAcyclicGraph{}
++
++// Tests Issue #27
++func TestAcyclicEdgeOvercounting(t *testing.T) {
++	g := generateDummyAcyclicGraph()
++
++	if neigh := g.From(Node(Node(2))); len(neigh) != 2 {
++		t.Errorf("Node 2 has incorrect number of neighbors got neighbors %v (count %d), expected 2 neighbors {0,1}", neigh, len(neigh))
++	}
++}
++
++func generateDummyAcyclicGraph() *DirectedAcyclicGraph {
++	nodes := [4]struct{ srcID, targetID int }{
++		{2, 1},
++		{1, 0},
++		{0, 2},
++		{2, 0},
++	}
++
++	g := NewDirectedAcyclicGraph(0, math.Inf(1))
++
++	for _, n := range nodes {
++		g.SetEdge(Edge{F: Node(n.srcID), T: Node(n.targetID), W: 1})
++	}
++
++	return g
++}
++
++// Test for issue #123 https://github.com/gonum/graph/issues/123
++func TestAcyclicIssue123DirectedGraph(t *testing.T) {
++	defer func() {
++		if r := recover(); r != nil {
++			t.Errorf("unexpected panic: %v", r)
++		}
++	}()
++	g := NewDirectedAcyclicGraph(0, math.Inf(1))
++
++	n0 := Node(g.NewNodeID())
++	g.AddNode(n0)
++
++	n1 := Node(g.NewNodeID())
++	g.AddNode(n1)
++
++	g.RemoveNode(n0)
++
++	n2 := Node(g.NewNodeID())
++	g.AddNode(n2)
++}
+
+commit 20ec8912d096e6cf0daabb3268dc8e73af743ebf
+Merge: 78ced8e4553 503c19aec34
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Tue May 30 06:27:18 2017 -0700
+
+    Merge pull request #45421 from allencloud/change-to-use-make-slice-to-store-objects
+    
+    Automatic merge from submit-queue
+    
+    use make slice to store objects to improve efficiency
+    
+    Signed-off-by: allencloud <allen.sun@daocloud.io>
+    
+    
+    
+    **What this PR does / why we need it**:
+    
+    we we know the slice length in advance, I think we had better use make to create the specified length of slice. This will improve some kind of performance. Since if we create a slice with []type{}, we did not know how much space runtime should reserve, since slice implementation should be continuous in memory. While when we make a slice with specified length, runtime would reserve a continuous memory space which will not result in slice movement in case of current space is not enough.
+    
+    **Which issue this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close that issue when PR gets merged)*: fixes #
+    NONE
+    
+    **Special notes for your reviewer**:
+    NONE
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+
+commit 503c19aec34dd65d994a057ecfb8fce960e9ad5a
+Author: allencloud <allen.sun@daocloud.io>
+Date:   Fri May 5 23:25:56 2017 +0800
+
+    use make slice to store objects to improve efficiency
+    
+    Signed-off-by: allencloud <allen.sun@daocloud.io>
+
+diff --git a/pkg/kubelet/dockershim/docker_container.go b/pkg/kubelet/dockershim/docker_container.go
+index aaf59f42070..39df15e485f 100644
+--- a/pkg/kubelet/dockershim/docker_container.go
++++ b/pkg/kubelet/dockershim/docker_container.go
+@@ -350,7 +350,7 @@ func (ds *dockerService) ContainerStatus(containerID string) (*runtimeapi.Contai
+ 	imageID := toPullableImageID(r.Image, ir)
+ 
+ 	// Convert the mounts.
+-	mounts := []*runtimeapi.Mount{}
++	mounts := make([]*runtimeapi.Mount, 0, len(r.Mounts))
+ 	for i := range r.Mounts {
+ 		m := r.Mounts[i]
+ 		readonly := !m.RW
+diff --git a/pkg/kubelet/dockershim/docker_image.go b/pkg/kubelet/dockershim/docker_image.go
+index df59a7df28f..0ae0a94e777 100644
+--- a/pkg/kubelet/dockershim/docker_image.go
++++ b/pkg/kubelet/dockershim/docker_image.go
+@@ -40,7 +40,7 @@ func (ds *dockerService) ListImages(filter *runtimeapi.ImageFilter) ([]*runtimea
+ 		return nil, err
+ 	}
+ 
+-	result := []*runtimeapi.Image{}
++	result := make([]*runtimeapi.Image, 0, len(images))
+ 	for _, i := range images {
+ 		apiImage, err := imageToRuntimeAPIImage(&i)
+ 		if err != nil {
+diff --git a/pkg/kubelet/dockershim/docker_legacy.go b/pkg/kubelet/dockershim/docker_legacy.go
+index c39890bcb5a..7b8858f8457 100644
+--- a/pkg/kubelet/dockershim/docker_legacy.go
++++ b/pkg/kubelet/dockershim/docker_legacy.go
+@@ -187,7 +187,7 @@ func (ds *dockerService) ListLegacyPodSandbox(filter *runtimeapi.PodSandboxFilte
+ 	}
+ 
+ 	// Convert docker containers to runtime api sandboxes.
+-	result := []*runtimeapi.PodSandbox{}
++	result := make([]*runtimeapi.PodSandbox, 0, len(containers))
+ 	for i := range containers {
+ 		c := containers[i]
+ 		// Skip new containers with containerTypeLabelKey label.
+@@ -242,7 +242,7 @@ func (ds *dockerService) ListLegacyContainers(filter *runtimeapi.ContainerFilter
+ 	}
+ 
+ 	// Convert docker to runtime api containers.
+-	result := []*runtimeapi.Container{}
++	result := make([]*runtimeapi.Container, 0, len(containers))
+ 	for i := range containers {
+ 		c := containers[i]
+ 		// Skip new containers with containerTypeLabelKey label.
+diff --git a/pkg/kubelet/dockershim/docker_service.go b/pkg/kubelet/dockershim/docker_service.go
+index 7ea60931f96..109eaa881ff 100644
+--- a/pkg/kubelet/dockershim/docker_service.go
++++ b/pkg/kubelet/dockershim/docker_service.go
+@@ -335,7 +335,7 @@ func (ds *dockerService) GetPodPortMappings(podSandboxID string) ([]*hostport.Po
+ 		}
+ 	}
+ 
+-	portMappings := []*hostport.PortMapping{}
++	portMappings := make([]*hostport.PortMapping, 0, len(checkpoint.Data.PortMappings))
+ 	for _, pm := range checkpoint.Data.PortMappings {
+ 		proto := toAPIProtocol(*pm.Protocol)
+ 		portMappings = append(portMappings, &hostport.PortMapping{
+diff --git a/pkg/kubelet/dockershim/helpers.go b/pkg/kubelet/dockershim/helpers.go
+index 0927ad35b45..26f7c1874c2 100644
+--- a/pkg/kubelet/dockershim/helpers.go
++++ b/pkg/kubelet/dockershim/helpers.go
+@@ -127,7 +127,8 @@ func extractLabels(input map[string]string) (map[string]string, map[string]strin
+ // '<HostPath>:<ContainerPath>:ro', if the path is read only, or
+ // '<HostPath>:<ContainerPath>:Z', if the volume requires SELinux
+ // relabeling and the pod provides an SELinux label
+-func generateMountBindings(mounts []*runtimeapi.Mount) (result []string) {
++func generateMountBindings(mounts []*runtimeapi.Mount) []string {
++	result := make([]string, 0, len(mounts))
+ 	for _, m := range mounts {
+ 		bind := fmt.Sprintf("%s:%s", m.HostPath, m.ContainerPath)
+ 		readOnly := m.Readonly
+@@ -147,7 +148,7 @@ func generateMountBindings(mounts []*runtimeapi.Mount) (result []string) {
+ 		}
+ 		result = append(result, bind)
+ 	}
+-	return
++	return result
+ }
+ 
+ func makePortsAndBindings(pm []*runtimeapi.PortMapping) (map[dockernat.Port]struct{}, map[dockernat.Port][]dockernat.PortBinding) {
+
+commit 6bda989d5497f47f4454a7fc81eaea877f404861
+Merge: 850c586b69f a0a0e61f620
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Oct 21 08:39:09 2016 -0700
+
+    Merge pull request #35227 from deads2k/controller-13-generic-infromer
+    
+    Automatic merge from submit-queue
+    
+    add generic shared informer backed by existing informer
+    
+    Adds the ability to get an informer and lister that returns `[]runtime.Object` methods with the "normal" filtering capabilities based on a `GroupResource`. Right now, it only works on known types (and re-uses those caches for efficiency by having a different skin on the `Index`).  It should be extended in the future.
+    
+    @derekwaynecarr I think this gives you the types you were looking for to avoid the ugly array copies.
+
+commit 0d9685b0b57e5b64de896568b1fbd0a7bb4dc1d8
+Merge: 15344153238 d122de5371d
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Sep 16 00:40:24 2016 -0700
+
+    Merge pull request #32805 from caesarxuchao/more-gc-optimization
+    
+    Automatic merge from submit-queue
+    
+    Add the uid in a delete event to the absentOwnerCache
+    
+    This is a small optimization to further reduce the traffic sent by the GC.
+    
+    In #31167, GC caches the non-existent owners when it processes the dirtyQueue. As discovered in #32571, there is still small inefficiency, because there are multiple goroutines processing the dirtyQueue, many of them might send a GET to the apiserver before the cache gets populated.
+    
+    This PR populates the cache when GC observes an object gets deleted, which happens before the processing of the dirtyQueue, so it avoids the simultaneous GET sent by the GC workers.
+    
+    cc @lavalamp
+
+commit ce7a993269d2b157d5a856d2f07d71ab77c98efa
+Author: Lénaïc Huard <lhuard@amadeus.com>
+Date:   Tue Feb 17 22:20:07 2015 +0100
+
+    libvirt-coreos cluster provider
+    
+    libvirt-coreos is a cluster provider for kubernetes that starts local VMs and
+    runs kubernetes on it.
+    Its goal is to provide a multi-machines environment to develop and test kubernetes.
+    
+    The purpose is mostly the same as the vagrant provider but with a big focus on
+    efficiency. The vagrant cluster takes a long time to boot and consumes a huge
+    amount of disk space. libvirt-coreos aims at being cheaper. As a consequence,
+    libvirt-coreos allows to start bigger clusters with more minions than vagrant.
+
+diff --git a/cluster/kube-env.sh b/cluster/kube-env.sh
+index d719476c465..89be7dc8480 100644
+--- a/cluster/kube-env.sh
++++ b/cluster/kube-env.sh
+@@ -18,7 +18,7 @@
+ # You can override the default provider by exporting the KUBERNETES_PROVIDER
+ # variable in your bashrc
+ #
+-# The valid values: 'gce', 'gke', 'aws', 'azure', 'vagrant', 'vsphere'
++# The valid values: 'gce', 'gke', 'aws', 'azure', 'vagrant', 'vsphere', 'libvirt-coreos'
+ 
+ KUBERNETES_PROVIDER=${KUBERNETES_PROVIDER:-gce}
+ 
+diff --git a/cluster/kubectl.sh b/cluster/kubectl.sh
+index 74a6f364187..4527a57b3b8 100755
+--- a/cluster/kubectl.sh
++++ b/cluster/kubectl.sh
+@@ -120,6 +120,11 @@ elif [[ "$KUBERNETES_PROVIDER" == "vagrant" ]]; then
+   config=(
+     "--kubeconfig=$HOME/.kubernetes_vagrant_kubeconfig"
+   )
++elif [[ "$KUBERNETES_PROVIDER" == "libvirt-coreos" ]]; then
++  detect-master > /dev/null
++  config=(
++    "--server=http://${KUBE_MASTER_IP}:8080"
++  )
+ fi
+ 
+ echo "current-context: \"$(${kubectl} "${config[@]:+${config[@]}}" config view -o template --template='{{index . "current-context"}}')\"" >&2
+diff --git a/cluster/libvirt-coreos/.gitignore b/cluster/libvirt-coreos/.gitignore
+new file mode 100644
+index 00000000000..f26d8e4020a
+--- /dev/null
++++ b/cluster/libvirt-coreos/.gitignore
+@@ -0,0 +1,2 @@
++/libvirt_storage_pool/
++/coreos_production_qemu_image.img.bz2
+diff --git a/cluster/libvirt-coreos/config-default.sh b/cluster/libvirt-coreos/config-default.sh
+new file mode 100644
+index 00000000000..cce5c06c689
+--- /dev/null
++++ b/cluster/libvirt-coreos/config-default.sh
+@@ -0,0 +1,21 @@
++#!/bin/bash
++
++# Copyright 2014 Google Inc. All rights reserved.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++## Contains configuration values for interacting with the libvirt CoreOS cluster
++
++# Number of minions in the cluster
++NUM_MINIONS=${NUM_MINIONS:-3}
++export NUM_MINIONS
+diff --git a/cluster/libvirt-coreos/coreos.xml b/cluster/libvirt-coreos/coreos.xml
+new file mode 100644
+index 00000000000..041f3a01510
+--- /dev/null
++++ b/cluster/libvirt-coreos/coreos.xml
+@@ -0,0 +1,71 @@
++<domain type='kvm'>
++  <name>${name}</name>
++  <memory unit='MiB'>512</memory>
++  <currentMemory unit='MiB'>512</currentMemory>
++  <vcpu placement='static'>2</vcpu>
++  <os>
++    <type arch='x86_64' machine='pc'>hvm</type>
++    <boot dev='hd'/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <pae/>
++  </features>
++  <clock offset='utc'/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>restart</on_crash>
++  <devices>
++    <emulator>$(which qemu-system-$(uname -m))</emulator>
++    <disk type='file' device='disk'>
++      <driver name='qemu' type='qcow2'/>
++      <source file='${POOL_PATH}/${image}'/>
++      <target dev='vda' bus='virtio'/>
++    </disk>
++    <controller type='usb' index='0'>
++    </controller>
++    <filesystem type='mount' accessmode='squash'>
++      <source dir='${POOL_PATH}/${config}'/>
++      <target dir='config-2'/>
++      <readonly/>
++    </filesystem>
++    <filesystem type='mount' accessmode='squash'>
++      <source dir='${kubernetes_dir}'/>
++      <target dir='kubernetes'/>
++      <readonly/>
++    </filesystem>
++    <interface type='network'>
++       <mac address='52:54:00:00:00:${i}'/>
++       <source network='kubernetes_global'/>
++       <model type='virtio'/>
++    </interface>
++    <interface type='network'>
++       <mac address='52:54:00:00:01:${i}'/>
++       <source network='kubernetes_pods'/>
++       <model type='virtio'/>
++    </interface>
++    <serial type='pty'>
++      <target port='0'/>
++    </serial>
++    <console type='pty'>
++      <target type='serial' port='0'/>
++    </console>
++    <channel type='spicevmc'>
++      <target type='virtio' name='com.redhat.spice.0'/>
++    </channel>
++    <input type='tablet' bus='usb'/>
++    <input type='mouse' bus='ps2'/>
++    <input type='keyboard' bus='ps2'/>
++    <graphics type='spice' autoport='yes'/>
++    <sound model='ich6'>
++    </sound>
++    <video>
++      <model type='qxl' vram='9216' heads='1'/>
++    </video>
++    <redirdev bus='usb' type='spicevmc'>
++    </redirdev>
++    <memballoon model='virtio'>
++    </memballoon>
++  </devices>
++</domain>
+diff --git a/cluster/libvirt-coreos/network_kubernetes_global.xml b/cluster/libvirt-coreos/network_kubernetes_global.xml
+new file mode 100644
+index 00000000000..b22cb262fc0
+--- /dev/null
++++ b/cluster/libvirt-coreos/network_kubernetes_global.xml
+@@ -0,0 +1,11 @@
++<network>
++  <name>kubernetes_global</name>
++  <forward mode='nat'>
++    <nat>
++      <port start='1024' end='65535'/>
++    </nat>
++  </forward>
++  <bridge name='virbr_kub_gl' stp='off' delay='0'/>
++  <ip address='192.168.10.254' netmask='255.255.255.0'>
++  </ip>
++</network>
+diff --git a/cluster/libvirt-coreos/network_kubernetes_pods.xml b/cluster/libvirt-coreos/network_kubernetes_pods.xml
+new file mode 100644
+index 00000000000..ed95113da34
+--- /dev/null
++++ b/cluster/libvirt-coreos/network_kubernetes_pods.xml
+@@ -0,0 +1,6 @@
++<network>
++  <name>kubernetes_pods</name>
++  <bridge name='virbr_kub_pods' stp='off' delay='0'/>
++  <ip address='10.10.0.1' netmask='255.255.0.0'>
++  </ip>
++</network>
+diff --git a/cluster/libvirt-coreos/user_data.yml b/cluster/libvirt-coreos/user_data.yml
+new file mode 100644
+index 00000000000..16d960dbfbe
+--- /dev/null
++++ b/cluster/libvirt-coreos/user_data.yml
+@@ -0,0 +1,111 @@
++#cloud-config
++
++hostname: ${name}
++
++ssh_authorized_keys:
++${ssh_keys}
++
++write_files:
++  - path: /etc/systemd/journald.conf
++    permissions: 0644
++    content: |
++      [Journal]
++      SystemMaxUse=50M
++      RuntimeMaxUse=50M
++
++coreos:
++  etcd:
++    name: ${name}
++    addr: 192.168.10.$(($i+1)):4001
++    bind-addr: 0.0.0.0
++    peer-addr: 192.168.10.$(($i+1)):7001
++    # peers: {etcd_peers}
++    discovery: ${discovery}
++  units:
++    - name: static.network
++      command: start
++      content: |
++        [Match]
++        # Name=eth0
++        MACAddress=52:54:00:00:00:${i}
++
++        [Network]
++        Address=192.168.10.$(($i+1))/24
++        DNS=192.168.10.254
++        Gateway=192.168.10.254
++    - name: cbr0.netdev
++      command: start
++      content: |
++        [NetDev]
++        Kind=bridge
++        Name=cbr0
++    - name: cbr0.network
++      command: start
++      content: |
++        [Match]
++        Name=cbr0
++
++        [Network]
++        Address=10.10.$(($i+1)).1/24
++
++        [Route]
++        Destination=10.10.0.0/16
++    - name: cbr0-interface.network
++      command: start
++      content: |
++        [Match]
++        # Name=eth1
++        MACAddress=52:54:00:00:01:${i}
++
++        [Network]
++        Bridge=cbr0
++    - name: nat.service
++      command: start
++      content: |
++        [Unit]
++        Description=NAT non container traffic
++
++        [Service]
++        ExecStart=/usr/sbin/iptables -w -t nat -A POSTROUTING -o eth0 -j MASQUERADE ! -d 10.10.0.0/16
++        RemainAfterExit=yes
++        Type=oneshot
++    - name: etcd.service
++      command: start
++    - name: docker.service
++      command: start
++      drop-ins:
++        - name: 50-opts.conf
++          content: |
++            [Service]
++            Environment=DOCKER_OPTS='--bridge=cbr0 --iptables=false'
++    - name: docker-tcp.socket
++      command: start
++      enable: yes
++      content: |
++        [Unit]
++        Description=Docker Socket for the API
++
++        [Socket]
++        ListenStream=2375
++        BindIPv6Only=both
++        Service=docker.service
++
++        [Install]
++        WantedBy=sockets.target
++    - name: opt-kubernetes.mount
++      command: start
++      content: |
++        [Unit]
++        ConditionVirtualization=|vm
++
++        [Mount]
++        What=kubernetes
++        Where=/opt/kubernetes
++        Options=ro,trans=virtio,version=9p2000.L
++        Type=9p
++  update:
++    group: ${COREOS_CHANNEL:-alpha}
++    reboot-strategy: off
++
++$( [[ ${type} =~ "master" ]] && render-template "$ROOT/user_data_master.yml" )
++$( [[ ${type} =~ "minion" ]] && render-template "$ROOT/user_data_minion.yml" )
+diff --git a/cluster/libvirt-coreos/user_data_master.yml b/cluster/libvirt-coreos/user_data_master.yml
+new file mode 100644
+index 00000000000..5f1b444198e
+--- /dev/null
++++ b/cluster/libvirt-coreos/user_data_master.yml
+@@ -0,0 +1,63 @@
++#cloud-config
++
++coreos:
++  units:
++    - name: kube-apiserver.service
++      command: start
++      content: |
++        [Unit]
++        After=opt-kubernetes.mount etcd.service
++        ConditionFileIsExecutable=/opt/kubernetes/bin/kube-apiserver
++        Description=Kubernetes API Server
++        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
++        Requires=opt-kubernetes.mount etcd.service
++
++        [Service]
++        ExecStart=/opt/kubernetes/bin/kube-apiserver \
++        --address=0.0.0.0 \
++        --port=8080 \
++        --etcd_servers=http://127.0.0.1:4001 \
++        --kubelet_port=10250 \
++        --portal_net=10.10.254.0/24
++        Restart=always
++        RestartSec=2
++
++        [Install]
++        WantedBy=multi-user.target
++    - name: kube-controller-manager.service
++      command: start
++      content: |
++        [Unit]
++        After=opt-kubernetes.mount kube-apiserver.service
++        ConditionFileIsExecutable=/opt/kubernetes/bin/kube-controller-manager
++        Description=Kubernetes Controller Manager
++        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
++        Requires=opt-kubernetes.mount kube-apiserver.service
++
++        [Service]
++        ExecStart=/opt/kubernetes/bin/kube-controller-manager \
++        --master=127.0.0.1:8080 \
++        --machines=${machines}
++        Restart=always
++        RestartSec=2
++
++        [Install]
++        WantedBy=multi-user.target
++    - name: kube-scheduler.service
++      command: start
++      content: |
++        [Unit]
++        After=opt-kubernetes.mount kube-apiserver.service
++        ConditionFileIsExecutable=/opt/kubernetes/bin/kube-scheduler
++        Description=Kubernetes Scheduler
++        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
++        Requires=opt-kubernetes.mount kube-apiserver.service
++
++        [Service]
++        ExecStart=/opt/kubernetes/bin/kube-scheduler \
++        --master=127.0.0.1:8080
++        Restart=always
++        RestartSec=2
++
++        [Install]
++        WantedBy=multi-user.target
+diff --git a/cluster/libvirt-coreos/user_data_minion.yml b/cluster/libvirt-coreos/user_data_minion.yml
+new file mode 100644
+index 00000000000..139bba85134
+--- /dev/null
++++ b/cluster/libvirt-coreos/user_data_minion.yml
+@@ -0,0 +1,43 @@
++#cloud-config
++
++coreos:
++  units:
++    - name: kubelet.service
++      command: start
++      content: |
++        [Unit]
++        After=opt-kubernetes.mount etcd.service docker.socket
++        ConditionFileIsExecutable=/opt/kubernetes/bin/kubelet
++        Description=Kubernetes Kubelet
++        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
++        Requires=opt-kubernetes.mount etcd.service docker.socket
++
++        [Service]
++        ExecStart=/opt/kubernetes/bin/kubelet \
++        --address=0.0.0.0 \
++        --hostname_override=192.168.10.$(($i+1)) \
++        --etcd_servers=http://127.0.0.1:4001
++        Restart=always
++        RestartSec=2
++
++        [Install]
++        WantedBy=multi-user.target
++    - name: kube-proxy.service
++      command: start
++      content: |
++        [Unit]
++        After=opt-kubernetes.mount etcd.service
++        ConditionFileIsExecutable=/opt/kubernetes/bin/kube-proxy
++        Description=Kubernetes Proxy
++        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
++        Requires=opt-kubernetes.mount etcd.service
++
++        [Service]
++        ExecStart=/opt/kubernetes/bin/kube-proxy \
++        --etcd_servers=http://127.0.0.1:4001 \
++        --master=http://192.168.10.1:7080
++        Restart=always
++        RestartSec=2
++
++        [Install]
++        WantedBy=multi-user.target
+diff --git a/cluster/libvirt-coreos/util.sh b/cluster/libvirt-coreos/util.sh
+new file mode 100644
+index 00000000000..4c4a6f12a5f
+--- /dev/null
++++ b/cluster/libvirt-coreos/util.sh
+@@ -0,0 +1,256 @@
++#!/bin/bash
++
++# Copyright 2014 Google Inc. All rights reserved.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# A library of helper functions that each provider hosting Kubernetes must implement to use cluster/kube-*.sh scripts.
++
++readonly KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../..
++readonly ROOT=$(dirname "${BASH_SOURCE}")
++source $ROOT/${KUBE_CONFIG_FILE:-"config-default.sh"}
++
++export LIBVIRT_DEFAULT_URI=qemu:///system
++
++readonly POOL=kubernetes
++readonly POOL_PATH="$(cd $ROOT && pwd)/libvirt_storage_pool"
++
++# join <delim> <list...>
++# Concatenates the list elements with the delimiter passed as first parameter
++#
++# Ex: join , a b c
++#  -> a,b,c
++function join {
++  local IFS="$1"
++  shift
++  echo "$*"
++}
++
++# Must ensure that the following ENV vars are set
++function detect-master {
++  KUBE_MASTER_IP=192.168.10.1
++  KUBE_MASTER=kubernetes-master
++  export KUBERNETES_MASTER=http://$KUBE_MASTER_IP:8080
++  echo "KUBE_MASTER_IP: $KUBE_MASTER_IP"
++  echo "KUBE_MASTER: $KUBE_MASTER"
++}
++
++# Get minion IP addresses and store in KUBE_MINION_IP_ADDRESSES[]
++function detect-minions {
++  for (( i = 0 ; i < $NUM_MINIONS ; i++ )); do
++    KUBE_MINION_IP_ADDRESSES[$i]=192.168.10.$(($i+2))
++  done
++  echo "KUBE_MINION_IP_ADDRESSES=[${KUBE_MINION_IP_ADDRESSES[@]}]"
++}
++
++# Verify prereqs on host machine
++function verify-prereqs {
++  if ! which virsh >/dev/null; then
++      echo "Can't find virsh in PATH, please fix and retry." >&2
++      exit 1
++  fi
++  if ! virsh nodeinfo >/dev/null; then
++      exit 1
++  fi
++  if [[ "$(</sys/kernel/mm/ksm/run)" -ne "1" ]]; then
++      echo "KSM is not enabled" >&2
++      echo "Enabling it would reduce the memory footprint of large clusters" >&2
++      if [[ -t 0 ]]; then
++          read -t 5 -n 1 -p "Do you want to enable KSM (requires root password) (y/n)? " answer
++          echo ""
++          if [[ "$answer" == 'y' ]]; then
++              su -c 'echo 1 > /sys/kernel/mm/ksm/run'
++          fi
++      else
++        echo "You can enable it with (as root):" >&2
++        echo "" >&2
++        echo "  echo 1 > /sys/kernel/mm/ksm/run" >&2
++        echo "" >&2
++      fi
++  fi
++}
++
++# Destroy the libvirt storage pool and all the images inside
++#
++# If 'keep_base_image' is passed as first parameter,
++# the base image is kept, as well as the storage pool.
++# All the other images are deleted.
++function destroy-pool {
++  virsh pool-info $POOL >/dev/null 2>&1 || return
++
++  rm -rf "$POOL_PATH"/kubernetes/*
++  rm -rf "$POOL_PATH"/kubernetes_config*/*
++  local vol
++  virsh vol-list $POOL | awk 'NR>2 && !/^$/ && $1 ~ /^kubernetes/ {print $1}' | \
++      while read vol; do
++        virsh vol-delete $vol --pool $POOL
++      done
++
++  [[ "$1" == 'keep_base_image' ]] && return
++
++  set +e
++  virsh vol-delete coreos_base.img --pool $POOL
++  virsh pool-destroy $POOL
++  rmdir "$POOL_PATH"
++  set -e
++}
++
++# Creates the libvirt storage pool and populate it with
++# - the CoreOS base image
++# - the kubernetes binaries
++function initialize-pool {
++  mkdir -p "$POOL_PATH"
++  if ! virsh pool-info $POOL >/dev/null 2>&1; then
++      virsh pool-create-as $POOL dir --target "$POOL_PATH"
++  fi
++
++  wget -N -P "$ROOT" http://${COREOS_CHANNEL:-alpha}.release.core-os.net/amd64-usr/current/coreos_production_qemu_image.img.bz2
++  if [ "$ROOT/coreos_production_qemu_image.img.bz2" -nt "$POOL_PATH/coreos_base.img" ]; then
++      bunzip2 -f -k "$ROOT/coreos_production_qemu_image.img.bz2"
++      virsh vol-delete coreos_base.img --pool $POOL 2> /dev/null || true
++      mv "$ROOT/coreos_production_qemu_image.img" "$POOL_PATH/coreos_base.img"
++  fi
++  # if ! virsh vol-list $POOL | grep -q coreos_base.img; then
++  #     virsh vol-create-as $POOL coreos_base.img 10G --format qcow2
++  #     virsh vol-upload coreos_base.img "$ROOT/coreos_production_qemu_image.img" --pool $POOL
++  # fi
++
++  mkdir -p "$POOL_PATH/kubernetes"
++  kube-push
++  virsh pool-refresh $POOL
++}
++
++function destroy-network {
++  set +e
++  virsh net-destroy kubernetes_global
++  virsh net-destroy kubernetes_pods
++  set -e
++}
++
++function initialize-network {
++  virsh net-create "$ROOT/network_kubernetes_global.xml"
++  virsh net-create "$ROOT/network_kubernetes_pods.xml"
++}
++
++function render-template {
++  eval "echo \"$(cat $1)\""
++}
++
++# Instantiate a kubernetes cluster
++function kube-up {
++  detect-master
++  detect-minions
++  initialize-pool keep_base_image
++  initialize-network
++
++  readonly ssh_keys="$(cat ~/.ssh/id_*.pub | sed 's/^/  - /')"
++  readonly kubernetes_dir="$POOL_PATH/kubernetes"
++  readonly discovery=$(curl -s https://discovery.etcd.io/new)
++
++  readonly machines=$(join , "${KUBE_MINION_IP_ADDRESSES[@]}")
++
++  local i
++  for (( i = 0 ; i <= $NUM_MINIONS ; i++ )); do
++    if [[ $i -eq 0 ]]; then
++        type=master
++    else
++      type=minion-$(printf "%02d" $i)
++    fi
++    name=kubernetes_$type
++    image=$name.img
++    config=kubernetes_config_$type
++
++    virsh vol-create-as $POOL $image 10G --format qcow2 --backing-vol coreos_base.img --backing-vol-format qcow2
++
++    mkdir -p "$POOL_PATH/$config/openstack/latest"
++    render-template "$ROOT/user_data.yml" > "$POOL_PATH/$config/openstack/latest/user_data"
++    virsh pool-refresh $POOL
++
++    domain_xml=$(mktemp)
++    render-template $ROOT/coreos.xml > $domain_xml
++    virsh create $domain_xml
++    rm $domain_xml
++  done
++}
++
++# Delete a kubernetes cluster
++function kube-down {
++  virsh list | awk 'NR>2 && !/^$/ && $2 ~ /^kubernetes/ {print $2}' | \
++      while read dom; do
++        virsh destroy $dom
++      done
++  destroy-pool keep_base_image
++  destroy-network
++}
++
++function find-release-tars {
++  SERVER_BINARY_TAR="${KUBE_ROOT}/server/kubernetes-server-linux-amd64.tar.gz"
++  if [[ ! -f "$SERVER_BINARY_TAR" ]]; then
++    SERVER_BINARY_TAR="${KUBE_ROOT}/_output/release-tars/kubernetes-server-linux-amd64.tar.gz"
++  fi
++  if [[ ! -f "$SERVER_BINARY_TAR" ]]; then
++    echo "!!! Cannot find kubernetes-server-linux-amd64.tar.gz"
++    exit 1
++  fi
++}
++
++# The kubernetes binaries are pushed to a host directory which is exposed to the VM
++function upload-server-tars {
++  tar -x -C "$POOL_PATH/kubernetes" -f "$SERVER_BINARY_TAR" kubernetes
++  rm -rf "$POOL_PATH/kubernetes/bin"
++  mv "$POOL_PATH/kubernetes/kubernetes/server/bin" "$POOL_PATH/kubernetes/bin"
++  rmdir "$POOL_PATH/kubernetes/kubernetes/server" "$POOL_PATH/kubernetes/kubernetes"
++}
++
++# Update a kubernetes cluster with latest source
++function kube-push {
++  find-release-tars
++  upload-server-tars
++}
++
++# Execute prior to running tests to build a release if required for env
++function test-build-release {
++  echo "TODO"
++}
++
++# Execute prior to running tests to initialize required structure
++function test-setup {
++  echo "TODO"
++}
++
++# Execute after running tests to perform any required clean-up
++function test-teardown {
++  echo "TODO"
++}
++
++# Set the {KUBE_USER} and {KUBE_PASSWORD} environment values required to interact with provider
++function get-password {
++  export KUBE_USER=core
++  echo "TODO get-password"
++}
++
++function setup-monitoring-firewall {
++  echo "TODO" 1>&2
++}
++
++function teardown-monitoring-firewall {
++  echo "TODO" 1>&2
++}
++
++function setup-logging-firewall {
++  echo "TODO: setup logging"
++}
++
++function teardown-logging-firewall {
++  echo "TODO: teardown logging"
++}
+diff --git a/cluster/validate-cluster.sh b/cluster/validate-cluster.sh
+index bc45b77d025..e9dee7a48f6 100755
+--- a/cluster/validate-cluster.sh
++++ b/cluster/validate-cluster.sh
+@@ -55,7 +55,7 @@ echo "Found ${found} nodes."
+ cat -n "${MINIONS_FILE}"
+ 
+ # On vSphere, use minion IPs as their names
+-if [[ "${KUBERNETES_PROVIDER}" == "vsphere" ]] || [[ "${KUBERNETES_PROVIDER}" == "vagrant" ]]; then
++if [[ "${KUBERNETES_PROVIDER}" == "vsphere" ]] || [[ "${KUBERNETES_PROVIDER}" == "vagrant" ]] || [[ "${KUBERNETES_PROVIDER}" == "libvirt-coreos" ]]; then
+   MINION_NAMES=("${KUBE_MINION_IP_ADDRESSES[@]}")
+ fi
+ 
+diff --git a/docs/getting-started-guides/README.md b/docs/getting-started-guides/README.md
+index aae2fe5b480..e5b1a4d151a 100644
+--- a/docs/getting-started-guides/README.md
++++ b/docs/getting-started-guides/README.md
+@@ -17,7 +17,8 @@ Bare-metal     | custom       | Ubuntu | [docs](../../docs/getting-started-guide
+ Local          |              |        | [docs](../../docs/getting-started-guides/locally.md)   | Inactive                     |
+ Ovirt          |              |        | [docs](../../docs/getting-started-guides/ovirt.md)     | Inactive                     |
+ Rackspace      | CoreOS       | CoreOS | [docs](../../docs/getting-started-guides/rackspace.md) | Inactive                     |
+-Bare-metal        | custom       | CentOS | [docs](../../docs/getting-started-guides/centos/centos_manual_config.md) | Community(@coolsvap)    | Uses K8s v0.9.1
++Bare-metal     | custom       | CentOS | [docs](../../docs/getting-started-guides/centos/centos_manual_config.md) | Community(@coolsvap)    | Uses K8s v0.9.1
++libvirt/KVM    | CoreOS       | CoreOS | [docs](../../docs/getting-started-guides/libvirt-coreos.md) | Community (@lhuard1A)   |
+ Definition of columns:
+   - **IaaS Provider** is who/what provides the virtual or physical machines (nodes) that Kubernetes runs on.
+   - **OS** is the base operating system of the nodes.
+diff --git a/docs/getting-started-guides/libvirt-coreos.md b/docs/getting-started-guides/libvirt-coreos.md
+new file mode 100644
+index 00000000000..8effbff7bdd
+--- /dev/null
++++ b/docs/getting-started-guides/libvirt-coreos.md
+@@ -0,0 +1,235 @@
++## Getting started with libvirt CoreOS
++
++### Highlights
++
++* Super-fast cluster boot-up (few seconds instead of several minutes for vagrant)
++* Reduced disk usage thanks to [COW](https://en.wikibooks.org/wiki/QEMU/Images#Copy_on_write)
++* Reduced memory footprint thanks to [KSM](https://www.kernel.org/doc/Documentation/vm/ksm.txt)
++
++### Prerequisites
++
++1. Install [qemu](http://wiki.qemu.org/Main_Page)
++2. Install [libvirt](http://libvirt.org/)
++3. [Grant libvirt access to your user¹](https://libvirt.org/aclpolkit.html)
++4. Check that your $HOME is accessible to the qemu user²
++
++#### ¹ Depending on your distribution, libvirt access may be denied by default or may require a password at each access.
++
++You can test it with the following command:
++```
++virsh -c qemu:///system pool-list
++```
++
++If you have access error messages, please read https://libvirt.org/acl.html and https://libvirt.org/aclpolkit.html .
++
++In short, if your libvirt has been compiled with Polkit support (ex: Arch, Fedora 21), you can create `/etc/polkit-1/rules.d/50-org.libvirt.unix.manage.rules` with the following content to grant full access to libvirt to `$USER`
++
++```
++polkit.addRule(function(action, subject) {
++        if (action.id == "org.libvirt.unix.manage" &&
++            subject.user == "$USER") {
++                return polkit.Result.YES;
++                polkit.log("action=" + action);
++                polkit.log("subject=" + subject);
++        }
++});
++```
++
++(Replace `$USER` with your login name)
++
++If your libvirt has not been compiled with Polkit (ex: Ubuntu 14.04.1 LTS), check the permissions on the libvirt unix socket:
++
++```
++ls -l /var/run/libvirt/libvirt-sock
++srwxrwx--- 1 root libvirtd 0 févr. 12 16:03 /var/run/libvirt/libvirt-sock
++
++usermod -a -G libvirtd $USER
++# $USER needs to logout/login to have the new group be taken into account
++```
++
++(Replace `$USER` with your login name)
++
++#### ² Qemu will run with a specific user. It must have access to the VMs drives
++
++All the disk drive resources needed by the VM (CoreOS disk image, kubernetes binaries, cloud-init files, etc.) are put inside `./cluster/libvirt-coreos/libvirt_storage_pool`.
++
++As we’re using the `qemu:///system` instance of libvirt, qemu will run with a specific `user:group` distinct from your user. It is configured in `/etc/libvirt/qemu.conf`. That qemu user must have access to that libvirt storage pool.
++
++If your `$HOME` is world readable, everything is fine. If your $HOME is private, `cluster/kube-up.sh` will fail with an error message like:
++
++```
++error: Cannot access storage file '$HOME/.../kubernetes/cluster/libvirt-coreos/libvirt_storage_pool/kubernetes_master.img' (as uid:99, gid:78): Permission denied
++```
++
++In order to fix that issue, you have several possibilities:
++* set `POOL_PATH` inside `cluster/libvirt-coreos/config-default.sh` to a directory:
++  * backed by a filesystem with a lot of free disk space
++  * writable by your user;
++  * accessible by the qemu user.
++* Grant the qemu user access to the storage pool.
++
++On Arch:
++
++```
++setfacl -m g:kvm:--x ~
++```
++
++### Setup
++
++By default, the libvirt-coreos setup will create a single kubernetes master and 3 kubernetes minions. Because the VM drives use Copy-on-Write and because of memory ballooning and KSM, there is a lot of resource over-allocation.
++
++To start your local cluster, open a shell and run:
++
++```shell
++cd kubernetes
++
++export KUBERNETES_PROVIDER=libvirt-coreos
++cluster/kube-up.sh
++```
++
++The `KUBERNETES_PROVIDER` environment variable tells all of the various cluster management scripts which variant to use.  If you forget to set this, the assumption is you are running on Google Compute Engine.
++
++The `NUM_MINIONS` environment variable may be set to specify the number of minions to start. If it is not set, the number of minions defaults to 3.
++
++You can check that your machines are there and running with:
++
++```
++virsh -c qemu:///system list
++ Id    Name                           State
++----------------------------------------------------
++ 15    kubernetes_master              running
++ 16    kubernetes_minion-01           running
++ 17    kubernetes_minion-02           running
++ 18    kubernetes_minion-03           running
++ ```
++
++You can check that the kubernetes cluster is working with:
++
++```
++$ ./cluster/kubectl.sh get minions
++NAME                LABELS              STATUS
++192.168.10.2        <none>              Ready
++192.168.10.3        <none>              Ready
++192.168.10.4        <none>              Ready
++```
++
++The VMs are running [CoreOS](https://coreos.com/).
++Your ssh keys have already been pushed to the VM. (It looks for ~/.ssh/id_*.pub)
++The user to use to connect to the VM is `core`.
++The IP to connect to the master is 192.168.10.1.
++The IPs to connect to the minions are 192.168.10.2 and onwards.
++
++Connect to `kubernetes_master`:
++```
++ssh core@192.168.10.1
++```
++
++Connect to `kubernetes_minion-01`:
++```
++ssh core@192.168.10.2
++```
++
++### Interacting with your Kubernetes cluster with the `kube-*` scripts.
++
++All of the following commands assume you have set `KUBERNETES_PROVIDER` appropriately:
++
++```
++export KUBERNETES_PROVIDER=libvirt-coreos
++```
++
++Bring up a libvirt-CoreOS cluster of 5 minions
++
++```
++NUM_MINIONS=5 cluster/kube-up.sh
++```
++
++Destroy the libvirt-CoreOS cluster
++
++```
++cluster/kube-down.sh
++```
++
++Uptade the libvirt-CoreOS cluster with a new Kubernetes release:
++
++```
++cluster/kube-push.sh
++```
++
++Interact with the cluster
++
++```
++cluster/kubectl.sh
++```
++
++### Troubleshooting
++
++#### !!! Cannot find kubernetes-server-linux-amd64.tar.gz
++
++Build the release tarballs:
++
++```
++make release
++```
++
++#### Can't find virsh in PATH, please fix and retry.
++
++Install libvirt
++
++On Arch:
++
++```
++pacman -S qemu libvirt
++```
++
++On Ubuntu 14.04.1:
++
++```
++aptitude install qemu-system-x86 libvirt-bin
++```
++
++On Fedora 21:
++
++```
++yum install qemu libvirt
++```
++
++#### error: Failed to connect socket to '/var/run/libvirt/libvirt-sock': No such file or directory
++
++Start the libvirt daemon
++
++On Arch:
++
++```
++systemctl start libvirtd
++```
++
++On Ubuntu 14.04.1:
++
++```
++service libvirt-bin start
++```
++
++#### error: Failed to connect socket to '/var/run/libvirt/libvirt-sock': Permission denied
++
++Fix libvirt access permission (Remember to adapt `$USER`)
++
++On Arch and Fedora 21:
++
++```
++cat > /etc/polkit-1/rules.d/50-org.libvirt.unix.manage.rules <<EOF
++polkit.addRule(function(action, subject) {
++        if (action.id == "org.libvirt.unix.manage" &&
++            subject.user == "$USER") {
++                return polkit.Result.YES;
++                polkit.log("action=" + action);
++                polkit.log("subject=" + subject);
++        }
++});
++EOF
++```
++
++On Ubuntu:
++
++```
++usermod -a -G libvirtd $USER
++```
+
+commit 1d12cad456d54df3a1baa6a7ce6276060d8a26ff
+Author: Rajat Chopra <rchopra@redhat.com>
+Date:   Mon Feb 9 13:58:45 2015 -0800
+
+    Fix vagrant networking. Include the master as part of overlay. And remove STP for efficiency.
+    fix e2e services for vagrant
+    Kubelet should wait on SDN to finish
+    Do not require docker on master for default clouds
+
+diff --git a/cluster/saltbase/salt/kubelet/init.sls b/cluster/saltbase/salt/kubelet/init.sls
+index 3e85b63bdef..b53717307c0 100644
+--- a/cluster/saltbase/salt/kubelet/init.sls
++++ b/cluster/saltbase/salt/kubelet/init.sls
+@@ -70,4 +70,7 @@ kubelet:
+       - file: /etc/init.d/kubelet
+ {% endif %}
+       - file: /var/lib/kubelet/kubernetes_auth
++{% if grains.network_mode is defined and grains.network_mode == 'openvswitch' %}
++      - sls: sdn
++{% endif %}
+ 
+diff --git a/cluster/saltbase/salt/top.sls b/cluster/saltbase/salt/top.sls
+index 3a34d349072..48af5cd93d9 100644
+--- a/cluster/saltbase/salt/top.sls
++++ b/cluster/saltbase/salt/top.sls
+@@ -41,6 +41,10 @@ base:
+ {% if grains['cloud'] is defined and grains['cloud'] == 'azure' %}
+     - openvpn
+ {% endif %}
++{% if grains['cloud'] is defined and grains['cloud'] == 'vagrant' %}
++    - docker
++    - sdn
++{% endif %}
+ 
+   'roles:kubernetes-pool-vsphere':
+     - match: grain
+diff --git a/cluster/vagrant/config-default.sh b/cluster/vagrant/config-default.sh
+index bde0db27b23..f831bf32c74 100755
+--- a/cluster/vagrant/config-default.sh
++++ b/cluster/vagrant/config-default.sh
+@@ -29,12 +29,15 @@ export MASTER_NAME="${INSTANCE_PREFIX}-master"
+ # Map out the IPs, names and container subnets of each minion
+ export MINION_IP_BASE="10.245.1."
+ MINION_CONTAINER_SUBNET_BASE="10.246"
++MASTER_CONTAINER_NETMASK="255.255.255.0"
++MASTER_CONTAINER_ADDR="${MINION_CONTAINER_SUBNET_BASE}.0.1"
++MASTER_CONTAINER_SUBNET="${MINION_CONTAINER_SUBNET_BASE}.0.1/24"
+ CONTAINER_SUBNET="${MINION_CONTAINER_SUBNET_BASE}.0.0/16"
+ for ((i=0; i < NUM_MINIONS; i++)) do
+   MINION_IPS[$i]="${MINION_IP_BASE}$((i+3))"
+   MINION_NAMES[$i]="${INSTANCE_PREFIX}-minion-$((i+1))"
+-  MINION_CONTAINER_SUBNETS[$i]="${MINION_CONTAINER_SUBNET_BASE}.${i}.1/24"
+-  MINION_CONTAINER_ADDRS[$i]="${MINION_CONTAINER_SUBNET_BASE}.${i}.1"
++  MINION_CONTAINER_SUBNETS[$i]="${MINION_CONTAINER_SUBNET_BASE}.$((i+1)).1/24"
++  MINION_CONTAINER_ADDRS[$i]="${MINION_CONTAINER_SUBNET_BASE}.$((i+1)).1"
+   MINION_CONTAINER_NETMASKS[$i]="255.255.255.0"
+   VAGRANT_MINION_NAMES[$i]="minion-$((i+1))"
+ done
+@@ -69,4 +72,4 @@ DNS_REPLICAS=1
+ 
+ # Optional: Enable setting flags for kube-apiserver to turn on behavior in active-dev
+ RUNTIME_CONFIG=""
+-#RUNTIME_CONFIG="api/v1beta3"
+\ No newline at end of file
++#RUNTIME_CONFIG="api/v1beta3"
+diff --git a/cluster/vagrant/provision-network.sh b/cluster/vagrant/provision-network.sh
+index 6a24936cf16..d18eb0085db 100755
+--- a/cluster/vagrant/provision-network.sh
++++ b/cluster/vagrant/provision-network.sh
+@@ -16,7 +16,8 @@
+ 
+ DOCKER_BRIDGE=kbr0
+ OVS_SWITCH=obr0
+-GRE_TUNNEL_BASE=gre
++DOCKER_OVS_TUN=tun0
++TUNNEL_BASE=gre
+ NETWORK_CONF_PATH=/etc/sysconfig/network-scripts/
+ POST_NETWORK_SCRIPT_DIR=/kubernetes-vagrant
+ POST_NETWORK_SCRIPT=${POST_NETWORK_SCRIPT_DIR}/network_closure.sh
+@@ -24,55 +25,6 @@ POST_NETWORK_SCRIPT=${POST_NETWORK_SCRIPT_DIR}/network_closure.sh
+ # ensure location of POST_NETWORK_SCRIPT exists
+ mkdir -p $POST_NETWORK_SCRIPT_DIR
+ 
+-# add docker bridge ifcfg file
+-cat <<EOF > ${NETWORK_CONF_PATH}ifcfg-${DOCKER_BRIDGE}
+-# Generated by yours truly
+-DEVICE=${DOCKER_BRIDGE}
+-ONBOOT=yes
+-TYPE=Bridge
+-BOOTPROTO=static
+-IPADDR=${MINION_CONTAINER_ADDR}
+-NETMASK=${MINION_CONTAINER_NETMASK}
+-STP=yes
+-EOF
+-
+-# add the ovs bridge ifcfg file
+-cat <<EOF > ${NETWORK_CONF_PATH}ifcfg-${OVS_SWITCH}
+-DEVICE=${OVS_SWITCH}
+-ONBOOT=yes
+-DEVICETYPE=ovs
+-TYPE=OVSBridge
+-BOOTPROTO=static
+-HOTPLUG=no
+-BRIDGE=${DOCKER_BRIDGE}
+-EOF
+-
+-# now loop through all other minions and create persistent gre tunnels
+-GRE_NUM=0
+-for remote_ip in "${MINION_IPS[@]}"
+-do
+-    if [ "${remote_ip}" == "${MINION_IP}" ]; then
+-         continue
+-    fi
+-    ((GRE_NUM++)) || echo
+-    GRE_TUNNEL=${GRE_TUNNEL_BASE}${GRE_NUM}
+-    # ovs-vsctl add-port ${OVS_SWITCH} ${GRE_TUNNEL} -- set interface ${GRE_TUNNEL} type=gre options:remote_ip=${remote_ip}
+-    cat <<EOF >  ${NETWORK_CONF_PATH}ifcfg-${GRE_TUNNEL}
+-DEVICE=${GRE_TUNNEL}
+-ONBOOT=yes
+-DEVICETYPE=ovs
+-TYPE=OVSTunnel
+-OVS_BRIDGE=${OVS_SWITCH}
+-OVS_TUNNEL_TYPE=gre
+-OVS_TUNNEL_OPTIONS="options:remote_ip=${remote_ip}"
+-EOF
+-done
+-
+-# add ip route rules such that all pod traffic flows through docker bridge and consequently to the gre tunnels
+-cat <<EOF > ${NETWORK_CONF_PATH}route-${DOCKER_BRIDGE}
+-${CONTAINER_SUBNET} dev ${DOCKER_BRIDGE} scope link src ${MINION_CONTAINER_ADDR}
+-EOF
+-
+ # generate the post-configure script to be called by salt as cmd.wait
+ cat <<EOF > ${POST_NETWORK_SCRIPT}
+ #!/bin/bash
+@@ -81,27 +33,58 @@ set -e
+ 
+ # Only do this operation once, otherwise, we get docker.service files output on disk, and the command line arguments get applied multiple times
+ grep -q kbr0 /etc/sysconfig/docker || {
++  CONTAINER_SUBNETS=(${MASTER_CONTAINER_SUBNET} ${MINION_CONTAINER_SUBNETS[@]})
++  CONTAINER_IPS=(${MASTER_IP} ${MINION_IPS[@]})
++
+   # Stop docker before making these updates
+   systemctl stop docker
+ 
+-  # NAT interface fails to revive on network restart, so OR-gate to true
+-  systemctl restart network.service || true
+-
+-  # set docker bridge up, and set stp on the ovs bridge
++  # create new docker bridge
++  ip link set dev ${DOCKER_BRIDGE} down || true
++  brctl delbr ${DOCKER_BRIDGE} || true
++  brctl addbr ${DOCKER_BRIDGE}
+   ip link set dev ${DOCKER_BRIDGE} up
+-  ovs-vsctl set Bridge ${OVS_SWITCH} stp_enable=true
++  ifconfig ${DOCKER_BRIDGE} ${CONTAINER_ADDR} netmask ${CONTAINER_NETMASK} up
++
++  # add ovs bridge
++  ovs-vsctl del-br ${OVS_SWITCH} || true
++  ovs-vsctl add-br ${OVS_SWITCH} -- set Bridge ${OVS_SWITCH} fail-mode=secure
++  ovs-vsctl set bridge ${OVS_SWITCH} protocols=OpenFlow13
++  ovs-vsctl del-port ${OVS_SWITCH} ${TUNNEL_BASE}0 || true
++  ovs-vsctl add-port ${OVS_SWITCH} ${TUNNEL_BASE}0 -- set Interface ${TUNNEL_BASE}0 type=${TUNNEL_BASE} options:remote_ip="flow" options:key="flow" ofport_request=10
++
++  # add tun device
++  ovs-vsctl del-port ${OVS_SWITCH} ${DOCKER_OVS_TUN} || true
++  ovs-vsctl add-port ${OVS_SWITCH} ${DOCKER_OVS_TUN} -- set Interface ${DOCKER_OVS_TUN} type=internal ofport_request=9
++  brctl addif ${DOCKER_BRIDGE} ${DOCKER_OVS_TUN}
++  ip link set ${DOCKER_OVS_TUN} up
++
++
++  # add oflow rules, because we do not want to use stp
++  ovs-ofctl -O OpenFlow13 del-flows ${OVS_SWITCH}
++
++  # now loop through all other minions and create persistent gre tunnels
++  NODE_INDEX=0
++  for remote_ip in "\${CONTAINER_IPS[@]}"
++  do
++      if [ "\${remote_ip}" == "${NODE_IP}" ]; then
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,ip,in_port=10,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=output:9"
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,arp,in_port=10,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=output:9"
++      else
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,in_port=9,ip,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=set_field:\${remote_ip}->tun_dst,output:10"
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,in_port=9,arp,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=set_field:\${remote_ip}->tun_dst,output:10"
++      fi
++      ((NODE_INDEX++)) || true
++  done
++
++  # add ip route rules such that all pod traffic flows through docker bridge and consequently to the gre tunnels
++  ip route add ${CONTAINER_SUBNET} dev ${DOCKER_BRIDGE} scope link src ${CONTAINER_ADDR}
++
+ 
+   # modify the docker service file such that it uses the kube docker bridge and not its own
+-  #echo "OPTIONS=-b=kbr0 --iptables=false --selinux-enabled" > /etc/sysconfig/docker
+-  echo "OPTIONS='-b=kbr0 --iptables=false --selinux-enabled ${DOCKER_OPTS}'" >/etc/sysconfig/docker
++  echo "OPTIONS='-b=kbr0 --selinux-enabled ${DOCKER_OPTS}'" >/etc/sysconfig/docker
+   systemctl daemon-reload
+-  systemctl restart docker.service
+-
+-  # setup iptables masquerade rules so the pods can reach the internet
+-  iptables -t nat -A POSTROUTING -s ${CONTAINER_SUBNET} ! -d ${CONTAINER_SUBNET} -j MASQUERADE
+-
+-  # persist please
+-  iptables-save >& /etc/sysconfig/iptables
++  systemctl start docker
+ }
+ EOF
+ 
+diff --git a/cluster/vagrant/util.sh b/cluster/vagrant/util.sh
+index ac707ca9a78..33285e6d202 100644
+--- a/cluster/vagrant/util.sh
++++ b/cluster/vagrant/util.sh
+@@ -69,6 +69,13 @@ function create-provision-scripts {
+     echo "MASTER_IP='${MASTER_IP}'"
+     echo "MINION_NAMES=(${MINION_NAMES[@]})"
+     echo "MINION_IPS=(${MINION_IPS[@]})"
++    echo "NODE_IP='${MASTER_IP}'"
++    echo "CONTAINER_SUBNET='${CONTAINER_SUBNET}'"
++    echo "CONTAINER_NETMASK='${MASTER_CONTAINER_NETMASK}'"
++    echo "MASTER_CONTAINER_SUBNET='${MASTER_CONTAINER_SUBNET}'"
++    echo "CONTAINER_ADDR='${MASTER_CONTAINER_ADDR}'"
++    echo "MINION_CONTAINER_NETMASKS='${MINION_CONTAINER_NETMASKS[@]}'"
++    echo "MINION_CONTAINER_SUBNETS=(${MINION_CONTAINER_SUBNETS[@]})"
+     echo "PORTAL_NET='${PORTAL_NET}'"
+     echo "MASTER_USER='${MASTER_USER}'"
+     echo "MASTER_PASSWD='${MASTER_PASSWD}'"
+@@ -80,6 +87,7 @@ function create-provision-scripts {
+     echo "DNS_DOMAIN='${DNS_DOMAIN:-}'"
+     echo "RUNTIME_CONFIG='${RUNTIME_CONFIG:-}'"
+     grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-master.sh"
++    grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-network.sh"
+   ) > "${KUBE_TEMP}/master-start.sh"
+ 
+   for (( i=0; i<${#MINION_NAMES[@]}; i++)); do
+@@ -91,8 +99,11 @@ function create-provision-scripts {
+       echo "MINION_IPS=(${MINION_IPS[@]})"
+       echo "MINION_IP='${MINION_IPS[$i]}'"
+       echo "MINION_ID='$i'"
+-      echo "MINION_CONTAINER_ADDR='${MINION_CONTAINER_ADDRS[$i]}'"
+-      echo "MINION_CONTAINER_NETMASK='${MINION_CONTAINER_NETMASKS[$i]}'"
++      echo "NODE_IP='${MINION_IPS[$i]}'"
++      echo "MASTER_CONTAINER_SUBNET='${MASTER_CONTAINER_SUBNET}'"
++      echo "CONTAINER_ADDR='${MINION_CONTAINER_ADDRS[$i]}'"
++      echo "CONTAINER_NETMASK='${MINION_CONTAINER_NETMASKS[$i]}'"
++      echo "MINION_CONTAINER_SUBNETS=(${MINION_CONTAINER_SUBNETS[@]})"
+       echo "CONTAINER_SUBNET='${CONTAINER_SUBNET}'"
+       echo "DOCKER_OPTS='${EXTRA_DOCKER_OPTS-}'"
+       grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-minion.sh"
+@@ -257,6 +268,10 @@ function find-vagrant-name-by-ip {
+ # Find the vagrant machien name based on the host name of the minion
+ function find-vagrant-name-by-minion-name {
+   local ip="$1"
++  if [[ "$ip" == "${INSTANCE_PREFIX}-master" ]]; then
++    echo "master"
++    return $?
++  fi
+   local ip_pattern="${INSTANCE_PREFIX}-minion-(.*)"
+ 
+   [[ $ip =~ $ip_pattern ]] || {
+@@ -280,7 +295,7 @@ function ssh-to-node {
+     return 1
+   }
+ 
+-  vagrant ssh "${machine}" -c "${cmd}" | grep -v "Connection to.*closed"
++  vagrant ssh "${machine}" -c "${cmd}"
+ }
+ 
+ # Restart the kube-proxy on a node ($1)
+@@ -288,6 +303,11 @@ function restart-kube-proxy {
+   ssh-to-node "$1" "sudo systemctl restart kube-proxy"
+ }
+ 
++# Restart the apiserver
++function restart-apiserver {
++  ssh-to-node "${master}" "sudo systemctl restart kube-apiserver"
++}
++
+ function setup-monitoring-firewall {
+   echo "TODO" 1>&2
+ }
+diff --git a/hack/e2e-suite/services.sh b/hack/e2e-suite/services.sh
+index a8b4ec9d031..73e049582fc 100755
+--- a/hack/e2e-suite/services.sh
++++ b/hack/e2e-suite/services.sh
+@@ -33,11 +33,6 @@ source "${KUBE_VERSION_ROOT}/cluster/${KUBERNETES_PROVIDER}/util.sh"
+ 
+ prepare-e2e
+ 
+-if [[ "$KUBERNETES_PROVIDER" == "vagrant" ]]; then
+-  echo "WARNING: Skipping services.sh for ${KUBERNETES_PROVIDER}.  See https://github.com/GoogleCloudPlatform/kubernetes/issues/3655"
+-  exit 0
+-fi
+-
+ function error() {
+   echo "$@" >&2
+   exit 1
+@@ -266,7 +261,7 @@ function verify_from_container() {
+           for i in $(seq -s' ' 1 $4); do
+             ok=false
+             for j in $(seq -s' ' 1 10); do
+-              if wget -q -T 1 -O - http://$2:$3; then
++              if wget -q -T 5 -O - http://$2:$3; then
+                 echo
+                 ok=true
+                 break
+@@ -420,7 +415,11 @@ verify_from_container "${svc3_name}" "${svc3_ip}" "${svc3_port}" \
+ #
+ echo "Test 6: Restart the master, make sure portals come back."
+ echo "Restarting the master"
+-ssh-to-node "${master}" "sudo /etc/init.d/kube-apiserver restart"
++if [[ "$KUBERNETES_PROVIDER" == "vagrant" ]]; then
++    restart-apiserver "${master}"
++else
++    ssh-to-node "${master}" "sudo /etc/init.d/kube-apiserver restart"
++fi
+ sleep 5
+ echo "Verifying the portals from the host"
+ wait_for_service_up "${svc3_name}" "${svc3_ip}" "${svc3_port}" \
+
+commit b61ea1bbf1ada4b9d2eafd61a2341fc9ae614247
+Author: Rajat Chopra <rchopra@redhat.com>
+Date:   Thu Feb 5 17:40:45 2015 -0800
+
+    Fix vagrant networking. Include the master as part of overlay. And remove STP for efficiency.
+
+diff --git a/Vagrantfile b/Vagrantfile
+index da243b3f89c..a61f6a321af 100644
+--- a/Vagrantfile
++++ b/Vagrantfile
+@@ -17,7 +17,7 @@ END
+ end
+ 
+ # The number of minions to provision
+-$num_minion = (ENV['NUM_MINIONS'] || 1).to_i
++$num_minion = (ENV['NUM_MINIONS'] || 2).to_i
+ 
+ # ip configuration
+ $master_ip = ENV['MASTER_IP']
+diff --git a/cluster/saltbase/salt/top.sls b/cluster/saltbase/salt/top.sls
+index 3a34d349072..35421f3a219 100644
+--- a/cluster/saltbase/salt/top.sls
++++ b/cluster/saltbase/salt/top.sls
+@@ -40,6 +40,9 @@ base:
+     - kube-addons
+ {% if grains['cloud'] is defined and grains['cloud'] == 'azure' %}
+     - openvpn
++{% else %}
++    - docker
++    - sdn
+ {% endif %}
+ 
+   'roles:kubernetes-pool-vsphere':
+diff --git a/cluster/vagrant/config-default.sh b/cluster/vagrant/config-default.sh
+index bde0db27b23..67b248779ae 100755
+--- a/cluster/vagrant/config-default.sh
++++ b/cluster/vagrant/config-default.sh
+@@ -17,7 +17,7 @@
+ ## Contains configuration values for interacting with the Vagrant cluster
+ 
+ # Number of minions in the cluster
+-NUM_MINIONS=${NUM_MINIONS-"1"}
++NUM_MINIONS=${NUM_MINIONS-"2"}
+ export NUM_MINIONS
+ 
+ # The IP of the master
+@@ -29,12 +29,15 @@ export MASTER_NAME="${INSTANCE_PREFIX}-master"
+ # Map out the IPs, names and container subnets of each minion
+ export MINION_IP_BASE="10.245.1."
+ MINION_CONTAINER_SUBNET_BASE="10.246"
++MASTER_CONTAINER_NETMASK="255.255.255.0"
++MASTER_CONTAINER_ADDR="${MINION_CONTAINER_SUBNET_BASE}.0.1"
++MASTER_CONTAINER_SUBNET="${MINION_CONTAINER_SUBNET_BASE}.0.1/24"
+ CONTAINER_SUBNET="${MINION_CONTAINER_SUBNET_BASE}.0.0/16"
+ for ((i=0; i < NUM_MINIONS; i++)) do
+   MINION_IPS[$i]="${MINION_IP_BASE}$((i+3))"
+   MINION_NAMES[$i]="${INSTANCE_PREFIX}-minion-$((i+1))"
+-  MINION_CONTAINER_SUBNETS[$i]="${MINION_CONTAINER_SUBNET_BASE}.${i}.1/24"
+-  MINION_CONTAINER_ADDRS[$i]="${MINION_CONTAINER_SUBNET_BASE}.${i}.1"
++  MINION_CONTAINER_SUBNETS[$i]="${MINION_CONTAINER_SUBNET_BASE}.$((i+1)).1/24"
++  MINION_CONTAINER_ADDRS[$i]="${MINION_CONTAINER_SUBNET_BASE}.$((i+1)).1"
+   MINION_CONTAINER_NETMASKS[$i]="255.255.255.0"
+   VAGRANT_MINION_NAMES[$i]="minion-$((i+1))"
+ done
+@@ -69,4 +72,4 @@ DNS_REPLICAS=1
+ 
+ # Optional: Enable setting flags for kube-apiserver to turn on behavior in active-dev
+ RUNTIME_CONFIG=""
+-#RUNTIME_CONFIG="api/v1beta3"
+\ No newline at end of file
++#RUNTIME_CONFIG="api/v1beta3"
+diff --git a/cluster/vagrant/provision-network.sh b/cluster/vagrant/provision-network.sh
+index 6a24936cf16..d18eb0085db 100755
+--- a/cluster/vagrant/provision-network.sh
++++ b/cluster/vagrant/provision-network.sh
+@@ -16,7 +16,8 @@
+ 
+ DOCKER_BRIDGE=kbr0
+ OVS_SWITCH=obr0
+-GRE_TUNNEL_BASE=gre
++DOCKER_OVS_TUN=tun0
++TUNNEL_BASE=gre
+ NETWORK_CONF_PATH=/etc/sysconfig/network-scripts/
+ POST_NETWORK_SCRIPT_DIR=/kubernetes-vagrant
+ POST_NETWORK_SCRIPT=${POST_NETWORK_SCRIPT_DIR}/network_closure.sh
+@@ -24,55 +25,6 @@ POST_NETWORK_SCRIPT=${POST_NETWORK_SCRIPT_DIR}/network_closure.sh
+ # ensure location of POST_NETWORK_SCRIPT exists
+ mkdir -p $POST_NETWORK_SCRIPT_DIR
+ 
+-# add docker bridge ifcfg file
+-cat <<EOF > ${NETWORK_CONF_PATH}ifcfg-${DOCKER_BRIDGE}
+-# Generated by yours truly
+-DEVICE=${DOCKER_BRIDGE}
+-ONBOOT=yes
+-TYPE=Bridge
+-BOOTPROTO=static
+-IPADDR=${MINION_CONTAINER_ADDR}
+-NETMASK=${MINION_CONTAINER_NETMASK}
+-STP=yes
+-EOF
+-
+-# add the ovs bridge ifcfg file
+-cat <<EOF > ${NETWORK_CONF_PATH}ifcfg-${OVS_SWITCH}
+-DEVICE=${OVS_SWITCH}
+-ONBOOT=yes
+-DEVICETYPE=ovs
+-TYPE=OVSBridge
+-BOOTPROTO=static
+-HOTPLUG=no
+-BRIDGE=${DOCKER_BRIDGE}
+-EOF
+-
+-# now loop through all other minions and create persistent gre tunnels
+-GRE_NUM=0
+-for remote_ip in "${MINION_IPS[@]}"
+-do
+-    if [ "${remote_ip}" == "${MINION_IP}" ]; then
+-         continue
+-    fi
+-    ((GRE_NUM++)) || echo
+-    GRE_TUNNEL=${GRE_TUNNEL_BASE}${GRE_NUM}
+-    # ovs-vsctl add-port ${OVS_SWITCH} ${GRE_TUNNEL} -- set interface ${GRE_TUNNEL} type=gre options:remote_ip=${remote_ip}
+-    cat <<EOF >  ${NETWORK_CONF_PATH}ifcfg-${GRE_TUNNEL}
+-DEVICE=${GRE_TUNNEL}
+-ONBOOT=yes
+-DEVICETYPE=ovs
+-TYPE=OVSTunnel
+-OVS_BRIDGE=${OVS_SWITCH}
+-OVS_TUNNEL_TYPE=gre
+-OVS_TUNNEL_OPTIONS="options:remote_ip=${remote_ip}"
+-EOF
+-done
+-
+-# add ip route rules such that all pod traffic flows through docker bridge and consequently to the gre tunnels
+-cat <<EOF > ${NETWORK_CONF_PATH}route-${DOCKER_BRIDGE}
+-${CONTAINER_SUBNET} dev ${DOCKER_BRIDGE} scope link src ${MINION_CONTAINER_ADDR}
+-EOF
+-
+ # generate the post-configure script to be called by salt as cmd.wait
+ cat <<EOF > ${POST_NETWORK_SCRIPT}
+ #!/bin/bash
+@@ -81,27 +33,58 @@ set -e
+ 
+ # Only do this operation once, otherwise, we get docker.service files output on disk, and the command line arguments get applied multiple times
+ grep -q kbr0 /etc/sysconfig/docker || {
++  CONTAINER_SUBNETS=(${MASTER_CONTAINER_SUBNET} ${MINION_CONTAINER_SUBNETS[@]})
++  CONTAINER_IPS=(${MASTER_IP} ${MINION_IPS[@]})
++
+   # Stop docker before making these updates
+   systemctl stop docker
+ 
+-  # NAT interface fails to revive on network restart, so OR-gate to true
+-  systemctl restart network.service || true
+-
+-  # set docker bridge up, and set stp on the ovs bridge
++  # create new docker bridge
++  ip link set dev ${DOCKER_BRIDGE} down || true
++  brctl delbr ${DOCKER_BRIDGE} || true
++  brctl addbr ${DOCKER_BRIDGE}
+   ip link set dev ${DOCKER_BRIDGE} up
+-  ovs-vsctl set Bridge ${OVS_SWITCH} stp_enable=true
++  ifconfig ${DOCKER_BRIDGE} ${CONTAINER_ADDR} netmask ${CONTAINER_NETMASK} up
++
++  # add ovs bridge
++  ovs-vsctl del-br ${OVS_SWITCH} || true
++  ovs-vsctl add-br ${OVS_SWITCH} -- set Bridge ${OVS_SWITCH} fail-mode=secure
++  ovs-vsctl set bridge ${OVS_SWITCH} protocols=OpenFlow13
++  ovs-vsctl del-port ${OVS_SWITCH} ${TUNNEL_BASE}0 || true
++  ovs-vsctl add-port ${OVS_SWITCH} ${TUNNEL_BASE}0 -- set Interface ${TUNNEL_BASE}0 type=${TUNNEL_BASE} options:remote_ip="flow" options:key="flow" ofport_request=10
++
++  # add tun device
++  ovs-vsctl del-port ${OVS_SWITCH} ${DOCKER_OVS_TUN} || true
++  ovs-vsctl add-port ${OVS_SWITCH} ${DOCKER_OVS_TUN} -- set Interface ${DOCKER_OVS_TUN} type=internal ofport_request=9
++  brctl addif ${DOCKER_BRIDGE} ${DOCKER_OVS_TUN}
++  ip link set ${DOCKER_OVS_TUN} up
++
++
++  # add oflow rules, because we do not want to use stp
++  ovs-ofctl -O OpenFlow13 del-flows ${OVS_SWITCH}
++
++  # now loop through all other minions and create persistent gre tunnels
++  NODE_INDEX=0
++  for remote_ip in "\${CONTAINER_IPS[@]}"
++  do
++      if [ "\${remote_ip}" == "${NODE_IP}" ]; then
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,ip,in_port=10,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=output:9"
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,arp,in_port=10,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=output:9"
++      else
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,in_port=9,ip,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=set_field:\${remote_ip}->tun_dst,output:10"
++           ovs-ofctl -O OpenFlow13 add-flow ${OVS_SWITCH} "table=0,in_port=9,arp,nw_dst=\${CONTAINER_SUBNETS[\${NODE_INDEX}]},actions=set_field:\${remote_ip}->tun_dst,output:10"
++      fi
++      ((NODE_INDEX++)) || true
++  done
++
++  # add ip route rules such that all pod traffic flows through docker bridge and consequently to the gre tunnels
++  ip route add ${CONTAINER_SUBNET} dev ${DOCKER_BRIDGE} scope link src ${CONTAINER_ADDR}
++
+ 
+   # modify the docker service file such that it uses the kube docker bridge and not its own
+-  #echo "OPTIONS=-b=kbr0 --iptables=false --selinux-enabled" > /etc/sysconfig/docker
+-  echo "OPTIONS='-b=kbr0 --iptables=false --selinux-enabled ${DOCKER_OPTS}'" >/etc/sysconfig/docker
++  echo "OPTIONS='-b=kbr0 --selinux-enabled ${DOCKER_OPTS}'" >/etc/sysconfig/docker
+   systemctl daemon-reload
+-  systemctl restart docker.service
+-
+-  # setup iptables masquerade rules so the pods can reach the internet
+-  iptables -t nat -A POSTROUTING -s ${CONTAINER_SUBNET} ! -d ${CONTAINER_SUBNET} -j MASQUERADE
+-
+-  # persist please
+-  iptables-save >& /etc/sysconfig/iptables
++  systemctl start docker
+ }
+ EOF
+ 
+diff --git a/cluster/vagrant/util.sh b/cluster/vagrant/util.sh
+index ac707ca9a78..4336c7a5166 100644
+--- a/cluster/vagrant/util.sh
++++ b/cluster/vagrant/util.sh
+@@ -69,6 +69,13 @@ function create-provision-scripts {
+     echo "MASTER_IP='${MASTER_IP}'"
+     echo "MINION_NAMES=(${MINION_NAMES[@]})"
+     echo "MINION_IPS=(${MINION_IPS[@]})"
++    echo "NODE_IP='${MASTER_IP}'"
++    echo "CONTAINER_SUBNET='${CONTAINER_SUBNET}'"
++    echo "CONTAINER_NETMASK='${MASTER_CONTAINER_NETMASK}'"
++    echo "MASTER_CONTAINER_SUBNET='${MASTER_CONTAINER_SUBNET}'"
++    echo "CONTAINER_ADDR='${MASTER_CONTAINER_ADDR}'"
++    echo "MINION_CONTAINER_NETMASKS='${MINION_CONTAINER_NETMASKS[@]}'"
++    echo "MINION_CONTAINER_SUBNETS=(${MINION_CONTAINER_SUBNETS[@]})"
+     echo "PORTAL_NET='${PORTAL_NET}'"
+     echo "MASTER_USER='${MASTER_USER}'"
+     echo "MASTER_PASSWD='${MASTER_PASSWD}'"
+@@ -80,6 +87,7 @@ function create-provision-scripts {
+     echo "DNS_DOMAIN='${DNS_DOMAIN:-}'"
+     echo "RUNTIME_CONFIG='${RUNTIME_CONFIG:-}'"
+     grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-master.sh"
++    grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-network.sh"
+   ) > "${KUBE_TEMP}/master-start.sh"
+ 
+   for (( i=0; i<${#MINION_NAMES[@]}; i++)); do
+@@ -91,8 +99,11 @@ function create-provision-scripts {
+       echo "MINION_IPS=(${MINION_IPS[@]})"
+       echo "MINION_IP='${MINION_IPS[$i]}'"
+       echo "MINION_ID='$i'"
+-      echo "MINION_CONTAINER_ADDR='${MINION_CONTAINER_ADDRS[$i]}'"
+-      echo "MINION_CONTAINER_NETMASK='${MINION_CONTAINER_NETMASKS[$i]}'"
++      echo "NODE_IP='${MINION_IPS[$i]}'"
++      echo "MASTER_CONTAINER_SUBNET='${MASTER_CONTAINER_SUBNET}'"
++      echo "CONTAINER_ADDR='${MINION_CONTAINER_ADDRS[$i]}'"
++      echo "CONTAINER_NETMASK='${MINION_CONTAINER_NETMASKS[$i]}'"
++      echo "MINION_CONTAINER_SUBNETS=(${MINION_CONTAINER_SUBNETS[@]})"
+       echo "CONTAINER_SUBNET='${CONTAINER_SUBNET}'"
+       echo "DOCKER_OPTS='${EXTRA_DOCKER_OPTS-}'"
+       grep -v "^#" "${KUBE_ROOT}/cluster/vagrant/provision-minion.sh"
+diff --git a/hack/e2e-suite/services.sh b/hack/e2e-suite/services.sh
+index a8b4ec9d031..d24639d04c1 100755
+--- a/hack/e2e-suite/services.sh
++++ b/hack/e2e-suite/services.sh
+@@ -33,11 +33,6 @@ source "${KUBE_VERSION_ROOT}/cluster/${KUBERNETES_PROVIDER}/util.sh"
+ 
+ prepare-e2e
+ 
+-if [[ "$KUBERNETES_PROVIDER" == "vagrant" ]]; then
+-  echo "WARNING: Skipping services.sh for ${KUBERNETES_PROVIDER}.  See https://github.com/GoogleCloudPlatform/kubernetes/issues/3655"
+-  exit 0
+-fi
+-
+ function error() {
+   echo "$@" >&2
+   exit 1

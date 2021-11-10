@@ -1,0 +1,783 @@
+commit 17174976b6b613bf6d2e41d8b17a75b57252d8ae
+Author: AJ Heller <hork@google.com>
+Date:   Tue Sep 7 13:22:57 2021 -0700
+
+    Remove the TaskHandle return type from EventEngine::Run (#27269)
+    
+    It isn't used in gRPC currently, and would be difficult to implement
+    efficiently in some scenarios.
+
+commit 2f838fd3b1cd89d00c4b583c6a066c22cbee1ca1
+Author: AJ Heller <hork@google.com>
+Date:   Tue Aug 31 17:54:12 2021 -0700
+
+    Remove EventEngine::Shutdown (#27207)
+    
+    It was determined that an explicit Shutdown method is not necessary, and further, it can be challenging to implement efficiently in some cases. Instead, EventEngines are expected to clean themselves up upon destruction. Anything that relies on an EventEngine's existence must coordinate itself to ensure the engine remains alive for as long as it's needed.
+
+commit c55c7c065e271f58f70b660ea7c908e97df5d568
+Author: donnadionne <donnadionne@google.com>
+Date:   Tue May 18 16:00:06 2021 -0700
+
+    ring_hash LB policy implementation (#26285)
+    
+    * ring_hash LB policy (#25697)
+    
+    * Ring Hash Policy implementation
+    
+    * Code review comment fixing
+    
+    * Fixing code review comments.
+    
+    * Code review comment fixing
+    
+    * Fixing reconnect logic
+    
+    * adding helper method for pick
+    
+    * Holding on to ref to parent
+    
+    * first attempt at calling AttemptToConnect
+    
+    * Fixing state change
+    
+    * Fixing code review comments
+    
+    * Fixing the reconnect from channel watcher code
+    
+    * Fixing the BUILD to include new policy
+    
+    * Fixing major code review suggestion
+    
+    * Fixing code review comments
+    
+    * Fixing code review suggestions
+    
+    * Initial 2 tests.
+    
+    * Adding channel id case.
+    
+    * Fixing code review comments.
+    
+    * Small change to get the spread of backends
+    
+    * Add header hashing tests
+    
+    * Added more tests and debugging
+    
+    * Fixing Header hash
+    
+    * Added more tests
+    
+    * cleanup
+    
+    * removing debugs
+    
+    * Fixing code review comments.
+    
+    * code review fixing
+    
+    * combining code and match design
+    
+    * fixing code review comments.
+    
+    * Fixed IDLE case
+    
+    * Moving tests
+    
+    * Fixing code review comments
+    
+    * Adding more tests according to code review comments.
+    
+    * Added tests with differetn types of weights
+    
+    * Adding terminal policy case
+    
+    * Remove hash_func as there is only 1
+    
+    * Added nack invalid hash function
+    
+    * Added NACK cases
+    
+    * fixing build error
+    
+    * fixing build
+    
+    * small warning
+    
+    * adding regex test
+    
+    * Adding policy tests
+    
+    * fixing warning
+    
+    * fixing warning
+    
+    * fixing code reivew comments.
+    
+    * fixing IDLE case
+    
+    * Code review comments.
+    
+    * fixing code review comments
+    
+    * Making a helper function
+    
+    * fixing reattempt case
+    
+    * Added afew more tests.
+    
+    * Adding more tests
+    
+    * Added backward compatible test
+    
+    * FIxing the reattempt test
+    
+    * Clean up
+    
+    * fixing clang error
+    
+    * fixing clang error
+    
+    * Fix logic discovered during code review
+    
+    * code review comments
+    
+    * code review comments
+    
+    * code review comment
+    
+    * clean up tests
+    
+    * fixing code review comments
+    
+    * clean up tests
+    
+    * Separated test
+    
+    * Fixing test
+    
+    * fixing test
+    
+    * fixing clang error
+    
+    * Addressing code review suggestions
+    
+    * Fixing last bit of code review comments
+    
+    * Fixing flaky tests
+    
+    * Fixing last bit of code review comments
+    
+    * clean debugs
+    
+    * Remove a verbose log
+    
+    * Relaxing deadline exceeded for 1st RPC until ring is optimized.
+    Making Hash more efficient for random case.
+
+commit 4ea47d6ae364a468e4cdce9ec070b2077265b331
+Author: AJ Heller <hork@google.com>
+Date:   Tue Mar 16 16:49:30 2021 -0700
+
+    Fix python3 performance tests - incomplete migration from python2 (#25734)
+    
+    This fixes a crash in the grpc_performance_profile_* and grpc_e2e_performance_* tests.
+    
+    Example failure: https://source.cloud.google.com/results/invocations/2112f2d5-db91-4901-87cb-cc9865f351f1/targets
+    
+    The daily performance test passes with this fixit branch:
+    http://sponge2/23d4df20-f4dd-48ee-8789-4cd96b078ed5.
+    
+    Additional fixes:
+    
+    reorder imports according to the google style guide
+    replace deprecated cgi.escape library method with html.escape
+    In case it comes up, with respect to upgrading from py2 to py3, the iter{items,keys,values} methods are intentionally replaced with the less-efficient-in-python2 non-iter versions. This is a recommended practice even when supporting both python versions, and this is not performance-critical code.
+    
+    Additional note: there is no performance difference btw py2 and py3 (~80 minutes to finish)
+
+commit dd2f706b8b9672f31ee40f678afea54c7bab899d
+Author: Craig Tiller <ctiller@google.com>
+Date:   Wed Apr 5 08:11:44 2017 -0700
+
+    Generate slightly more efficient code
+
+commit ef35bc33bdf7cc40ad3ef1fd254b3959ddd9fe6d
+Author: Sree Kuchibhotla <sreek@google.com>
+Date:   Tue Dec 13 23:25:43 2016 -0800
+
+    Code review comment: make maybe_embiggen more efficient and realloc only if necessary
+
+commit 3fcd20fb5aaa920afd8ab8fccaccb5ea7371b02b
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Fri Jul 8 14:38:39 2016 +0100
+
+    Overhaul how the native extension is found, loaded and used
+    
+    The goal of this is to fix #7230.
+    
+    The changes here are:
+    
+    - The layout in the nuget package; the files are now in
+      `/runtimes/{os}/native/{library}`
+    - The filename of each library, which now includes the architecture,
+      e.g `grpc_csharp_ext.x64.dll`
+    - The targets file used to copy those files in msbuild-based projects;
+      note that we now don't build up a folder structure.
+    - The way the functions are found
+    
+    Before this change, on Linux and OSX we used to find library symbols
+    manually, and use DllImport on Windows. With this change, the name
+    of the library file changes based on architecture, so `DllImport`
+    doesn't work. Instead, we have to use `GetProcAddress` to fetch the
+    function. This is further convoluted by the convention on
+    Windows-x86 to prefix the function name with `_` and suffix it based
+    on the stack size of the arguments. We can't easily tell the
+    argument size here, so we just try 0, 4, 8...128. (128 bytes should
+    be enough for anyone.) This is inefficient, but it's a one-time hit
+    with a known number of functions, and doesn't seem to have any
+    significant impact.
+    
+    The benefit of this in code is we don't need the DllImports any
+    more, and we don't need to conditionally use `FindSymbol` - we just
+    use it for everything, so things are rather more uniform and tidy.
+    
+    The further benefit of this is that the library name is no longer
+    tied to a particular filename format - so if someone wanted to have
+    a directory with the libraries for every version in, with the
+    version in the filename, we'd handle that just fine. (At least once
+    
+    Testing:
+    
+    - Windows:
+      - Console app under msbuild, dotnet cli and DNX
+      - ASP.NET Classic under msbuild
+      - ASP.NET Core (still running under net451)
+    - Ubuntu 16.04
+      - Console app under dotnet cli, run with dotnet run and mono
+    - OSX:
+      - Console app under dotnet cli, run with dotnet run and mono
+    
+    Under dotnet cli, a dependency on `Microsoft.NETCore.Platforms` is
+    required in order to force the libraries to be copied.
+    
+    This change does *not* further enable .NET Core. It attempts to
+    keep the existing experimental .NET Core project files in line
+    with the msbuild files, but I expect further work to be required
+    for .NET Core, which has a different build/publication model.
+
+commit d178524a748be300bc370a2ade797beda1c5b7bc
+Author: David Klempner <klempner@google.com>
+Date:   Wed Jan 28 17:00:21 2015 -0800
+
+    Freelist grpc_fd objects
+    
+    This is necessary for efficient implementations where multiple threads
+    simultaneously sit in epoll_wait and the like on the same pollset.
+commit 393bae7e8824ab3f6532a1f66178038b83ae873b
+Author: Vijay Pai <vpai@google.com>
+Date:   Fri May 21 14:42:41 2021 -0700
+
+    Expose trailers-only response status through C++ callback API (#26249)
+    
+    * Expose trailers-only response status through callback API
+    
+    * Fix change-detector test
+    
+    * Address reviewer comment about trailers_only headers
+    
+    * Add TODO requested by markdroth
+    
+    * Move variable in struct to improve space efficiency
+    
+    * Don't instantiate ExecCtx in channel_args destructor unless needed
+
+diff --git a/include/grpcpp/impl/codegen/client_callback.h b/include/grpcpp/impl/codegen/client_callback.h
+index ba802909e0..133c76c083 100644
+--- a/include/grpcpp/impl/codegen/client_callback.h
++++ b/include/grpcpp/impl/codegen/client_callback.h
+@@ -594,7 +594,7 @@ class ClientCallbackReaderWriterImpl
+     start_tag_.Set(
+         call_.call(),
+         [this](bool ok) {
+-          reactor_->OnReadInitialMetadataDone(ok);
++          reactor_->OnReadInitialMetadataDone(ok && !context_->trailers_only());
+           MaybeFinish(/*from_reaction=*/true);
+         },
+         &start_ops_, /*can_inline=*/false);
+@@ -737,7 +737,7 @@ class ClientCallbackReaderImpl : public ClientCallbackReader<Response> {
+     start_tag_.Set(
+         call_.call(),
+         [this](bool ok) {
+-          reactor_->OnReadInitialMetadataDone(ok);
++          reactor_->OnReadInitialMetadataDone(ok && !context_->trailers_only());
+           MaybeFinish(/*from_reaction=*/true);
+         },
+         &start_ops_, /*can_inline=*/false);
+@@ -995,7 +995,7 @@ class ClientCallbackWriterImpl : public ClientCallbackWriter<Request> {
+     start_tag_.Set(
+         call_.call(),
+         [this](bool ok) {
+-          reactor_->OnReadInitialMetadataDone(ok);
++          reactor_->OnReadInitialMetadataDone(ok && !context_->trailers_only());
+           MaybeFinish(/*from_reaction=*/true);
+         },
+         &start_ops_, /*can_inline=*/false);
+@@ -1121,7 +1121,7 @@ class ClientCallbackUnaryImpl final : public ClientCallbackUnary {
+     start_tag_.Set(
+         call_.call(),
+         [this](bool ok) {
+-          reactor_->OnReadInitialMetadataDone(ok);
++          reactor_->OnReadInitialMetadataDone(ok && !context_->trailers_only());
+           MaybeFinish();
+         },
+         &start_ops_, /*can_inline=*/false);
+diff --git a/include/grpcpp/impl/codegen/client_context.h b/include/grpcpp/impl/codegen/client_context.h
+index 952a7baf41..41327be0ac 100644
+--- a/include/grpcpp/impl/codegen/client_context.h
++++ b/include/grpcpp/impl/codegen/client_context.h
+@@ -493,6 +493,8 @@ class ClientContext {
+       const grpc::ServerContextBase& server_context,
+       PropagationOptions options);
+ 
++  bool trailers_only() const;
++
+   bool initial_metadata_received_;
+   bool wait_for_ready_;
+   bool wait_for_ready_explicitly_set_;
+diff --git a/src/core/lib/surface/call.cc b/src/core/lib/surface/call.cc
+index 5e1bbc24a1..d8f300b277 100644
+--- a/src/core/lib/surface/call.cc
++++ b/src/core/lib/surface/call.cc
+@@ -170,6 +170,8 @@ struct grpc_call {
+   bool destroy_called = false;
+   /** flag indicating that cancellation is inherited */
+   bool cancellation_is_inherited = false;
++  // Trailers-only response status
++  bool is_trailers_only = false;
+   /** which ops are in-flight */
+   bool sent_initial_metadata = false;
+   bool sending_message = false;
+@@ -1825,7 +1827,10 @@ static grpc_call_error call_start_batch(grpc_call* call, const grpc_op* ops,
+             &call->metadata_batch[1 /* is_receiving */][0 /* is_trailing */];
+         stream_op_payload->recv_initial_metadata.recv_initial_metadata_ready =
+             &call->receiving_initial_metadata_ready;
+-        if (!call->is_client) {
++        if (call->is_client) {
++          stream_op_payload->recv_initial_metadata.trailing_metadata_available =
++              &call->is_trailers_only;
++        } else {
+           stream_op_payload->recv_initial_metadata.peer_string =
+               &call->peer_string;
+         }
+@@ -2017,6 +2022,10 @@ grpc_compression_algorithm grpc_call_compression_for_level(
+   return algo;
+ }
+ 
++bool grpc_call_is_trailers_only(const grpc_call* call) {
++  return call->is_trailers_only;
++}
++
+ bool grpc_call_failed_before_recv_message(const grpc_call* c) {
+   return c->call_failed_before_recv_message;
+ }
+diff --git a/src/core/lib/surface/call.h b/src/core/lib/surface/call.h
+index 0a9e65a248..d682760f28 100644
+--- a/src/core/lib/surface/call.h
++++ b/src/core/lib/surface/call.h
+@@ -120,6 +120,11 @@ size_t grpc_call_get_initial_size_estimate();
+ grpc_compression_algorithm grpc_call_compression_for_level(
+     grpc_call* call, grpc_compression_level level);
+ 
++/* Did this client call receive a trailers-only response */
++/* TODO(markdroth): This is currently available only to the C++ API.
++                    Move to surface API if requested by other languages. */
++bool grpc_call_is_trailers_only(const grpc_call* call);
++
+ /* Returns whether or not the call's receive message operation failed because of
+  * an error (as opposed to a graceful end-of-stream) */
+ /* TODO(markdroth): This is currently available only to the C++ API.
+diff --git a/src/cpp/client/client_context.cc b/src/cpp/client/client_context.cc
+index 386b731c0f..499ae627c6 100644
+--- a/src/cpp/client/client_context.cc
++++ b/src/cpp/client/client_context.cc
+@@ -31,6 +31,8 @@
+ #include <grpcpp/server_context.h>
+ #include <grpcpp/support/time.h>
+ 
++#include "src/core/lib/surface/call.h"
++
+ namespace grpc {
+ 
+ class Channel;
+@@ -178,4 +180,10 @@ void ClientContext::SetGlobalCallbacks(GlobalCallbacks* client_callbacks) {
+   g_client_callbacks = client_callbacks;
+ }
+ 
++bool ClientContext::trailers_only() const {
++  bool result = initial_metadata_received_ && grpc_call_is_trailers_only(call_);
++  GPR_DEBUG_ASSERT(!result || recv_initial_metadata_.arr()->count == 0);
++  return result;
++}
++
+ }  // namespace grpc
+diff --git a/src/proto/grpc/testing/echo.proto b/src/proto/grpc/testing/echo.proto
+index c4233035db..4c8f2c5672 100644
+--- a/src/proto/grpc/testing/echo.proto
++++ b/src/proto/grpc/testing/echo.proto
+@@ -33,6 +33,7 @@ service EchoTestService {
+   rpc ResponseStream(EchoRequest) returns (stream EchoResponse);
+   rpc BidiStream(stream EchoRequest) returns (stream EchoResponse);
+   rpc Unimplemented(EchoRequest) returns (EchoResponse);
++  rpc UnimplementedBidi(stream EchoRequest) returns (stream EchoResponse);
+ }
+ 
+ service EchoTest1Service {
+diff --git a/test/cpp/end2end/client_callback_end2end_test.cc b/test/cpp/end2end/client_callback_end2end_test.cc
+index 45f30eb525..9d9c609036 100644
+--- a/test/cpp/end2end/client_callback_end2end_test.cc
++++ b/test/cpp/end2end/client_callback_end2end_test.cc
+@@ -1403,6 +1403,47 @@ TEST_P(ClientCallbackEnd2endTest, UnimplementedRpc) {
+   }
+ }
+ 
++TEST_P(ClientCallbackEnd2endTest, TestTrailersOnlyOnError) {
++  // Note that trailers-only is an HTTP/2 concept so we shouldn't do this test
++  // for any other transport such as inproc.
++  if (GetParam().protocol != Protocol::TCP) {
++    return;
++  }
++
++  ResetStub();
++  class Reactor : public grpc::experimental::ClientBidiReactor<EchoRequest,
++                                                               EchoResponse> {
++   public:
++    explicit Reactor(grpc::testing::EchoTestService::Stub* stub) {
++      stub->experimental_async()->UnimplementedBidi(&context_, this);
++      StartCall();
++    }
++    void Await() {
++      std::unique_lock<std::mutex> l(mu_);
++      while (!done_) {
++        done_cv_.wait(l);
++      }
++    }
++
++   private:
++    void OnReadInitialMetadataDone(bool ok) override { EXPECT_FALSE(ok); }
++    void OnDone(const Status& s) override {
++      EXPECT_EQ(s.error_code(), grpc::StatusCode::UNIMPLEMENTED);
++      EXPECT_EQ(s.error_message(), "");
++      std::unique_lock<std::mutex> l(mu_);
++      done_ = true;
++      done_cv_.notify_one();
++    }
++
++    ClientContext context_;
++    std::mutex mu_;
++    std::condition_variable done_cv_;
++    bool done_ = false;
++  } client(stub_.get());
++
++  client.Await();
++}
++
+ TEST_P(ClientCallbackEnd2endTest,
+        ResponseStreamExtraReactionFlowReadsUntilDone) {
+   ResetStub();
+diff --git a/test/cpp/util/grpc_tool_test.cc b/test/cpp/util/grpc_tool_test.cc
+index 870d4768d4..bc45cbf7d4 100644
+--- a/test/cpp/util/grpc_tool_test.cc
++++ b/test/cpp/util/grpc_tool_test.cc
+@@ -62,7 +62,8 @@ using grpc::testing::EchoResponse;
+   "RequestStream\n"               \
+   "ResponseStream\n"              \
+   "BidiStream\n"                  \
+-  "Unimplemented\n"
++  "Unimplemented\n"               \
++  "UnimplementedBidi\n"
+ 
+ #define ECHO_TEST_SERVICE_DESCRIPTION                                          \
+   "filename: src/proto/grpc/testing/echo.proto\n"                              \
+@@ -88,6 +89,8 @@ using grpc::testing::EchoResponse;
+   "grpc.testing.EchoResponse) {}\n"                                            \
+   "  rpc Unimplemented(grpc.testing.EchoRequest) returns "                     \
+   "(grpc.testing.EchoResponse) {}\n"                                           \
++  "  rpc UnimplementedBidi(stream grpc.testing.EchoRequest) returns (stream "  \
++  "grpc.testing.EchoResponse) {}\n"                                            \
+   "}\n"                                                                        \
+   "\n"
+ 
+
+commit aaddd42c00647a0fea619d7dfda090c038f6d7fa
+Author: Jan Tattermusch <jtattermusch@google.com>
+Date:   Wed Jul 31 17:29:04 2019 -0700
+
+    add serializationScope and refactoring for efficiency
+
+diff --git a/src/csharp/Grpc.Core.Tests/ContextualMarshallerTest.cs b/src/csharp/Grpc.Core.Tests/ContextualMarshallerTest.cs
+index c3aee726f2..99f92e1262 100644
+--- a/src/csharp/Grpc.Core.Tests/ContextualMarshallerTest.cs
++++ b/src/csharp/Grpc.Core.Tests/ContextualMarshallerTest.cs
+@@ -52,6 +52,8 @@ namespace Grpc.Core.Tests
+                     }
+                     if (str == "SERIALIZE_TO_NULL")
+                     {
++                        // TODO: test for not calling complete Complete() (that resulted in null payload before...)
++                        // TODO: test for calling Complete(null byte array)
+                         return;
+                     }
+                     var bytes = System.Text.Encoding.UTF8.GetBytes(str);
+diff --git a/src/csharp/Grpc.Core/Internal/AsyncCall.cs b/src/csharp/Grpc.Core/Internal/AsyncCall.cs
+index aefa58a0ce..4111c5347c 100644
+--- a/src/csharp/Grpc.Core/Internal/AsyncCall.cs
++++ b/src/csharp/Grpc.Core/Internal/AsyncCall.cs
+@@ -95,10 +95,10 @@ namespace Grpc.Core.Internal
+                         readingDone = true;
+                     }
+ 
+-                    var payload = UnsafeSerialize(msg);
+-
++                    using (var serializationScope = DefaultSerializationContext.GetInitializedThreadLocalScope())
+                     using (var metadataArray = MetadataArraySafeHandle.Create(details.Options.Headers))
+                     {
++                        var payload = UnsafeSerialize(msg, serializationScope.Context); // do before metadata array?
+                         var ctx = details.Channel.Environment.BatchContextPool.Lease();
+                         try
+                         {
+@@ -160,11 +160,14 @@ namespace Grpc.Core.Internal
+                     halfcloseRequested = true;
+                     readingDone = true;
+ 
+-                    var payload = UnsafeSerialize(msg);
++                    //var payload = UnsafeSerialize(msg);
+ 
+                     unaryResponseTcs = new TaskCompletionSource<TResponse>();
++                    using (var serializationScope = DefaultSerializationContext.GetInitializedThreadLocalScope())
+                     using (var metadataArray = MetadataArraySafeHandle.Create(details.Options.Headers))
+                     {
++                        var payload = UnsafeSerialize(msg, serializationScope.Context); // do before metadata array?
++
+                         call.StartUnary(UnaryResponseClientCallback, payload, GetWriteFlagsForCall(), metadataArray, details.Options.Flags);
+                         callStartedOk = true;
+                     }
+@@ -235,11 +238,15 @@ namespace Grpc.Core.Internal
+ 
+                     halfcloseRequested = true;
+ 
+-                    var payload = UnsafeSerialize(msg);
++                    //var payload = UnsafeSerialize(msg);
+ 
+                     streamingResponseCallFinishedTcs = new TaskCompletionSource<object>();
++                    
++                    using (var serializationScope = DefaultSerializationContext.GetInitializedThreadLocalScope())
+                     using (var metadataArray = MetadataArraySafeHandle.Create(details.Options.Headers))
+                     {
++                        var payload = UnsafeSerialize(msg, serializationScope.Context); // do before metadata array?
++                        
+                         call.StartServerStreaming(ReceivedStatusOnClientCallback, payload, GetWriteFlagsForCall(), metadataArray, details.Options.Flags);
+                         callStartedOk = true;
+                     }
+diff --git a/src/csharp/Grpc.Core/Internal/AsyncCallBase.cs b/src/csharp/Grpc.Core/Internal/AsyncCallBase.cs
+index 07f9ecf23e..bd4b0d8183 100644
+--- a/src/csharp/Grpc.Core/Internal/AsyncCallBase.cs
++++ b/src/csharp/Grpc.Core/Internal/AsyncCallBase.cs
+@@ -115,23 +115,25 @@ namespace Grpc.Core.Internal
+         /// </summary>
+         protected Task SendMessageInternalAsync(TWrite msg, WriteFlags writeFlags)
+         {
+-            var payload = UnsafeSerialize(msg);
+-
+-            lock (myLock)
++            using (var serializationScope = DefaultSerializationContext.GetInitializedThreadLocalScope())
+             {
+-                GrpcPreconditions.CheckState(started);
+-                var earlyResult = CheckSendAllowedOrEarlyResult();
+-                if (earlyResult != null)
++                var payload = UnsafeSerialize(msg, serializationScope.Context); // do before metadata array?
++                lock (myLock)
+                 {
+-                    return earlyResult;
+-                }
++                    GrpcPreconditions.CheckState(started);
++                    var earlyResult = CheckSendAllowedOrEarlyResult();
++                    if (earlyResult != null)
++                    {
++                        return earlyResult;
++                    }
+ 
+-                call.StartSendMessage(SendCompletionCallback, payload, writeFlags, !initialMetadataSent);
++                    call.StartSendMessage(SendCompletionCallback, payload, writeFlags, !initialMetadataSent);
+ 
+-                initialMetadataSent = true;
+-                streamingWritesCounter++;
+-                streamingWriteTcs = new TaskCompletionSource<object>();
+-                return streamingWriteTcs.Task;
++                    initialMetadataSent = true;
++                    streamingWritesCounter++;
++                    streamingWriteTcs = new TaskCompletionSource<object>();
++                    return streamingWriteTcs.Task;
++                }
+             }
+         }
+ 
+@@ -213,19 +215,11 @@ namespace Grpc.Core.Internal
+         /// </summary>
+         protected abstract Task CheckSendAllowedOrEarlyResult();
+ 
+-        protected SliceBufferSafeHandle UnsafeSerialize(TWrite msg)
++        // runs the serializer, propagating any exceptions being thrown without modifying them
++        protected SliceBufferSafeHandle UnsafeSerialize(TWrite msg, DefaultSerializationContext context)
+         {
+-            DefaultSerializationContext context = null;
+-            try
+-            {
+-                context = DefaultSerializationContext.GetInitializedThreadLocal();
+-                serializer(msg, context);
+-                return context.GetPayload();
+-            }
+-            finally
+-            {
+-                context?.Reset();
+-            }
++            serializer(msg, context);
++            return context.GetPayload();
+         }
+ 
+         protected Exception TryDeserialize(IBufferReader reader, out TRead msg)
+diff --git a/src/csharp/Grpc.Core/Internal/AsyncCallServer.cs b/src/csharp/Grpc.Core/Internal/AsyncCallServer.cs
+index e1c3a21542..e0bb41e15d 100644
+--- a/src/csharp/Grpc.Core/Internal/AsyncCallServer.cs
++++ b/src/csharp/Grpc.Core/Internal/AsyncCallServer.cs
+@@ -129,28 +129,31 @@ namespace Grpc.Core.Internal
+         /// </summary>
+         public Task SendStatusFromServerAsync(Status status, Metadata trailers, ResponseWithFlags? optionalWrite)
+         {
+-            var payload = optionalWrite.HasValue ? UnsafeSerialize(optionalWrite.Value.Response) : null;
+-            var writeFlags = optionalWrite.HasValue ? optionalWrite.Value.WriteFlags : default(WriteFlags);
+-
+-            lock (myLock)
++            using (var serializationScope = DefaultSerializationContext.GetInitializedThreadLocalScope())
+             {
+-                GrpcPreconditions.CheckState(started);
+-                GrpcPreconditions.CheckState(!disposed);
+-                GrpcPreconditions.CheckState(!halfcloseRequested, "Can only send status from server once.");
++                var payload = optionalWrite.HasValue ? UnsafeSerialize(optionalWrite.Value.Response, serializationScope.Context) : null;
++                var writeFlags = optionalWrite.HasValue ? optionalWrite.Value.WriteFlags : default(WriteFlags);
+ 
+-                using (var metadataArray = MetadataArraySafeHandle.Create(trailers))
+-                {
+-                    call.StartSendStatusFromServer(SendStatusFromServerCompletionCallback, status, metadataArray, !initialMetadataSent,
+-                        payload, writeFlags);
+-                }
+-                halfcloseRequested = true;
+-                initialMetadataSent = true;
+-                sendStatusFromServerTcs = new TaskCompletionSource<object>();
+-                if (optionalWrite.HasValue)
++                lock (myLock)
+                 {
+-                    streamingWritesCounter++;
++                    GrpcPreconditions.CheckState(started);
++                    GrpcPreconditions.CheckState(!disposed);
++                    GrpcPreconditions.CheckState(!halfcloseRequested, "Can only send status from server once.");
++
++                    using (var metadataArray = MetadataArraySafeHandle.Create(trailers))
++                    {
++                        call.StartSendStatusFromServer(SendStatusFromServerCompletionCallback, status, metadataArray, !initialMetadataSent,
++                            payload, writeFlags);
++                    }
++                    halfcloseRequested = true;
++                    initialMetadataSent = true;
++                    sendStatusFromServerTcs = new TaskCompletionSource<object>();
++                    if (optionalWrite.HasValue)
++                    {
++                        streamingWritesCounter++;
++                    }
++                    return sendStatusFromServerTcs.Task;
+                 }
+-                return sendStatusFromServerTcs.Task;
+             }
+         }
+ 
+diff --git a/src/csharp/Grpc.Core/Internal/DefaultSerializationContext.cs b/src/csharp/Grpc.Core/Internal/DefaultSerializationContext.cs
+index db5e78a608..6bf9da5626 100644
+--- a/src/csharp/Grpc.Core/Internal/DefaultSerializationContext.cs
++++ b/src/csharp/Grpc.Core/Internal/DefaultSerializationContext.cs
+@@ -29,8 +29,7 @@ namespace Grpc.Core.Internal
+             new ThreadLocal<DefaultSerializationContext>(() => new DefaultSerializationContext(), false);
+ 
+         bool isComplete;
+-        //byte[] payload;
+-        SliceBufferSafeHandle sliceBuffer;
++        SliceBufferSafeHandle sliceBuffer = SliceBufferSafeHandle.Create();
+ 
+         public DefaultSerializationContext()
+         {
+@@ -42,12 +41,10 @@ namespace Grpc.Core.Internal
+             GrpcPreconditions.CheckState(!isComplete);
+             this.isComplete = true;
+ 
+-            GetBufferWriter();
+             var destSpan = sliceBuffer.GetSpan(payload.Length);
+             payload.AsSpan().CopyTo(destSpan);
+             sliceBuffer.Advance(payload.Length);
+             sliceBuffer.Complete();
+-            //this.payload = payload;
+         }
+ 
+         /// <summary>
+@@ -55,11 +52,6 @@ namespace Grpc.Core.Internal
+         /// </summary>
+         public override IBufferWriter<byte> GetBufferWriter()
+         {
+-            if (sliceBuffer == null)
+-            {
+-                // TODO: avoid allocation..
+-                sliceBuffer = SliceBufferSafeHandle.Create();
+-            }
+             return sliceBuffer;
+         }
+ 
+@@ -81,17 +73,35 @@ namespace Grpc.Core.Internal
+         public void Reset()
+         {
+             this.isComplete = false;
+-            //this.payload = null;
+-            this.sliceBuffer = null;  // reset instead...
++            this.sliceBuffer.Reset();
+         }
+ 
+-        public static DefaultSerializationContext GetInitializedThreadLocal()
++        // Get a cached thread local instance of deserialization context
++        // and wrap it in a disposable struct that allows easy resetting
++        // via "using" statement.
++        public static UsageScope GetInitializedThreadLocalScope()
+         {
+             var instance = threadLocalInstance.Value;
+-            instance.Reset();
+-            return instance;
++            return new UsageScope(instance);
+         }
+ 
+-        
++        public struct UsageScope : IDisposable
++        {
++            readonly DefaultSerializationContext context;
++
++            public UsageScope(DefaultSerializationContext context)
++            {
++                this.context = context;
++            }
++
++            public DefaultSerializationContext Context => context;
++
++            // TODO: add Serialize method...
++
++            public void Dispose()
++            {
++                context.Reset();
++            }
++        }
+     }
+ }

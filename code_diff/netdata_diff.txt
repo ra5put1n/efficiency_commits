@@ -1,0 +1,3023 @@
+commit 31675045e99975fc2599d13b92a93269e7983743
+Author: Austin S. Hemmelgarn <austin@netdata.cloud>
+Date:   Mon Feb 3 07:30:13 2020 -0500
+
+    Assorted cleanup items in the RPM spec file. (#7927)
+    
+    * Add explicit creation of log and cache directories to specfile.
+    
+    This eliminates a RPM build error seen on multiple OSes with recent
+    versions of rpmbuild.
+    
+    * Change build dependency for RPMs fron `git` to `git-core`.
+    
+    We don't actually need everything the regular `git` package pulls in,
+    just the `git` command and a handful of built-in sub-commands, so we can
+    just depend on `git-core` during the build instead of the full package.
+    
+    This causes no issues for existing build workflows, as `git` pulls in
+    `git-core`. However, it will allow us to make the new Docker-based
+    package building workflow a bit more efficient as we can decrease the
+    size of the package builder images.
+    
+    * Remove useless build dependency on netcat in specfile.
+    
+    We don't actually use netcat anywhere during the build process, so
+    there's no point in depending on it for the build.
+    
+    * Update RPM specfile changelog.
+
+commit 118534bd8b6c900c6b72144aedc253deeff7f06b
+Author: Markos Fountoulakis <44345837+mfundul@users.noreply.github.com>
+Date:   Tue Jun 4 18:20:38 2019 +0300
+
+    Fill chart gaps efficiently. (#6216)
+
+commit fe70512347fabdf662d69ba19796eb2457d22a9d
+Author: George Moschovitis <george.moschovitis@gmail.com>
+Date:   Tue Dec 11 10:29:16 2018 +0200
+
+    Introduced IEC-compliant unit abbreviations #4711 (#4912)
+    
+    * Introduced IEC-compliant unit abbreviations #4711
+    
+    * Generated dashboard.js
+    
+    * Reverted the old abbreviations to a x1000 coefficient
+    
+    * Reverted coefficients
+
+commit f857aa35aed99b97b9b123e35544cf94260b108d
+Author: Costa Tsaousis <costa@tsaousis.gr>
+Date:   Wed Oct 24 03:03:57 2018 +0300
+
+    optimized ses and added des (#4470)
+    
+    * optimized ses and added des
+    
+    * added coefficient of variation
+    
+    * fix bug identified by @vlvkobal: use all available points when resampling is required and the timeframe is not enough for a single point
+
+commit 6b268974797817286541235ee94175383c5d51b2
+Author: VPNable <admin@vpnable.com>
+Date:   Mon May 21 14:45:09 2018 +0200
+
+    update very inefficient regex (thanks to @l2isbad in #3734)
+
+commit 4b0a7d8c496c074f7342343c31a822a01213c2f5
+Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
+Date:   Fri Apr 27 14:21:11 2018 -0400
+
+    Add a plugin for Spigot Minecraft server stats.
+    
+    THis adds a plugin which tracks rudimentary stats from a Spigot
+    Minecraft server using the remote console protocol.  It provides charts
+    for the number of currently connected users, as well as the number of
+    ticks the server is processing each second (which correlates strongly
+    with server-side lag).
+    
+    The plugin makes use of a Python implementation of the remote console
+    protocol originally written by Barnaby Gale and released under an MIT
+    license.  This bundles the module with netdata as it's tiny (less than
+    100 lines of code) and is not packaged in any distributions I know of.
+    
+    The default settings are to connect to the local system on the standard
+    remote console port (25575) without a password, which allows for trivial
+    setup (users just need to set `enable-rcon` to true in the
+    server.properties file for their Spigot server).
+    
+    Currently, this plugin uses the SimpleService framework instead of the
+    SocketService plugin, which actually makes implementation marginally
+    simpler.  In theory, it could probably be re-implemented using the
+    SocketService, but I very much doubt it would be any more efficient than
+    it is now (we already keep the socket open and connected persistently so
+    we don't have to re-authenticate, and we make the protocol synchronous
+    so it's trivial to determine that we've recieved everything because a
+    read returns no new data).
+
+commit 2377959d99ccda5e7f6ccf02536276ff1e615ad4
+Author: Costa Tsaousis <costa@tsaousis.gr>
+Date:   Fri May 13 22:00:39 2016 +0300
+
+    converted appconfig rwlock to the more efficient mutex, since it uses it only for write locking
+commit d49e6b50ba4a9ff2237685345acf3ded0dbe7a74
+Author: Austin S. Hemmelgarn <austin@netdata.cloud>
+Date:   Mon Mar 9 11:15:46 2020 -0400
+
+    Added various fixes and improvements to the installers. (#8315)
+    
+    * Don't rotate old Netdata config dirs in static installer.
+    
+    This should have been removed when we stopped shipping stock configs in
+    `/etc/netdata`.
+    
+    * Use a single invocation of the package manager to install dependencies.
+    
+    This slightly improves the efficiency of the code in question, and also
+    eliminates a few dozen potential cases of prompting the user if they
+    want to install specific packages.
+    
+    * Add correct package name for ulogd on arch.
+    
+    * Properly finish conversion to Python 3 defaults.
+
+diff --git a/packaging/installer/install-required-packages.sh b/packaging/installer/install-required-packages.sh
+index 60b1ff8e3..6d2905d76 100755
+--- a/packaging/installer/install-required-packages.sh
++++ b/packaging/installer/install-required-packages.sh
+@@ -1032,6 +1032,7 @@ declare -A pkg_ulogd=(
+   ['rhel']="WARNING|"
+   ['clearlinux']="WARNING|"
+   ['gentoo']="app-admin/ulogd"
++  ['arch']="ulogd"
+   ['default']="ulogd2"
+ )
+ 
+@@ -1283,10 +1284,7 @@ install_apt_get() {
+   read -r -a apt_opts <<< "$opts"
+ 
+   # install the required packages
+-  for pkg in "${@}"; do
+-    [[ ${DRYRUN} -eq 0 ]] && echo >&2 "Adding package ${pkg}"
+-    run ${sudo} apt-get "${apt_opts[@]}" install "${pkg}"
+-  done
++  run ${sudo} apt-get "${apt_opts[@]}" install "${@}"
+ }
+ 
+ # -----------------------------------------------------------------------------
+@@ -1450,10 +1448,7 @@ install_emerge() {
+   read -r -a emerge_opts <<< "$opts"
+ 
+   # install the required packages
+-  for pkg in "${@}"; do
+-    [[ ${DRYRUN} -eq 0 ]] && echo >&2 "Adding package ${pkg}"
+-    run ${sudo} emerge "${emerge_opts[@]}" -v --noreplace "${pkg}"
+-  done
++  run ${sudo} emerge "${emerge_opts[@]}" -v --noreplace "${@}"
+ }
+ 
+ # -----------------------------------------------------------------------------
+@@ -1511,10 +1506,7 @@ install_equo() {
+   read -r -a equo_opts <<< "$opts"
+ 
+   # install the required packages
+-  for pkg in "${@}"; do
+-    [[ ${DRYRUN} -eq 0 ]] && echo >&2 "Adding package ${pkg}"
+-    run ${sudo} equo i "${equo_opts[@]}" "${pkg}"
+-  done
++  run ${sudo} equo i "${equo_opts[@]}" "${@}"
+ }
+ 
+ # -----------------------------------------------------------------------------
+@@ -1570,17 +1562,10 @@ install_pacman() {
+   if [ "${NON_INTERACTIVE}" -eq 1 ]; then
+     echo >&2 "Running in non-interactive mode"
+     # http://unix.stackexchange.com/questions/52277/pacman-option-to-assume-yes-to-every-question/52278
+-    for pkg in "${@}"; do
+-      [[ ${DRYRUN} -eq 0 ]] && echo >&2 "Adding package ${pkg}"
+-      # Try the noconfirm option, if that fails, go with the legacy way for non-interactive
+-      run ${sudo} pacman --noconfirm --needed -S "${pkg}" || yes | run ${sudo} pacman --needed -S "${pkg}"
+-    done
+-
++    # Try the noconfirm option, if that fails, go with the legacy way for non-interactive
++    run ${sudo} pacman --noconfirm --needed -S "${@}" || yes | run ${sudo} pacman --needed -S "${@}"
+   else
+-    for pkg in "${@}"; do
+-      [[ ${DRYRUN} -eq 0 ]] && echo >&2 "Adding package ${pkg}"
+-      run ${sudo} pacman --needed -S "${pkg}"
+-    done
++    run ${sudo} pacman --needed -S "${@}"
+   fi
+ }
+ 
+@@ -1675,6 +1660,17 @@ if [ -z "${1}" ]; then
+   exit 1
+ fi
+ 
++pv=$(python --version 2>&1)
++if [[ "${pv}" =~ ^Python\ 2.* ]]; then
++  pv=2
++elif [[ "${pv}" =~ ^Python\ 3.* ]]; then
++  pv=3
++elif [[ "${tree}" == "centos" ]] && [ "${version}" -lt 8 ]; then
++  pv=2
++else
++  pv=3
++fi
++
+ # parse command line arguments
+ DONT_WAIT=0
+ NON_INTERACTIVE=0
+@@ -1716,17 +1712,24 @@ while [ -n "${1}" ]; do
+     netdata-all)
+       PACKAGES_NETDATA=1
+       PACKAGES_NETDATA_NODEJS=1
+-      PACKAGES_NETDATA_PYTHON=1
+-      PACKAGES_NETDATA_PYTHON_MYSQL=1
+-      PACKAGES_NETDATA_PYTHON_POSTGRES=1
+-      PACKAGES_NETDATA_PYTHON_MONGO=1
++      if [ "${pv}" -eq 2 ] ; then
++        PACKAGES_NETDATA_PYTHON=1
++        PACKAGES_NETDATA_PYTHON_MYSQL=1
++        PACKAGES_NETDATA_PYTHON_POSTGRES=1
++        PACKAGES_NETDATA_PYTHON_MONGO=1
++      else
++        PACKAGES_NETDATA_PYTHON3=1
++        PACKAGES_NETDATA_PYTHON3_MYSQL=1
++        PACKAGES_NETDATA_PYTHON3_POSTGRES=1
++        PACKAGES_NETDATA_PYTHON3_MONGO=1
++      fi
+       PACKAGES_NETDATA_SENSORS=1
+       PACKAGES_NETDATA_DATABASE=1
+       ;;
+ 
+     netdata)
+       PACKAGES_NETDATA=1
+-      PACKAGES_NETDATA_PYTHON=1
++      PACKAGES_NETDATA_PYTHON3=1
+       PACKAGES_NETDATA_DATABASE=1
+       ;;
+ 
+@@ -1739,18 +1742,33 @@ while [ -n "${1}" ]; do
+       ;;
+ 
+     python-mysql | mysql-python | mysqldb | netdata-mysql)
+-      PACKAGES_NETDATA_PYTHON=1
+-      PACKAGES_NETDATA_PYTHON_MYSQL=1
++      if [ "${pv}" -eq 2 ] ; then
++        PACKAGES_NETDATA_PYTHON=1
++        PACKAGES_NETDATA_PYTHON_MYSQL=1
++      else
++        PACKAGES_NETDATA_PYTHON3=1
++        PACKAGES_NETDATA_PYTHON3_MYSQL=1
++      fi
+       ;;
+ 
+     python-postgres | postgres-python | psycopg2 | netdata-postgres)
+-      PACKAGES_NETDATA_PYTHON=1
+-      PACKAGES_NETDATA_PYTHON_POSTGRES=1
++      if [ "${pv}" -eq 2 ] ; then
++        PACKAGES_NETDATA_PYTHON=1
++        PACKAGES_NETDATA_PYTHON_POSTGRES=1
++      else
++        PACKAGES_NETDATA_PYTHON3=1
++        PACKAGES_NETDATA_PYTHON3_POSTGRES=1
++      fi
+       ;;
+ 
+     python-pymongo)
+-      PACKAGES_NETDATA_PYTHON=1
+-      PACKAGES_NETDATA_PYTHON_MONGO=1
++      if [ "${pv}" -eq 2 ] ; then
++        PACKAGES_NETDATA_PYTHON=1
++        PACKAGES_NETDATA_PYTHON_MONGO=1
++      else
++        PACKAGES_NETDATA_PYTHON3=1
++        PACKAGES_NETDATA_PYTHON3_MONGO=1
++      fi
+       ;;
+ 
+     nodejs | netdata-nodejs)
+@@ -1761,7 +1779,7 @@ while [ -n "${1}" ]; do
+ 
+     sensors | netdata-sensors)
+       PACKAGES_NETDATA=1
+-      PACKAGES_NETDATA_PYTHON=1
++      PACKAGES_NETDATA_PYTHON3=1
+       PACKAGES_NETDATA_SENSORS=1
+       PACKAGES_NETDATA_DATABASE=1
+       ;;
+@@ -1777,11 +1795,17 @@ while [ -n "${1}" ]; do
+     demo | all)
+       PACKAGES_NETDATA=1
+       PACKAGES_NETDATA_NODEJS=1
+-      PACKAGES_NETDATA_PYTHON=1
+-      PACKAGES_NETDATA_PYTHON3=1
+-      PACKAGES_NETDATA_PYTHON_MYSQL=1
+-      PACKAGES_NETDATA_PYTHON_POSTGRES=1
+-      PACKAGES_NETDATA_PYTHON_MONGO=1
++      if [ "${pv}" -eq 2 ] ; then
++        PACKAGES_NETDATA_PYTHON=1
++        PACKAGES_NETDATA_PYTHON_MYSQL=1
++        PACKAGES_NETDATA_PYTHON_POSTGRES=1
++        PACKAGES_NETDATA_PYTHON_MONGO=1
++      else
++        PACKAGES_NETDATA_PYTHON3=1
++        PACKAGES_NETDATA_PYTHON3_MYSQL=1
++        PACKAGES_NETDATA_PYTHON3_POSTGRES=1
++        PACKAGES_NETDATA_PYTHON3_MONGO=1
++      fi
+       PACKAGES_DEBUG=1
+       PACKAGES_IPRANGE=1
+       PACKAGES_FIREHOL=1
+@@ -1830,19 +1854,6 @@ if [ -z "${package_installer}" ] || [ -z "${tree}" ]; then
+   validate_package_trees
+ fi
+ 
+-pv=$(python --version 2>&1)
+-if [[ "${pv}" =~ ^Python\ 2.* ]]; then
+-  pv=2
+-elif [[ "${pv}" =~ ^Python\ 3.* ]]; then
+-  pv=3
+-  PACKAGES_NETDATA_PYTHON3=1
+-elif [[ "${tree}" == "centos" ]] && [ "${version}" -lt 8 ]; then
+-  pv=2
+-else
+-  pv=3
+-  PACKAGES_NETDATA_PYTHON3=1
+-fi
+-
+ [ "${detection}" = "/etc/os-release" ] && cat << EOF
+ 
+ /etc/os-release information:
+diff --git a/packaging/makeself/makeself-header.sh b/packaging/makeself/makeself-header.sh
+index 43ddd7746..0af3219c4 100755
+--- a/packaging/makeself/makeself-header.sh
++++ b/packaging/makeself/makeself-header.sh
+@@ -1,4 +1,6 @@
+ # SPDX-License-Identifier: GPL-3.0-or-later
++# shellcheck shell=sh
++# shellcheck disable=SC2154,SC2039
+ cat << EOF  > "$archname"
+ #!/bin/sh
+ # This script was generated using Makeself $MS_VERSION
+@@ -288,7 +290,7 @@ do
+ 	echo CRCsum=\"\$CRCsum\"
+ 	echo MD5sum=\"\$MD5\"
+ 	echo OLDUSIZE=$USIZE
+-	echo OLDSKIP=`expr $SKIP + 1`
++	echo OLDSKIP=$((SKIP + 1))
+ 	exit 0
+ 	;;
+     --lsm)
+@@ -438,9 +440,6 @@ if test x"\$nox11" = xn; then
+     fi
+ fi
+ 
+-[ -d "\$targetdir/etc/netdata.old" ] && echo "Moving existing old directory" && mv "\$targetdir/etc/netdata.old" "\$targetdir/etc/netdata.old.$$"
+-[ -d \$targetdir/etc/netdata ] && echo "Backing up existing directory" && cp -r \$targetdir/etc/netdata "\$targetdir/etc/netdata.old"
+-
+ if test x"\$targetdir" = x.; then
+     tmpdir="."
+ else
+
+commit 8bf966d6e06281e03333742c5d650bfe60b51ded
+Author: Vilkov Adel <vilkov.adel@gmail.com>
+Date:   Mon Aug 12 11:01:09 2019 +0300
+
+    (re-open) ZRAM info collector module (proc.plugin) (#6424)
+    
+    * ZRAM collector module
+    ZRAM: Implemented zram device id detection
+    
+    ZRAM: Implemented zram device enumeration
+    
+    WIP ZRAM: Memory usage graph (needs other graphs)
+    
+    ZRAM: Added ratio and efficiency graph
+    
+    ZRAM: Added chart description and context names, code formatting
+    
+    * ZRAM: Proper handling of zram device removal
+    
+    * ZRAM: Added additional checks, removed redundant logging
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4d631f2fe..13a9f472c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -423,6 +423,7 @@ set(PROC_PLUGIN_FILES
+         collectors/proc.plugin/proc_vmstat.c
+         collectors/proc.plugin/proc_uptime.c
+         collectors/proc.plugin/sys_kernel_mm_ksm.c
++        collectors/proc.plugin/sys_block_zram.c
+         collectors/proc.plugin/sys_devices_system_edac_mc.c
+         collectors/proc.plugin/sys_devices_system_node.c
+         collectors/proc.plugin/sys_fs_btrfs.c
+diff --git a/Makefile.am b/Makefile.am
+index 0e88962c7..7cff5ff55 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -280,6 +280,7 @@ PROC_PLUGIN_FILES = \
+ 	collectors/proc.plugin/proc_vmstat.c \
+ 	collectors/proc.plugin/proc_uptime.c \
+ 	collectors/proc.plugin/sys_kernel_mm_ksm.c \
++	collectors/proc.plugin/sys_block_zram.c \
+ 	collectors/proc.plugin/sys_devices_system_edac_mc.c \
+ 	collectors/proc.plugin/sys_devices_system_node.c \
+ 	collectors/proc.plugin/sys_fs_btrfs.c \
+diff --git a/collectors/all.h b/collectors/all.h
+index a18c43a2d..5fe5e9be1 100644
+--- a/collectors/all.h
++++ b/collectors/all.h
+@@ -93,6 +93,10 @@
+ #define NETDATA_CHART_PRIO_MEM_HW                     1500
+ #define NETDATA_CHART_PRIO_MEM_HW_ECC_CE              1550
+ #define NETDATA_CHART_PRIO_MEM_HW_ECC_UE              1560
++#define NETDATA_CHART_PRIO_MEM_ZRAM                   1600
++#define NETDATA_CHART_PRIO_MEM_ZRAM_SAVINGS           1601
++#define NETDATA_CHART_PRIO_MEM_ZRAM_RATIO             1602
++#define NETDATA_CHART_PRIO_MEM_ZRAM_EFFICIENCY        1603
+ 
+ // Disks
+ 
+diff --git a/collectors/proc.plugin/plugin_proc.c b/collectors/proc.plugin/plugin_proc.c
+index 343acfa37..62e974cfd 100644
+--- a/collectors/proc.plugin/plugin_proc.c
++++ b/collectors/proc.plugin/plugin_proc.c
+@@ -29,6 +29,7 @@ static struct proc_module {
+         { .name = "/proc/vmstat", .dim = "vmstat", .func = do_proc_vmstat },
+         { .name = "/proc/meminfo", .dim = "meminfo", .func = do_proc_meminfo },
+         { .name = "/sys/kernel/mm/ksm", .dim = "ksm", .func = do_sys_kernel_mm_ksm },
++        { .name = "/sys/block/zram", .dim = "zram", .func = do_sys_block_zram },
+         { .name = "/sys/devices/system/edac/mc", .dim = "ecc", .func = do_proc_sys_devices_system_edac_mc },
+         { .name = "/sys/devices/system/node", .dim = "numa", .func = do_proc_sys_devices_system_node },
+ 
+diff --git a/collectors/proc.plugin/plugin_proc.h b/collectors/proc.plugin/plugin_proc.h
+index 0c2afe779..40a0e82d3 100644
+--- a/collectors/proc.plugin/plugin_proc.h
++++ b/collectors/proc.plugin/plugin_proc.h
+@@ -41,6 +41,7 @@ extern int do_proc_sys_kernel_random_entropy_avail(int update_every, usec_t dt);
+ extern int do_proc_interrupts(int update_every, usec_t dt);
+ extern int do_proc_softirqs(int update_every, usec_t dt);
+ extern int do_sys_kernel_mm_ksm(int update_every, usec_t dt);
++extern int do_sys_block_zram(int update_every, usec_t dt);
+ extern int do_proc_loadavg(int update_every, usec_t dt);
+ extern int do_proc_net_stat_synproxy(int update_every, usec_t dt);
+ extern int do_proc_net_softnet_stat(int update_every, usec_t dt);
+diff --git a/collectors/proc.plugin/sys_block_zram.c b/collectors/proc.plugin/sys_block_zram.c
+new file mode 100644
+index 000000000..a68a405de
+--- /dev/null
++++ b/collectors/proc.plugin/sys_block_zram.c
+@@ -0,0 +1,288 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include "plugin_proc.h"
++
++#define PLUGIN_PROC_MODULE_ZRAM_NAME "/sys/block/zram"
++#define rrdset_obsolete_and_pointer_null(st) do { if(st) { rrdset_is_obsolete(st); (st) = NULL; } } while(st)
++
++typedef struct mm_stat {
++    unsigned long long orig_data_size;
++    unsigned long long compr_data_size;
++    unsigned long long mem_used_total;
++    unsigned long long mem_limit;
++    unsigned long long mem_used_max;
++    unsigned long long same_pages;
++    unsigned long long pages_compacted;
++} MM_STAT;
++
++typedef struct zram_device {
++    procfile *file;
++
++    RRDSET *st_usage;
++    RRDDIM *rd_compr_data_size;
++    RRDDIM *rd_metadata_size;
++
++    RRDSET *st_savings;
++    RRDDIM *rd_original_size;
++    RRDDIM *rd_savings_size;
++
++    RRDSET *st_comp_ratio;
++    RRDDIM *rd_comp_ratio;
++
++    RRDSET *st_alloc_efficiency;
++    RRDDIM *rd_alloc_efficiency;
++} ZRAM_DEVICE;
++
++    // --------------------------------------------------------------------
++
++static int try_get_zram_major_number(procfile *file) {
++    size_t i;
++    unsigned int lines = procfile_lines(file);
++    int id = -1;
++    char *name = NULL;
++    for (i = 0; i < lines; i++)
++    {
++        if (procfile_linewords(file, i) < 2)
++            continue;
++        name = procfile_lineword(file, i, 1);
++        if (strcmp(name, "zram") == 0)
++        {
++            id = str2i(procfile_lineword(file, i, 0));
++            if (id == 0)
++                return -1;
++            return id;
++        }
++    }
++    return -1;
++}
++
++static inline void init_rrd(const char *name, ZRAM_DEVICE *d, int update_every) {
++    char chart_name[RRD_ID_LENGTH_MAX + 1];
++
++    snprintfz(chart_name, RRD_ID_LENGTH_MAX, "zram_usage.%s", name);
++    d->st_usage = rrdset_create_localhost(
++        "mem"
++        , chart_name
++        , chart_name
++        , name
++        , "mem.zram_usage"
++        , "ZRAM Memory Usage"
++        , "MiB"
++        , PLUGIN_PROC_NAME
++        , PLUGIN_PROC_MODULE_ZRAM_NAME
++        , NETDATA_CHART_PRIO_MEM_ZRAM
++        , update_every
++        , RRDSET_TYPE_AREA);
++    d->rd_compr_data_size = rrddim_add(d->st_usage, "compressed", NULL, 1, 1024 * 1024, RRD_ALGORITHM_ABSOLUTE);
++    d->rd_metadata_size = rrddim_add(d->st_usage, "metadata", NULL, 1, 1024 * 1024, RRD_ALGORITHM_ABSOLUTE);
++
++    snprintfz(chart_name, RRD_ID_LENGTH_MAX, "zram_savings.%s", name);
++    d->st_savings = rrdset_create_localhost(
++        "mem"
++        , chart_name
++        , chart_name
++        , name
++        , "mem.zram_savings"
++        , "ZRAM Memory Savings"
++        , "MiB"
++        , PLUGIN_PROC_NAME
++        , PLUGIN_PROC_MODULE_ZRAM_NAME
++        , NETDATA_CHART_PRIO_MEM_ZRAM_SAVINGS
++        , update_every
++        , RRDSET_TYPE_AREA);
++    d->rd_savings_size = rrddim_add(d->st_savings, "savings", NULL, 1, 1024 * 1024, RRD_ALGORITHM_ABSOLUTE);
++    d->rd_original_size = rrddim_add(d->st_savings, "original", NULL, 1, 1024 * 1024, RRD_ALGORITHM_ABSOLUTE);
++
++    snprintfz(chart_name, RRD_ID_LENGTH_MAX, "zram_ratio.%s", name);
++    d->st_comp_ratio = rrdset_create_localhost(
++        "mem"
++        , chart_name
++        , chart_name
++        , name
++        , "mem.zram_ratio"
++        , "ZRAM Compression Ratio (original to compressed)"
++        , "ratio"
++        , PLUGIN_PROC_NAME
++        , PLUGIN_PROC_MODULE_ZRAM_NAME
++        , NETDATA_CHART_PRIO_MEM_ZRAM_RATIO
++        , update_every
++        , RRDSET_TYPE_LINE);
++    d->rd_comp_ratio = rrddim_add(d->st_comp_ratio, "ratio", NULL, 1, 100, RRD_ALGORITHM_ABSOLUTE);
++
++    snprintfz(chart_name, RRD_ID_LENGTH_MAX, "zram_efficiency.%s", name);
++    d->st_alloc_efficiency = rrdset_create_localhost(
++        "mem"
++        , chart_name
++        , chart_name
++        , name
++        , "mem.zram_efficiency"
++        , "ZRAM Efficiency"
++        , "percentage"
++        , PLUGIN_PROC_NAME
++        , PLUGIN_PROC_MODULE_ZRAM_NAME
++        , NETDATA_CHART_PRIO_MEM_ZRAM_EFFICIENCY
++        , update_every
++        , RRDSET_TYPE_LINE);
++    d->rd_alloc_efficiency = rrddim_add(d->st_alloc_efficiency, "percent", NULL, 1, 10000, RRD_ALGORITHM_ABSOLUTE);
++}
++
++static int init_devices(DICTIONARY *devices, unsigned int zram_id, int update_every) {
++    int count = 0;
++    DIR *dir = opendir("/dev");
++    struct dirent *de;
++    struct stat st;
++    char filename[FILENAME_MAX + 1];
++    procfile *ff = NULL;
++    ZRAM_DEVICE device;
++
++    if (unlikely(!dir))
++        return 0;
++    while ((de = readdir(dir)))
++    {
++        snprintfz(filename, FILENAME_MAX, "/dev/%s", de->d_name);
++        if (unlikely(stat(filename, &st) != 0))
++        {
++            error("ZRAM : Unable to stat %s: %s", filename, strerror(errno));
++            continue;
++        }
++        if (major(st.st_rdev) == zram_id)
++        {
++            info("ZRAM : Found device %s", filename);
++            snprintfz(filename, FILENAME_MAX, "/sys/block/%s/mm_stat", de->d_name);
++            ff = procfile_open(filename, " \t:", PROCFILE_FLAG_DEFAULT);
++            if (ff == NULL)
++            {
++                error("ZRAM : Failed to open %s: %s", filename, strerror(errno));
++                continue;
++            }
++            device.file = ff;
++            init_rrd(de->d_name, &device, update_every);
++            dictionary_set(devices, de->d_name, &device, sizeof(ZRAM_DEVICE));
++            count++;
++        }
++    }
++    closedir(dir);
++    return count;
++}
++
++static void free_device(DICTIONARY *dict, char *name)
++{
++    ZRAM_DEVICE *d = (ZRAM_DEVICE*)dictionary_get(dict, name);
++    info("ZRAM : Disabling monitoring of device %s", name);
++    rrdset_obsolete_and_pointer_null(d->st_usage);
++    rrdset_obsolete_and_pointer_null(d->st_savings);
++    rrdset_obsolete_and_pointer_null(d->st_alloc_efficiency);
++    rrdset_obsolete_and_pointer_null(d->st_comp_ratio);
++    dictionary_del(dict, name);
++}
++    // --------------------------------------------------------------------
++
++static inline int read_mm_stat(procfile *ff, MM_STAT *stats) {
++    ff = procfile_readall(ff);
++    if (!ff)
++        return -1;
++    if (procfile_lines(ff) < 1)
++        return -1;
++    if (procfile_linewords(ff, 0) < 7)
++        return -1;
++
++    stats->orig_data_size = str2ull(procfile_word(ff, 0));
++    stats->compr_data_size = str2ull(procfile_word(ff, 1));
++    stats->mem_used_total = str2ull(procfile_word(ff, 2));
++    stats->mem_limit = str2ull(procfile_word(ff, 3));
++    stats->mem_used_max = str2ull(procfile_word(ff, 4));
++    stats->same_pages = str2ull(procfile_word(ff, 5));
++    stats->pages_compacted = str2ull(procfile_word(ff, 6));
++    return 0;
++}
++
++static inline int _collect_zram_metrics(char* name, ZRAM_DEVICE *d, int advance, DICTIONARY* dict) {
++    MM_STAT mm;
++    int value;
++    if (unlikely(read_mm_stat(d->file, &mm) < 0))
++    {
++        free_device(dict, name);
++        return -1;
++    }
++
++    if (likely(advance))
++    {
++        rrdset_next(d->st_usage);
++        rrdset_next(d->st_savings);
++        rrdset_next(d->st_comp_ratio);
++        rrdset_next(d->st_alloc_efficiency);
++    }
++    // zram_usage
++    rrddim_set_by_pointer(d->st_usage, d->rd_compr_data_size, mm.compr_data_size);
++    rrddim_set_by_pointer(d->st_usage, d->rd_metadata_size, mm.mem_used_total - mm.compr_data_size);
++    rrdset_done(d->st_usage);
++    // zram_savings
++    rrddim_set_by_pointer(d->st_savings, d->rd_savings_size, mm.compr_data_size - mm.orig_data_size);
++    rrddim_set_by_pointer(d->st_savings, d->rd_original_size, mm.orig_data_size);
++    rrdset_done(d->st_savings);
++    // zram_ratio
++    value = mm.compr_data_size == 0 ? 1 : mm.orig_data_size * 100 / mm.compr_data_size;
++    rrddim_set_by_pointer(d->st_comp_ratio, d->rd_comp_ratio, value);
++    rrdset_done(d->st_comp_ratio);
++    // zram_efficiency
++    value = mm.mem_used_total == 0 ? 100 : (mm.compr_data_size * 1000000 / mm.mem_used_total);
++    rrddim_set_by_pointer(d->st_alloc_efficiency, d->rd_alloc_efficiency, value);
++    rrdset_done(d->st_alloc_efficiency);
++    return 0;
++}
++
++static int collect_first_zram_metrics(char *name, void *entry, void *data) {
++    // collect without calling rrdset_next (init only)
++    return _collect_zram_metrics(name, (ZRAM_DEVICE *)entry, 0, (DICTIONARY *)data);
++}
++
++static int collect_zram_metrics(char *name, void *entry, void *data) {
++    (void)name;
++    // collect with calling rrdset_next
++    return _collect_zram_metrics(name, (ZRAM_DEVICE *)entry, 1, (DICTIONARY *)data);
++}
++
++    // --------------------------------------------------------------------
++
++int do_sys_block_zram(int update_every, usec_t dt) {
++    (void)dt;
++    static procfile *ff = NULL;
++    static DICTIONARY *devices = NULL;
++    static int initialized = 0;
++    static int device_count = 0;
++    int zram_id = -1;
++    if (unlikely(!initialized))
++    {
++        initialized = 1;
++        ff = procfile_open("/proc/devices", " \t:", PROCFILE_FLAG_DEFAULT);
++        if (ff == NULL)
++        {
++            error("Cannot read /proc/devices");
++            return 1;
++        }
++        ff = procfile_readall(ff);
++        if (!ff)
++            return 1;
++        zram_id = try_get_zram_major_number(ff);
++        if (zram_id == -1)
++        {
++            if (ff != NULL)
++                procfile_close(ff);
++            return 1;
++        }
++        procfile_close(ff);
++
++        devices = dictionary_create(DICTIONARY_FLAG_SINGLE_THREADED);
++        device_count = init_devices(devices, (unsigned int)zram_id, update_every);
++        if (device_count < 1)
++            return 1;
++        dictionary_get_all_name_value(devices, collect_first_zram_metrics, devices);
++    }
++    else
++    {
++        if (unlikely(device_count < 1))
++            return 1;
++        dictionary_get_all_name_value(devices, collect_zram_metrics, devices);
++    }
++    return 0;
++}
+\ No newline at end of file
+diff --git a/web/gui/dashboard_info.js b/web/gui/dashboard_info.js
+index 6d8abba54..f05f2e0d1 100644
+--- a/web/gui/dashboard_info.js
++++ b/web/gui/dashboard_info.js
+@@ -832,6 +832,32 @@ netdataDashboard.context = {
+         ]
+     },
+ 
++    'mem.zram_usage': {
++        info: 'ZRAM total RAM usage metrics. ZRAM uses some memory to store metadata about stored memory pages, thus introducing an overhead which is proportional to disk size. It excludes same-element-filled-pages since no memory is allocated for them.'
++    },
++
++    'mem.zram_savings': {
++        info: 'Displays original and compressed memory data sizes.'
++    },
++
++    'mem.zram_ratio': {
++        heads: [
++            netdataDashboard.gaugeChart('Compression Ratio', '12%', 'ratio', '#0099CC')
++        ],
++        info: 'Compression ratio, calculated as <code>100 * original_size / compressed_size</code>. More means better compression and more RAM savings.'
++    },
++
++    'mem.zram_efficiency': {
++        heads: [
++            netdataDashboard.gaugeChart('Efficiency', '12%', 'percent', NETDATA.colors[0])
++        ],
++        commonMin: true,
++        commonMax: true,
++        valueRange: "[0, 100]",
++        info: 'Memory usage efficiency, calculated as <code>100 * compressed_size / total_mem_used</code>.'
++    },
++
++
+     'mem.pgfaults': {
+         info: 'A <a href="https://en.wikipedia.org/wiki/Page_fault" target="_blank">page fault</a> is a type of interrupt, called trap, raised by computer hardware when a running program accesses a memory page that is mapped into the virtual address space, but not actually loaded into main memory. If the page is loaded in memory at the time the fault is generated, but is not marked in the memory management unit as being loaded in memory, then it is called a <b>minor</b> or soft page fault. A <b>major</b> page fault is generated when the system needs to load the memory page from disk or swap memory.'
+     },
+
+commit 56ac9f514566d0cbfa6125a28c96b759d4de1ff9
+Author: Chris Akritidis <43294513+cakrit@users.noreply.github.com>
+Date:   Mon Mar 4 18:36:08 2019 +0100
+
+    Support legacy Prometheus metric names for source average (#5531)
+    
+    * Support older prometheus metric unit naming and allow removal of units from metrics
+    
+    * Update swagger
+    
+    * Added bats tests, improved efficiency of checking units
+
+diff --git a/backends/prometheus/README.md b/backends/prometheus/README.md
+index 8cf83cbf4..4a6cbfee2 100644
+--- a/backends/prometheus/README.md
++++ b/backends/prometheus/README.md
+@@ -373,6 +373,14 @@ netdata sends all metrics prefixed with `netdata_`. You can change this in `netd
+ 
+ It can also be changed from the URL, by appending `&prefix=netdata`.
+ 
++### Metric Units
++
++The default source `average` adds the unit of measurement to the name of each metric (e.g. `_KiB_persec`).
++To hide the units and get the same metric names as with the other sources, append to the URL `&hideunits=yes`.
++
++The units were standardized in v1.12, with the effect of changing the metric names. 
++To get the metric names as they were before v1.12, append to the URL `&oldunits=yes`
++
+ ### Accuracy of `average` and `sum` data sources
+ 
+ When the data source is set to `average` or `sum`, netdata remembers the last access of each client accessing prometheus metrics and uses this last access time to respond with the `average` or `sum` of all the entries in the database since that. This means that prometheus servers are not losing data when they access netdata with data source = `average` or `sum`.
+diff --git a/backends/prometheus/backend_prometheus.c b/backends/prometheus/backend_prometheus.c
+index 1c36a9703..f05da0697 100644
+--- a/backends/prometheus/backend_prometheus.c
++++ b/backends/prometheus/backend_prometheus.c
+@@ -78,11 +78,50 @@ static inline size_t prometheus_label_copy(char *d, const char *s, size_t usable
+     return n;
+ }
+ 
+-static inline char *prometheus_units_copy(char *d, const char *s, size_t usable) {
++static inline char *prometheus_units_copy(char *d, const char *s, size_t usable, int showoldunits) {
+     const char *sorig = s;
+     char *ret = d;
+     size_t n;
+ 
++    // Fix for issue 5227
++    if (unlikely(showoldunits)) {
++		static struct {
++			const char *newunit;
++			uint32_t hash;
++			const char *oldunit;
++		} units[] = {
++				  {"KiB/s", 0, "kilobytes/s"}
++				, {"MiB/s", 0, "MB/s"}
++				, {"GiB/s", 0, "GB/s"}
++				, {"KiB"  , 0, "KB"}
++				, {"MiB"  , 0, "MB"}
++				, {"GiB"  , 0, "GB"}
++				, {"inodes"       , 0, "Inodes"}
++				, {"percentage"   , 0, "percent"}
++				, {"faults/s"     , 0, "page faults/s"}
++				, {"KiB/operation", 0, "kilobytes per operation"}
++				, {"milliseconds/operation", 0, "ms per operation"}
++				, {NULL, 0, NULL}
++		};
++		static int initialized = 0;
++		int i;
++
++		if(unlikely(!initialized)) {
++			for (i = 0; units[i].newunit; i++)
++				units[i].hash = simple_hash(units[i].newunit);
++			initialized = 1;
++		}
++
++		uint32_t hash = simple_hash(s);
++		for(i = 0; units[i].newunit ; i++) {
++			if(unlikely(hash == units[i].hash && !strcmp(s, units[i].newunit))) {
++				// info("matched extension for filename '%s': '%s'", filename, last_dot);
++				s=units[i].oldunit;
++				sorig = s;
++				break;
++			}
++		}
++    }
+     *d++ = '_';
+     for(n = 1; *s && n < usable ; d++, s++, n++) {
+         register char c = *s;
+@@ -275,8 +314,8 @@ static void rrd_stats_api_v1_charts_allmetrics_prometheus(RRDHOST *host, BUFFER
+                     homogeneus = 0;
+             }
+             else {
+-                if(BACKEND_OPTIONS_DATA_SOURCE(backend_options) == BACKEND_SOURCE_DATA_AVERAGE)
+-                    prometheus_units_copy(units, st->units, PROMETHEUS_ELEMENT_MAX);
++                if(BACKEND_OPTIONS_DATA_SOURCE(backend_options) == BACKEND_SOURCE_DATA_AVERAGE && !(output_options & PROMETHEUS_OUTPUT_HIDEUNITS))
++                    prometheus_units_copy(units, st->units, PROMETHEUS_ELEMENT_MAX, output_options & PROMETHEUS_OUTPUT_OLDUNITS);
+             }
+ 
+             if(unlikely(output_options & PROMETHEUS_OUTPUT_HELP))
+diff --git a/backends/prometheus/backend_prometheus.h b/backends/prometheus/backend_prometheus.h
+index dc4ec753f..72b65a22b 100644
+--- a/backends/prometheus/backend_prometheus.h
++++ b/backends/prometheus/backend_prometheus.h
+@@ -11,7 +11,9 @@ typedef enum prometheus_output_flags {
+     PROMETHEUS_OUTPUT_TYPES      = (1 << 1),
+     PROMETHEUS_OUTPUT_NAMES      = (1 << 2),
+     PROMETHEUS_OUTPUT_TIMESTAMPS = (1 << 3),
+-    PROMETHEUS_OUTPUT_VARIABLES  = (1 << 4)
++    PROMETHEUS_OUTPUT_VARIABLES  = (1 << 4),
++	PROMETHEUS_OUTPUT_OLDUNITS   = (1 << 5),
++	PROMETHEUS_OUTPUT_HIDEUNITS  = (1 << 6)
+ } PROMETHEUS_OUTPUT_OPTIONS;
+ 
+ extern void rrd_stats_api_v1_charts_allmetrics_prometheus_single_host(RRDHOST *host, BUFFER *wb, const char *server, const char *prefix, BACKEND_OPTIONS backend_options, PROMETHEUS_OUTPUT_OPTIONS output_options);
+diff --git a/tests/backends/prometheus-avg-oldunits.txt b/tests/backends/prometheus-avg-oldunits.txt
+new file mode 100644
+index 000000000..b89c924d4
+--- /dev/null
++++ b/tests/backends/prometheus-avg-oldunits.txt
+@@ -0,0 +1,92 @@
++nd_cpu_core_throttling_events_persec_average
++nd_cpu_cpu_percent_average
++nd_cpu_interrupts_interrupts_persec_average
++nd_cpu_softirqs_softirqs_persec_average
++nd_cpu_softnet_stat_events_persec_average
++nd_disk_avgsz_kilobytes_per_operation_average
++nd_disk_await_ms_per_operation_average
++nd_disk_backlog_milliseconds_average
++nd_disk_inodes_Inodes_average
++nd_disk_io_kilobytes_persec_average
++nd_disk_iotime_milliseconds_persec_average
++nd_disk_mops_merged_operations_persec_average
++nd_disk_ops_operations_persec_average
++nd_disk_space_GB_average
++nd_disk_svctm_ms_per_operation_average
++nd_disk_util___of_time_working_average
++nd_ip_bcast_kilobits_persec_average
++nd_ip_bcastpkts_packets_persec_average
++nd_ip_ecnpkts_packets_persec_average
++nd_ip_inerrors_packets_persec_average
++nd_ip_mcast_kilobits_persec_average
++nd_ip_mcastpkts_packets_persec_average
++nd_ip_tcpconnaborts_connections_persec_average
++nd_ip_tcpofo_packets_persec_average
++nd_ip_tcpreorders_packets_persec_average
++nd_ipv4_errors_packets_persec_average
++nd_ipv4_icmp_errors_packets_persec_average
++nd_ipv4_icmpmsg_packets_persec_average
++nd_ipv4_icmp_packets_persec_average
++nd_ipv4_packets_packets_persec_average
++nd_ipv4_sockstat_sockets_sockets_average
++nd_ipv4_sockstat_tcp_mem_KB_average
++nd_ipv4_sockstat_tcp_sockets_sockets_average
++nd_ipv4_sockstat_udp_mem_KB_average
++nd_ipv4_sockstat_udp_sockets_sockets_average
++nd_ipv4_tcperrors_packets_persec_average
++nd_ipv4_tcphandshake_events_persec_average
++nd_ipv4_tcpopens_connections_persec_average
++nd_ipv4_tcppackets_packets_persec_average
++nd_ipv4_tcpsock_active_connections_average
++nd_ipv4_udperrors_events_persec_average
++nd_ipv4_udppackets_packets_persec_average
++nd_ipv6_ect_packets_persec_average
++nd_ipv6_errors_packets_persec_average
++nd_ipv6_icmpechos_messages_persec_average
++nd_ipv6_icmperrors_errors_persec_average
++nd_ipv6_icmp_messages_persec_average
++nd_ipv6_icmpmldv2_reports_persec_average
++nd_ipv6_icmpneighbor_messages_persec_average
++nd_ipv6_icmprouter_messages_persec_average
++nd_ipv6_icmptypes_messages_persec_average
++nd_ipv6_mcast_kilobits_persec_average
++nd_ipv6_mcastpkts_packets_persec_average
++nd_ipv6_packets_packets_persec_average
++nd_ipv6_sockstat6_raw_sockets_sockets_average
++nd_ipv6_sockstat6_tcp_sockets_sockets_average
++nd_ipv6_sockstat6_udp_sockets_sockets_average
++nd_ipv6_udperrors_events_persec_average
++nd_ipv6_udppackets_packets_persec_average
++nd_mem_available_MB_average
++nd_mem_committed_MB_average
++nd_mem_kernel_MB_average
++nd_mem_pgfaults_page_faults_persec_average
++nd_mem_slab_MB_average
++nd_mem_transparent_hugepages_MB_average
++nd_mem_writeback_MB_average
++nd_net_drops_drops_persec_average
++nd_net_net_kilobits_persec_average
++nd_net_packets_packets_persec_average
++nd_system_active_processes_processes_average
++nd_system_cpu_percent_average
++nd_system_ctxt_context_switches_persec_average
++nd_system_entropy_entropy_average
++nd_system_forks_processes_persec_average
++nd_system_idlejitter_microseconds_lost_persec_average
++nd_system_interrupts_interrupts_persec_average
++nd_system_intr_interrupts_persec_average
++nd_system_io_kilobytes_persec_average
++nd_system_ipc_semaphore_arrays_arrays_average
++nd_system_ipc_semaphores_semaphores_average
++nd_system_ip_kilobits_persec_average
++nd_system_ipv6_kilobits_persec_average
++nd_system_load_load_average
++nd_system_net_kilobits_persec_average
++nd_system_pgpgio_kilobytes_persec_average
++nd_system_processes_processes_average
++nd_system_ram_MB_average
++nd_system_softirqs_softirqs_persec_average
++nd_system_softnet_stat_events_persec_average
++nd_system_swapio_kilobytes_persec_average
++nd_system_swap_MB_average
++nd_system_uptime_seconds_average
+diff --git a/tests/backends/prometheus-avg.txt b/tests/backends/prometheus-avg.txt
+new file mode 100644
+index 000000000..eaed4fb7a
+--- /dev/null
++++ b/tests/backends/prometheus-avg.txt
+@@ -0,0 +1,92 @@
++nd_cpu_core_throttling_events_persec_average
++nd_cpu_cpu_percentage_average
++nd_cpu_interrupts_interrupts_persec_average
++nd_cpu_softirqs_softirqs_persec_average
++nd_cpu_softnet_stat_events_persec_average
++nd_disk_avgsz_KiB_operation_average
++nd_disk_await_milliseconds_operation_average
++nd_disk_backlog_milliseconds_average
++nd_disk_inodes_inodes_average
++nd_disk_io_KiB_persec_average
++nd_disk_iotime_milliseconds_persec_average
++nd_disk_mops_merged_operations_persec_average
++nd_disk_ops_operations_persec_average
++nd_disk_space_GiB_average
++nd_disk_svctm_milliseconds_operation_average
++nd_disk_util___of_time_working_average
++nd_ip_bcast_kilobits_persec_average
++nd_ip_bcastpkts_packets_persec_average
++nd_ip_ecnpkts_packets_persec_average
++nd_ip_inerrors_packets_persec_average
++nd_ip_mcast_kilobits_persec_average
++nd_ip_mcastpkts_packets_persec_average
++nd_ip_tcpconnaborts_connections_persec_average
++nd_ip_tcpofo_packets_persec_average
++nd_ip_tcpreorders_packets_persec_average
++nd_ipv4_errors_packets_persec_average
++nd_ipv4_icmp_errors_packets_persec_average
++nd_ipv4_icmpmsg_packets_persec_average
++nd_ipv4_icmp_packets_persec_average
++nd_ipv4_packets_packets_persec_average
++nd_ipv4_sockstat_sockets_sockets_average
++nd_ipv4_sockstat_tcp_mem_KiB_average
++nd_ipv4_sockstat_tcp_sockets_sockets_average
++nd_ipv4_sockstat_udp_mem_KiB_average
++nd_ipv4_sockstat_udp_sockets_sockets_average
++nd_ipv4_tcperrors_packets_persec_average
++nd_ipv4_tcphandshake_events_persec_average
++nd_ipv4_tcpopens_connections_persec_average
++nd_ipv4_tcppackets_packets_persec_average
++nd_ipv4_tcpsock_active_connections_average
++nd_ipv4_udperrors_events_persec_average
++nd_ipv4_udppackets_packets_persec_average
++nd_ipv6_ect_packets_persec_average
++nd_ipv6_errors_packets_persec_average
++nd_ipv6_icmpechos_messages_persec_average
++nd_ipv6_icmperrors_errors_persec_average
++nd_ipv6_icmp_messages_persec_average
++nd_ipv6_icmpmldv2_reports_persec_average
++nd_ipv6_icmpneighbor_messages_persec_average
++nd_ipv6_icmprouter_messages_persec_average
++nd_ipv6_icmptypes_messages_persec_average
++nd_ipv6_mcast_kilobits_persec_average
++nd_ipv6_mcastpkts_packets_persec_average
++nd_ipv6_packets_packets_persec_average
++nd_ipv6_sockstat6_raw_sockets_sockets_average
++nd_ipv6_sockstat6_tcp_sockets_sockets_average
++nd_ipv6_sockstat6_udp_sockets_sockets_average
++nd_ipv6_udperrors_events_persec_average
++nd_ipv6_udppackets_packets_persec_average
++nd_mem_available_MiB_average
++nd_mem_committed_MiB_average
++nd_mem_kernel_MiB_average
++nd_mem_pgfaults_faults_persec_average
++nd_mem_slab_MiB_average
++nd_mem_transparent_hugepages_MiB_average
++nd_mem_writeback_MiB_average
++nd_net_drops_drops_persec_average
++nd_net_net_kilobits_persec_average
++nd_net_packets_packets_persec_average
++nd_system_active_processes_processes_average
++nd_system_cpu_percentage_average
++nd_system_ctxt_context_switches_persec_average
++nd_system_entropy_entropy_average
++nd_system_forks_processes_persec_average
++nd_system_idlejitter_microseconds_lost_persec_average
++nd_system_interrupts_interrupts_persec_average
++nd_system_intr_interrupts_persec_average
++nd_system_io_KiB_persec_average
++nd_system_ipc_semaphore_arrays_arrays_average
++nd_system_ipc_semaphores_semaphores_average
++nd_system_ip_kilobits_persec_average
++nd_system_ipv6_kilobits_persec_average
++nd_system_load_load_average
++nd_system_net_kilobits_persec_average
++nd_system_pgpgio_KiB_persec_average
++nd_system_processes_processes_average
++nd_system_ram_MiB_average
++nd_system_softirqs_softirqs_persec_average
++nd_system_softnet_stat_events_persec_average
++nd_system_swapio_KiB_persec_average
++nd_system_swap_MiB_average
++nd_system_uptime_seconds_average
+diff --git a/tests/backends/prometheus-raw.txt b/tests/backends/prometheus-raw.txt
+new file mode 100644
+index 000000000..7caffc873
+--- /dev/null
++++ b/tests/backends/prometheus-raw.txt
+@@ -0,0 +1,92 @@
++nd_cpu_core_throttling_total
++nd_cpu_cpu_total
++nd_cpu_interrupts_total
++nd_cpu_softirqs_total
++nd_cpu_softnet_stat_total
++nd_disk_avgsz
++nd_disk_await
++nd_disk_backlog_total
++nd_disk_inodes
++nd_disk_iotime_total
++nd_disk_io_total
++nd_disk_mops_total
++nd_disk_ops_total
++nd_disk_space
++nd_disk_svctm
++nd_disk_util_total
++nd_ip_bcastpkts_total
++nd_ip_bcast_total
++nd_ip_ecnpkts_total
++nd_ip_inerrors_total
++nd_ip_mcastpkts_total
++nd_ip_mcast_total
++nd_ip_tcpconnaborts_total
++nd_ip_tcpofo_total
++nd_ip_tcpreorders_total
++nd_ipv4_errors_total
++nd_ipv4_icmp_errors_total
++nd_ipv4_icmpmsg_total
++nd_ipv4_icmp_total
++nd_ipv4_packets_total
++nd_ipv4_sockstat_sockets
++nd_ipv4_sockstat_tcp_mem
++nd_ipv4_sockstat_tcp_sockets
++nd_ipv4_sockstat_udp_mem
++nd_ipv4_sockstat_udp_sockets
++nd_ipv4_tcperrors_total
++nd_ipv4_tcphandshake_total
++nd_ipv4_tcpopens_total
++nd_ipv4_tcppackets_total
++nd_ipv4_tcpsock
++nd_ipv4_udperrors_total
++nd_ipv4_udppackets_total
++nd_ipv6_ect_total
++nd_ipv6_errors_total
++nd_ipv6_icmpechos_total
++nd_ipv6_icmperrors_total
++nd_ipv6_icmpmldv2_total
++nd_ipv6_icmpneighbor_total
++nd_ipv6_icmprouter_total
++nd_ipv6_icmp_total
++nd_ipv6_icmptypes_total
++nd_ipv6_mcastpkts_total
++nd_ipv6_mcast_total
++nd_ipv6_packets_total
++nd_ipv6_sockstat6_raw_sockets
++nd_ipv6_sockstat6_tcp_sockets
++nd_ipv6_sockstat6_udp_sockets
++nd_ipv6_udperrors_total
++nd_ipv6_udppackets_total
++nd_mem_available
++nd_mem_committed
++nd_mem_kernel
++nd_mem_pgfaults_total
++nd_mem_slab
++nd_mem_transparent_hugepages
++nd_mem_writeback
++nd_net_drops_total
++nd_net_net_total
++nd_net_packets_total
++nd_system_active_processes
++nd_system_cpu_total
++nd_system_ctxt_total
++nd_system_entropy
++nd_system_forks_total
++nd_system_idlejitter
++nd_system_interrupts_total
++nd_system_intr_total
++nd_system_io_total
++nd_system_ipc_semaphore_arrays
++nd_system_ipc_semaphores
++nd_system_ip_total
++nd_system_ipv6_total
++nd_system_load
++nd_system_net_total
++nd_system_pgpgio_total
++nd_system_processes
++nd_system_ram
++nd_system_softirqs_total
++nd_system_softnet_stat_total
++nd_system_swap
++nd_system_swapio_total
++nd_system_uptime
+diff --git a/tests/backends/prometheus.bats b/tests/backends/prometheus.bats
+new file mode 100755
+index 000000000..d6ffa8d78
+--- /dev/null
++++ b/tests/backends/prometheus.bats
+@@ -0,0 +1,31 @@
++#!/usr/bin/env bats
++
++validate_metrics() {
++	fname="${1}"
++	params="${2}"
++
++	curl -sS "http://localhost:19999/api/v1/allmetrics?format=prometheus&prefix=nd&timestamps=no${params}" |
++	grep -E 'nd_system_|nd_cpu_|nd_system_|nd_net_|nd_disk_|nd_ip_|nd_ipv4_|nd_ipv6_|nd_mem_' |
++	sed -ne 's/{.*//p' | sort | uniq > tests/backends/new-${fname}
++	diff tests/backends/${fname} tests/backends/new-${fname}
++	rm tests/backends/new-${fname}
++}
++
++
++if [ ! -f .gitignore ];	then
++	echo "Need to run as ./tests/backends/$(basename "$0") from top level directory of git repository" >&2
++	exit 1
++fi
++
++
++@test "prometheus raw" {
++	validate_metrics prometheus-raw.txt "&data=raw"
++}
++
++@test "prometheus avg" {
++	validate_metrics prometheus-avg.txt ""
++}
++
++@test "prometheus avg oldunits" {
++	validate_metrics prometheus-avg-oldunits.txt "&oldunits=yes"
++}
+diff --git a/web/api/exporters/allmetrics.c b/web/api/exporters/allmetrics.c
+index 91bb0f921..88ff78e7e 100644
+--- a/web/api/exporters/allmetrics.c
++++ b/web/api/exporters/allmetrics.c
+@@ -11,7 +11,8 @@ struct prometheus_output_options {
+         { "names",      PROMETHEUS_OUTPUT_NAMES      },
+         { "timestamps", PROMETHEUS_OUTPUT_TIMESTAMPS },
+         { "variables",  PROMETHEUS_OUTPUT_VARIABLES  },
+-
++        { "oldunits",   PROMETHEUS_OUTPUT_OLDUNITS   },
++        { "hideunits",  PROMETHEUS_OUTPUT_HIDEUNITS  },
+         // terminator
+         { NULL, PROMETHEUS_OUTPUT_NONE },
+ };
+diff --git a/web/api/netdata-swagger.json b/web/api/netdata-swagger.json
+index ac84b754d..99ed95209 100644
+--- a/web/api/netdata-swagger.json
++++ b/web/api/netdata-swagger.json
+@@ -506,6 +506,30 @@
+             ],
+             "default": "yes"
+           },
++          {
++            "name": "oldunits",
++            "in": "query",
++            "description": "When enabled, netdata will show metric names for the default source=average as they appeared before 1.12, by using the legacy unit naming conventions",
++            "required": false,
++            "type": "string",
++            "enum": [
++              "yes",
++              "no"
++            ],
++            "default": "yes"
++          },
++          {
++            "name": "hideunits",
++            "in": "query",
++            "description": "When enabled, netdata will not include the units in the metric names, for the default source=average.",
++            "required": false,
++            "type": "string",
++            "enum": [
++              "yes",
++              "no"
++            ],
++            "default": "yes"
++          },
+           {
+             "name": "server",
+             "in": "query",
+diff --git a/web/api/netdata-swagger.yaml b/web/api/netdata-swagger.yaml
+index bf62fb95a..e5689e392 100644
+--- a/web/api/netdata-swagger.yaml
++++ b/web/api/netdata-swagger.yaml
+@@ -333,6 +333,20 @@ paths:
+           type: string
+           enum: [ 'yes', 'no' ]
+           default: 'yes'
++        - name: oldunits
++          in: query
++          description: 'When enabled, netdata will show metric names for the default source=average as they appeared before 1.12, by using the legacy unit naming conventions'
++          required: false
++          type: string
++          enum: [ 'yes', 'no' ]
++          default: 'yes'
++        - name: hideunits
++          in: query
++          description: 'When enabled, netdata will not include the units in the metric names, for the default source=average.'
++          required: false
++          type: string
++          enum: [ 'yes', 'no' ]
++          default: 'yes'
+         - name: server
+           in: query
+           description: 'Set a distinct name of the client querying prometheus metrics. Netdata will use the client IP if this is not set.'
+
+commit fa854bdde6a67c49f4cba980dd936441af5fb8f9
+Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
+Date:   Wed Nov 28 15:54:30 2018 -0500
+
+    Generalize the recipient finding logic and reduce the boilerplate code. (#3960)
+    
+    * Generalize the recipient finding logic and reduce the boilerplate code.
+    
+    This generalizes the recipient finding logic in alarm-notify.sh by
+    converting it to utilize computed variable names in a loop instead of
+    having it all serialized.  It also handles declaration of the `SEND_*`,
+    `DEFAULT_RECIPIENT_*`, and `role_recipients_*` variables in a similar
+    manner.
+    
+    Overall, this significantly reduces the amount of boilerplate code
+    needed to add a new notification method.  By just adding the variable
+    tag (in lowercase) to the `method_names` variable near the top, you
+    get automatic declarations of the above mentioned variables and are
+    automatically hooked into the recipient finding logic.
+    
+    There are two oddities that this has had to work around:
+    
+      * Kafka:  The kafka notification support does not do anything with
+    recipients.  I know nothing about Kafka myself, so I'm just leaving this
+    alone.  Because it doesn't want the whole recipient handling, it's
+    explicitly left out of the `method_names` variable, and the `SEND_KAFKA`
+    variable is explicitly declared.
+    
+      * EMail:  The email handling has two peculiarities to it:
+        - There is a default value for `DEFAULT_RECIPIENT_EMAIL` explicitly
+        defined in alarm-notify.sh.  We just declare the variable in the
+        nromal loop, and then assign it down with the other email related
+        config variables.
+        - Recipient names need to be separated by a comma and a space, not
+        just a space like everything else wants.  This is achieved by some
+        creative usage of the `cut` command and the `$IFS` variable.
+        Ideally, this wouldn't be needed, but spaces in email addresses are
+        valid (as stupid as that fact is), so we have to account for that.
+    
+    * Address code comments by @ktsaou.
+    
+    * Improve the efficiency of the recipient finding loop.
+    
+    This relocates the loop that finds recipients for each method after all
+    the other checks for each method, and adds a bit of logic at the top of
+    the loop to skip methods that are disabled.
+    
+    This avoids running the recipient finding logic for methods that are
+    disabled for any other reason, which should significantly improve
+    performance for the common case of users only configuring one of the
+    notification methods.
+    
+    * Fix one more code issue pointed out by @ktsaou.
+    
+    * Avoid multiple forks when finding email recipients.
+    
+    * Add a unit test mode for the recipient parsing logic.
+    
+    This adds a unit-test mode for alarm-notify.sh that covers the recipient
+    parsing logic and the criticality filtering logic.
+    
+    Invocation for this testing is as follows:
+    
+        alarm-notify,sh unittest <role> <cfg> <status> <old_status>
+    
+    Where `<role>` is the name of the role to use for testing, `<cfg>` is
+    the path to the config file to load for testing, and `<status>` and
+    `<old_status>` are the simulated current and previous status for the
+    test alarm.
+    
+    The unit testing mode will run all the logic up to and including the
+    recipient parsing loop, print out the parsed recipient lists, and then
+    exit.
+    
+    The lines for the parsed recipient lists look like this:
+    
+        results: <method>: foo bar baz
+    
+    Where `<method>` is the delivery method for these recipients.
+    
+    * Renamed variables to improve clarity as suggested by @ktsaou.
+    
+    * Split email handling from the main recipient loop.
+    
+    * Fixes to unittest mode.
+    
+    * Fix incorrect variable name.
+    
+    * Fix typo.
+
+diff --git a/health/notifications/alarm-notify.sh.in b/health/notifications/alarm-notify.sh.in
+index ec2a1af69..b91cedfae 100755
+--- a/health/notifications/alarm-notify.sh.in
++++ b/health/notifications/alarm-notify.sh.in
+@@ -142,6 +142,29 @@ docurl() {
+     return $?
+ }
+ 
++# -----------------------------------------------------------------------------
++# List of all the notification mechanisms we support.
++# Used in a couple of places to write more compact code.
++
++method_names="
++email
++pushover
++pushbullet
++telegram
++slack
++alerta
++flock
++discord
++hipchat
++twilio
++messagebird
++pd
++fleep
++syslog
++custom
++msteam
++"
++
+ # -----------------------------------------------------------------------------
+ # this is to be overwritten by the config file
+ 
+@@ -167,26 +190,34 @@ custom_sender() {
+ # -----------------------------------------------------------------------------
+ # parse command line parameters
+ 
+-roles="${1}"               # the roles that should be notified for this event
+-host="${2}"                # the host generated this event
+-unique_id="${3}"           # the unique id of this event
+-alarm_id="${4}"            # the unique id of the alarm that generated this event
+-event_id="${5}"            # the incremental id of the event, for this alarm id
+-when="${6}"                # the timestamp this event occurred
+-name="${7}"                # the name of the alarm, as given in netdata health.d entries
+-chart="${8}"               # the name of the chart (type.id)
+-family="${9}"              # the family of the chart
+-status="${10}"             # the current status : REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
+-old_status="${11}"         # the previous status: REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
+-value="${12}"              # the current value of the alarm
+-old_value="${13}"          # the previous value of the alarm
+-src="${14}"                # the line number and file the alarm has been configured
+-duration="${15}"           # the duration in seconds of the previous alarm state
+-non_clear_duration="${16}" # the total duration in seconds this is/was non-clear
+-units="${17}"              # the units of the value
+-info="${18}"               # a short description of the alarm
+-value_string="${19}"       # friendly value (with units)
+-old_value_string="${20}"   # friendly old value (with units)
++if [ ${1} = "unittest" ] ; then
++    unittest=1                 # enable unit testing mode
++    roles="${2}"               # the role that should be used for unit testing
++    cfgfile="${3}"             # the location of the config file to use for unit testing
++    status="${4}"              # the current status : REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
++    old_status="${5}"          # the previous status: REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
++else
++    roles="${1}"               # the roles that should be notified for this event
++    host="${2}"                # the host generated this event
++    unique_id="${3}"           # the unique id of this event
++    alarm_id="${4}"            # the unique id of the alarm that generated this event
++    event_id="${5}"            # the incremental id of the event, for this alarm id
++    when="${6}"                # the timestamp this event occurred
++    name="${7}"                # the name of the alarm, as given in netdata health.d entries
++    chart="${8}"               # the name of the chart (type.id)
++    family="${9}"              # the family of the chart
++    status="${10}"             # the current status : REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
++    old_status="${11}"         # the previous status: REMOVED, UNINITIALIZED, UNDEFINED, CLEAR, WARNING, CRITICAL
++    value="${12}"              # the current value of the alarm
++    old_value="${13}"          # the previous value of the alarm
++    src="${14}"                # the line number and file the alarm has been configured
++    duration="${15}"           # the duration in seconds of the previous alarm state
++    non_clear_duration="${16}" # the total duration in seconds this is/was non-clear
++    units="${17}"              # the units of the value
++    info="${18}"               # a short description of the alarm
++    value_string="${19}"       # friendly value (with units)
++    old_value_string="${20}"   # friendly old value (with units)
++fi
+ 
+ # -----------------------------------------------------------------------------
+ # find a suitable hostname to use, if netdata did not supply a hostname
+@@ -229,112 +260,71 @@ curl=
+ sendmail=
+ 
+ # enable / disable features
+-SEND_SLACK="YES"
+-SEND_MSTEAM="YES"
+-SEND_ALERTA="YES"
+-SEND_FLOCK="YES"
+-SEND_DISCORD="YES"
+-SEND_PUSHOVER="YES"
+-SEND_TWILIO="YES"
+-SEND_HIPCHAT="YES"
+-SEND_MESSAGEBIRD="YES"
+-SEND_KAVENEGAR="YES"
+-SEND_TELEGRAM="YES"
+-SEND_EMAIL="YES"
+-SEND_PUSHBULLET="YES"
+-SEND_KAFKA="YES"
+-SEND_PD="YES"
+-SEND_FLEEP="YES"
+-SEND_IRC="YES"
+-SEND_AWSSNS="YES"
+-SEND_SYSLOG="NO"
+-SEND_CUSTOM="YES"
++for method_name in ${method_names^^} ; do
++    declare SEND_${method_name}="YES"
++    declare DEFAULT_RECIPIENT_${method_name}
++done
++
++for method_name in ${method_names} ; do
++    declare -A role_recipients_${method_name}
++done
+ 
+ # slack configs
+ SLACK_WEBHOOK_URL=
+-DEFAULT_RECIPIENT_SLACK=
+-declare -A role_recipients_slack=()
+ 
+ # Microsoft Team configs
+ MSTEAM_WEBHOOK_URL=
+-DEFAULT_RECIPIENT_MSTEAM=
+-declare -A role_recipients_msteam=()
+ 
+ # rocketchat configs
+ ROCKETCHAT_WEBHOOK_URL=
+-DEFAULT_RECIPIENT_ROCKETCHAT=
+-declare -A role_recipients_rocketchat=()
+ 
+ # alerta configs
+ ALERTA_WEBHOOK_URL=
+ ALERTA_API_KEY=
+-DEFAULT_RECIPIENT_ALERTA=
+-declare -A role_recipients_alerta=()
+ 
+ # flock configs
+ FLOCK_WEBHOOK_URL=
+-DEFAULT_RECIPIENT_FLOCK=
+-declare -A role_recipients_flock=()
+ 
+ # discord configs
+ DISCORD_WEBHOOK_URL=
+-DEFAULT_RECIPIENT_DISCORD=
+-declare -A role_recipients_discord=()
+ 
+ # pushover configs
+ PUSHOVER_APP_TOKEN=
+-DEFAULT_RECIPIENT_PUSHOVER=
+-declare -A role_recipients_pushover=()
+ 
+ # pushbullet configs
+ PUSHBULLET_ACCESS_TOKEN=
+ PUSHBULLET_SOURCE_DEVICE=
+-DEFAULT_RECIPIENT_PUSHBULLET=
+-declare -A role_recipients_pushbullet=()
+ 
+ # twilio configs
+ TWILIO_ACCOUNT_SID=
+ TWILIO_ACCOUNT_TOKEN=
+ TWILIO_NUMBER=
+-DEFAULT_RECIPIENT_TWILIO=
+-declare -A role_recipients_twilio=()
+ 
+ # hipchat configs
+ HIPCHAT_SERVER=
+ HIPCHAT_AUTH_TOKEN=
+-DEFAULT_RECIPIENT_HIPCHAT=
+-declare -A role_recipients_hipchat=()
+ 
+ # messagebird configs
+ MESSAGEBIRD_ACCESS_KEY=
+ MESSAGEBIRD_NUMBER=
+-DEFAULT_RECIPIENT_MESSAGEBIRD=
+-declare -A role_recipients_messagebird=()
+ 
+ # kavenegar configs
+ KAVENEGAR_API_KEY=""
+ KAVENEGAR_SENDER=""
+-DEFAULT_RECIPIENT_KAVENEGAR=()
+-declare -A role_recipients_kavenegar=""
+ 
+ # telegram configs
+ TELEGRAM_BOT_TOKEN=
+-DEFAULT_RECIPIENT_TELEGRAM=
+-declare -A role_recipients_telegram=()
+ 
+ # kafka configs
++SEND_KAFKA="YES"
+ KAFKA_URL=
+ KAFKA_SENDER_IP=
+ 
+ # pagerduty.com configs
+ PD_SERVICE_KEY=
+-DEFAULT_RECIPIENT_PD=
+-declare -A role_recipients_pd=()
+ 
+ # fleep.io configs
+ FLEEP_SENDER="${host}"
+-DEFAULT_RECIPIENT_FLEEP=
+-declare -A role_recipients_fleep=()
+ 
+ # Amazon SNS configs
+ DEFAULT_RECIPIENT_AWSSNS=
+@@ -343,40 +333,38 @@ declare -A role_recipients_awssns=()
+ 
+ # syslog configs
+ SYSLOG_FACILITY=
+-declare -A role_recipients_syslog=()
+-
+-# custom configs
+-DEFAULT_RECIPIENT_CUSTOM=
+-declare -A role_recipients_custom=()
+ 
+ # email configs
+ EMAIL_SENDER=
+-DEFAULT_RECIPIENT_EMAIL="root"
+ EMAIL_CHARSET=$(locale charmap 2>/dev/null)
+ EMAIL_THREADING=
+-declare -A role_recipients_email=()
++DEFAULT_RECIPIENT_EMAIL="root"
+ 
+ # irc configs
+ IRC_NICKNAME=
+ IRC_REALNAME=
+-DEFAULT_RECIPIENT_IRC=
+ IRC_NETWORK=
+-declare -A role_recipients_irc=()
+ 
+ # load the stock and user configuration files
+ # these will overwrite the variables above
+ 
+-for CONFIG in "${NETDATA_STOCK_CONFIG_DIR}/health_alarm_notify.conf" "${NETDATA_USER_CONFIG_DIR}/health_alarm_notify.conf"
+-do
+-    if [ -f "${CONFIG}" ]
+-        then
+-        debug "Loading config file '${CONFIG}'..."
+-        source "${CONFIG}"
+-        [ $? -ne 0 ] && error "Failed to load config file '${CONFIG}'."
+-    else
+-        warning "Cannot find file '${CONFIG}'."
+-    fi
+-done
++if [ ${unittest} ] ;
++    then
++    source "${cfgfile}"
++    [ $? -ne 0 ] && error "Failed to load requested config file." && exit 1
++else
++    for CONFIG in "${NETDATA_STOCK_CONFIG_DIR}/health_alarm_notify.conf" "${NETDATA_USER_CONFIG_DIR}/health_alarm_notify.conf"
++    do
++        if [ -f "${CONFIG}" ]
++            then
++            debug "Loading config file '${CONFIG}'..."
++            source "${CONFIG}"
++            [ $? -ne 0 ] && error "Failed to load config file '${CONFIG}'."
++        else
++            warning "Cannot find file '${CONFIG}'."
++        fi
++    done
++fi
+ 
+ # If we didn't autodetect the character set for e-mail and it wasn't
+ # set by the user, we need to set it to a reasonable default.  UTF-8
+@@ -443,285 +431,6 @@ filter_recipient_by_criticality() {
+     return 1
+ }
+ 
+-# -----------------------------------------------------------------------------
+-# find the recipients' addresses per method
+-
+-declare -A arr_slack=()
+-declare -A arr_msteam=()
+-declare -A arr_rocketchat=()
+-declare -A arr_alerta=()
+-declare -A arr_flock=()
+-declare -A arr_discord=()
+-declare -A arr_pushover=()
+-declare -A arr_pushbullet=()
+-declare -A arr_twilio=()
+-declare -A arr_hipchat=()
+-declare -A arr_telegram=()
+-declare -A arr_pd=()
+-declare -A arr_email=()
+-declare -A arr_custom=()
+-declare -A arr_messagebird=()
+-declare -A arr_kavenegar=()
+-declare -A arr_fleep=()
+-declare -A arr_irc=()
+-declare -A arr_syslog=()
+-declare -A arr_awssns=()
+-
+-# netdata may call us with multiple roles, and roles may have multiple but
+-# overlapping recipients - so, here we find the unique recipients.
+-for x in ${roles//,/ }
+-do
+-    # the roles 'silent' and 'disabled' mean:
+-    # don't send a notification for this role
+-    [ "${x}" = "silent" -o "${x}" = "disabled" ] && continue
+-
+-    # email
+-    a="${role_recipients_email[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_EMAIL}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality email "${r}" && arr_email[${r/|*/}]="1"
+-    done
+-
+-    # pushover
+-    a="${role_recipients_pushover[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_PUSHOVER}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality pushover "${r}" && arr_pushover[${r/|*/}]="1"
+-    done
+-
+-    # pushbullet
+-    a="${role_recipients_pushbullet[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_PUSHBULLET}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality pushbullet "${r}" && arr_pushbullet[${r/|*/}]="1"
+-    done
+-
+-    # twilio
+-    a="${role_recipients_twilio[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_TWILIO}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality twilio "${r}" && arr_twilio[${r/|*/}]="1"
+-    done
+-
+-    # hipchat
+-    a="${role_recipients_hipchat[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_HIPCHAT}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality hipchat "${r}" && arr_hipchat[${r/|*/}]="1"
+-    done
+-
+-    # messagebird
+-    a="${role_recipients_messagebird[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_MESSAGEBIRD}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality messagebird "${r}" && arr_messagebird[${r/|*/}]="1"
+-    done
+-
+-    # kavenegar
+-    a="${role_recipients_kavenegar[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_KAVENEGAR}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality kavenegar "${r}" && arr_kavenegar[${r/|*/}]="1"
+-    done
+-
+-    # telegram
+-    a="${role_recipients_telegram[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_TELEGRAM}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality telegram "${r}" && arr_telegram[${r/|*/}]="1"
+-    done
+-
+-    # slack
+-    a="${role_recipients_slack[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_SLACK}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality slack "${r}" && arr_slack[${r/|*/}]="1"
+-    done
+-
+-    # Microsoft Team
+-    a="${role_recipients_msteam[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_MSTEAM}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality msteam "${r}" && arr_msteam[${r/|*/}]="1"
+-    done
+-
+-    # rocketchat
+-    a="${role_recipients_rocketchat[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_ROCKETCHAT}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality rocketchat "${r}" && arr_rocketchat[${r/|*/}]="1"
+-    done
+-
+-    # alerta
+-    a="${role_recipients_alerta[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_ALERTA}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality alerta "${r}" && arr_alerta[${r/|*/}]="1"
+-    done
+-
+-    # flock
+-    a="${role_recipients_flock[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_FLOCK}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality flock "${r}" && arr_flock[${r/|*/}]="1"
+-    done
+-
+-    # discord
+-    a="${role_recipients_discord[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_DISCORD}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality discord "${r}" && arr_discord[${r/|*/}]="1"
+-    done
+-
+-    # pagerduty.com
+-    a="${role_recipients_pd[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_PD}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality pd "${r}" && arr_pd[${r/|*/}]="1"
+-    done
+-
+-    # fleep.io
+-    a="${role_recipients_fleep[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_FLEEP}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality fleep "${r}" && arr_fleep[${r/|*/}]="1"
+-    done
+-
+-    # irc
+-    a="${role_recipients_irc[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_IRC}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality irc "${r}" && arr_irc[${r/|*/}]="1"
+-    done
+-
+-    # amazon sns
+-    a="${role_recipients_awssns[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_AWSSNS}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality awssns "${r}" && arr_awssns[${r/|*/}]="1"
+-    done
+-
+-    # syslog
+-    a="${role_recipients_syslog[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_SYSLOG}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality syslog "${r}" && arr_syslog[${r/|*/}]="1"
+-    done
+-
+-    # custom
+-    a="${role_recipients_custom[${x}]}"
+-    [ -z "${a}" ] && a="${DEFAULT_RECIPIENT_CUSTOM}"
+-    for r in ${a//,/ }
+-    do
+-        [ "${r}" != "disabled" ] && filter_recipient_by_criticality custom "${r}" && arr_custom[${r/|*/}]="1"
+-    done
+-
+-done
+-
+-# build the list of slack recipients (channels)
+-to_slack="${!arr_slack[*]}"
+-[ -z "${to_slack}" ] && SEND_SLACK="NO"
+-
+-# build the list of Microsoft team recipients (channels)
+-to_msteam="${!arr_msteam[*]}"
+-[ -z "${to_msteam}" ] && SEND_MSTEAM="NO"
+-
+-# build the list of rocketchat recipients (channels)
+-to_rocketchat="${!arr_rocketchat[*]}"
+-[ -z "${to_rocketchat}" ] && SEND_ROCKETCHAT="NO"
+-
+-# build the list of alerta recipients (channels)
+-to_alerta="${!arr_alerta[*]}"
+-[ -z "${to_alerta}" ] && SEND_ALERTA="NO"
+-
+-# build the list of flock recipients (channels)
+-to_flock="${!arr_flock[*]}"
+-[ -z "${to_flock}" ] && SEND_FLOCK="NO"
+-
+-# build the list of discord recipients (channels)
+-to_discord="${!arr_discord[*]}"
+-[ -z "${to_discord}" ] && SEND_DISCORD="NO"
+-
+-# build the list of pushover recipients (user tokens)
+-to_pushover="${!arr_pushover[*]}"
+-[ -z "${to_pushover}" ] && SEND_PUSHOVER="NO"
+-
+-# build the list of pushbulet recipients (user tokens)
+-to_pushbullet="${!arr_pushbullet[*]}"
+-[ -z "${to_pushbullet}" ] && SEND_PUSHBULLET="NO"
+-
+-# build the list of twilio recipients (phone numbers)
+-to_twilio="${!arr_twilio[*]}"
+-[ -z "${to_twilio}" ] && SEND_TWILIO="NO"
+-
+-# build the list of hipchat recipients (rooms)
+-to_hipchat="${!arr_hipchat[*]}"
+-[ -z "${to_hipchat}" ] && SEND_HIPCHAT="NO"
+-
+-# build the list of messagebird recipients (phone numbers)
+-to_messagebird="${!arr_messagebird[*]}"
+-[ -z "${to_messagebird}" ] && SEND_MESSAGEBIRD="NO"
+-
+-# build the list of kavenegar recipients (phone numbers)
+-to_kavenegar="${!arr_kavenegar[*]}"
+-[ -z "${to_kavenegar}" ] && SEND_KAVENEGAR="NO"
+-
+-# check array of telegram recipients (chat ids)
+-to_telegram="${!arr_telegram[*]}"
+-[ -z "${to_telegram}" ] && SEND_TELEGRAM="NO"
+-
+-# build the list of pagerduty recipients (service keys)
+-to_pd="${!arr_pd[*]}"
+-[ -z "${to_pd}" ] && SEND_PD="NO"
+-
+-# build the list of fleep recipients (conversation webhooks)
+-to_fleep="${!arr_fleep[*]}"
+-[ -z "${to_fleep}" ] && SEND_FLEEP="NO"
+-
+-# build the list of custom recipients
+-to_custom="${!arr_custom[*]}"
+-[ -z "${to_custom}" ] && SEND_CUSTOM="NO"
+-
+-# build the list of email recipients (email addresses)
+-to_email=
+-for x in "${!arr_email[@]}"
+-do
+-    [ ! -z "${to_email}" ] && to_email="${to_email}, "
+-    to_email="${to_email}${x}"
+-done
+-[ -z "${to_email}" ] && SEND_EMAIL="NO"
+-
+-# build the list of irc recipients (channels)
+-to_irc="${!arr_irc[*]}"
+-[ -z "${to_irc}" ] && SEND_IRC="NO"
+-
+-# build the list of awssns recipients (facilities, servers, and prefixes)
+-to_awssns="${!arr_awssns[*]}"
+-[ -z "${to_awssns}" ] && SEND_AWSSNS="NO"
+-
+-# build the list of syslog recipients (facilities, servers, and prefixes)
+-to_syslog="${!arr_syslog[*]}"
+-[ -z "${to_syslog}" ] && SEND_SYSLOG="NO"
+-
+ # -----------------------------------------------------------------------------
+ # verify the delivery methods supported
+ 
+@@ -859,6 +568,69 @@ if [ "${SEND_AWSSNS}" = "YES" -a -z "${aws}" ]
+     fi
+ fi
+ 
++# -----------------------------------------------------------------------------
++# find the recipients' addresses per method
++
++# netdata may call us with multiple roles, and roles may have multiple but
++# overlapping recipients - so, here we find the unique recipients.
++for method_name in ${method_names} ; do
++    send_var="SEND_${method_name^^}"
++    if [ ${!send_var} = "NO" ] ; then
++        continue
++    fi
++
++    declare -A arr_var=()
++
++    for x in ${roles//,/ } ; do
++        # the roles 'silent' and 'disabled' mean:
++        # don't send a notification for this role
++        [ "${x}" = "silent" -o "${x}" = "disabled" ] && continue
++
++        role_recipients_var="role_recipients_${method_name}"
++        role_recipients=${!role_recipients_var}
++        default_recipient_var="DEFAULT_RECIPIENT_${method_name^^}"
++
++        a="${role_recipients[${x}]}"
++        [ -z "${a}" ] && a="${!default_recipient_var}"
++        for r in ${a//,/ } ; do
++            [ "${r}" != "disabled" ] && filter_recipient_by_criticality ${method_name} "${r}" && arr_var[${r/|*/}]="1"
++        done
++    done
++
++    # build the list of recipients
++    to_var="to_${method_name}"
++    declare to_${method_name}="${!arr_var[*]}"
++
++    [ -z "${!to_var}" ] && declare ${send_var}="NO"
++done
++
++# -----------------------------------------------------------------------------
++# handle fixup of the email recipient list.
++
++fix_to_email() {
++  to_email=
++  while [ ! -z "${1}" ]
++  do
++    [ ! -z "${to_email}" ] && to_email="${to_email}, "
++    to_email="${to_email}${1}"
++    shift 1
++  done
++}
++
++# ${to_email} without quotes here
++fix_to_email ${to_email}
++
++# -----------------------------------------------------------------------------
++# handle output if we're running in unit test mode
++if [ ${unittest} ] ; then
++    for method_name in ${method_names} ; do
++        to_var="to_${method_name}"
++        echo "results: ${method_name}: ${!to_var}"
++    done
++    exit 0
++fi
++
++# -----------------------------------------------------------------------------
+ # check that we have at least a method enabled
+ if [   "${SEND_EMAIL}"          != "YES" \
+     -a "${SEND_PUSHOVER}"       != "YES" \
+commit 0259640be1899063832429deed3536bc875e9800
+Author: Ilya Mashchenko <ilyamaschenko@gmail.com>
+Date:   Mon Feb 18 16:12:22 2019 +0300
+
+    python module sensors fix (#5406)
+    
+    * get_data indentation fix
+    
+    * fix divisor of energy and power charts
+
+diff --git a/collectors/python.d.plugin/sensors/sensors.chart.py b/collectors/python.d.plugin/sensors/sensors.chart.py
+index e622eb8e6..02e88e6a4 100644
+--- a/collectors/python.d.plugin/sensors/sensors.chart.py
++++ b/collectors/python.d.plugin/sensors/sensors.chart.py
+@@ -41,7 +41,7 @@ CHARTS = {
+     'power': {
+         'options': [None, ' power', 'Watt', 'power', 'sensors.power', 'line'],
+         'lines': [
+-            [None, None, 'absolute', 1, 1000000]
++            [None, None, 'absolute', 1, 1000]
+         ]
+     },
+     'fan': {
+@@ -51,9 +51,9 @@ CHARTS = {
+         ]
+     },
+     'energy': {
+-        'options': [None, ' energy', 'Joule', 'energy', 'sensors.energy', 'areastack'],
++        'options': [None, ' energy', 'Joule', 'energy', 'sensors.energy', 'line'],
+         'lines': [
+-            [None, None, 'incremental', 1, 1000000]
++            [None, None, 'incremental', 1, 1000]
+         ]
+     },
+     'humidity': {
+@@ -115,7 +115,7 @@ class Service(SimpleService):
+                         limit = LIMITS[type_name]
+                         if val < limit[0] or val > limit[1]:
+                             continue
+-                        data[prefix + '_' + str(feature.name.decode())] = int(val * 1000)
++                    data[prefix + '_' + str(feature.name.decode())] = int(val * 1000)
+         except sensors.SensorsError as error:
+             self.error(error)
+             return None
+
+commit 8516249ca6e41204c02e8dd97039fbf063096cf0
+Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
+Date:   Thu Oct 4 07:07:21 2018 -0400
+
+    Add a python plugin for monitoring power supplies on Linux. (#3799)
+    
+    * Add a python plugin for monitoring power supplies on Linux.
+    
+    This adds a python-based module for tracking statistics relating to
+    Linux kernel power_supply class devices.  This allows tracking battery
+    statistics on Linux systems, as well as (in theory) other energy storage
+    devices that utilize the kernel's power_supply class.
+    
+    The primary purpose of this module is twofold:
+    
+    - To provide a way for battery powered IoT devices to easily alert about a
+    low battery.
+    - To provide a way for all battery powered devices to alert on some easy
+    to monitor battery health conditions.
+    
+    It provides up to four charts, one which provides the remaining capacity
+    as a percentage, and three others which report info about charge (in
+    amp-hours), energy (in watt-hours), and voltage, each providing info
+    about the current values, and possibly minimal and maximal values that
+    can be used for computing battery life.
+    
+    Exact support provided by each individual device varies.  Almost all
+    provide the percentage capacity, but beyond that they may or may not
+    support any or all of the attributes needed for the other three charts
+    (ACPI compliant systems for example support most of the charge related
+    ones, and two of the voltage related values, but none of the energy
+    related ones).
+    
+    Data collection is done by scanning entries in /sys/class/power_supply.
+    One job must be created for each power supply to be monitored, and there
+    is no autodetection (though the config includes an example that should
+    work to monitor the main battery on most laptops).
+    
+    * Fix the build.
+    
+    * Fix one bug and various style issues.
+    
+    * Add a check to make sure it only runs on Linux.
+    
+    * Fixed formatting issues reported by flake8.
+    
+    * Updated to only collect capacity by default.
+    
+    * Add an alarm to alert on low battery.
+    
+    * Update function names to not be sunder style.
+    
+    * Split chart generation to a separate function.
+    
+    * Remove get_sysfs_value_or_zero.
+
+diff --git a/conf.d/Makefile.am b/conf.d/Makefile.am
+index 5021e7f97..3ed7e1597 100644
+--- a/conf.d/Makefile.am
++++ b/conf.d/Makefile.am
+@@ -71,6 +71,7 @@ dist_pythonconfig_DATA = \
+     python.d/icecast.conf \
+     python.d/ipfs.conf \
+     python.d/isc_dhcpd.conf \
++    python.d/linux_power_supply.conf \
+     python.d/litespeed.conf \
+     python.d/logind.conf \
+     python.d/mdstat.conf \
+@@ -134,6 +135,7 @@ dist_healthconfig_DATA = \
+     health.d/ipmi.conf \
+     health.d/isc_dhcpd.conf \
+     health.d/lighttpd.conf \
++    health.d/linux_power_supply.conf \
+     health.d/load.conf \
+     health.d/mdstat.conf \
+     health.d/megacli.conf \
+diff --git a/conf.d/health.d/linux_power_supply.conf b/conf.d/health.d/linux_power_supply.conf
+new file mode 100644
+index 000000000..27a172a14
+--- /dev/null
++++ b/conf.d/health.d/linux_power_supply.conf
+@@ -0,0 +1,12 @@
++# Alert on low battery capacity.
++
++template: linux_power_supply_capacity
++      on: power_supply.capacity
++    calc: $capacity
++   units: %
++   every: 10s
++    warn: $this < 10
++    crit: $this < 5
++   delay: up 0 down 5m multiplier 1.2 max 1h
++    info: the percentage remaining capacity of the power supply
++      to: sysadmin
+diff --git a/conf.d/python.d.conf b/conf.d/python.d.conf
+index bd90333c7..f88bcdc84 100644
+--- a/conf.d/python.d.conf
++++ b/conf.d/python.d.conf
+@@ -56,6 +56,7 @@ go_expvar: no
+ # icecast: yes
+ # ipfs: yes
+ # isc_dhcpd: yes
++# linux_power_supply: yes
+ # litespeed: yes
+ logind: no
+ # mdstat: yes
+diff --git a/conf.d/python.d/linux_power_supply.conf b/conf.d/python.d/linux_power_supply.conf
+new file mode 100644
+index 000000000..3cb610f7f
+--- /dev/null
++++ b/conf.d/python.d/linux_power_supply.conf
+@@ -0,0 +1,81 @@
++# netdata python.d.plugin configuration for linux_power_supply
++#
++# This file is in YaML format. Generally the format is:
++#
++# name: value
++#
++# There are 2 sections:
++#  - global variables
++#  - one or more JOBS
++#
++# JOBS allow you to collect values from multiple sources.
++# Each source will have its own set of charts.
++#
++# JOB parameters have to be indented (using spaces only, example below).
++
++# ----------------------------------------------------------------------
++# Global Variables
++# These variables set the defaults for all JOBs, however each JOB
++# may define its own, overriding the defaults.
++
++# update_every sets the default data collection frequency.
++# If unset, the python.d.plugin default is used.
++# update_every: 1
++
++# priority controls the order of charts at the netdata dashboard.
++# Lower numbers move the charts towards the top of the page.
++# If unset, the default for python.d.plugin is used.
++# priority: 60000
++
++# retries sets the number of retries to be made in case of failures.
++# If unset, the default for python.d.plugin is used.
++# Attempts to restore the service are made once every update_everye
++# and only if the module has collected values in the past.
++# retries: 60
++
++# autodetection_retry sets the job re-check interval in seconds.
++# The job is not deleted if check fails.
++# Attempts to start the job are made once every autodetection_retry.
++# This feature is disabled by default.
++# autodetection_retry: 0
++
++# ----------------------------------------------------------------------
++# JOBS (data collection sources)
++#
++# The default JOBS share the same *name*. JOBS with the same name
++# are mutually exclusive. Only one of them will be allowed running at
++# any time. This allows autodetection to try several alternatives and
++# pick the one that works.
++#
++# Any number of jobs is supported.
++#
++# All python.d.plugin JOBS (for all its modules) support a set of
++# predefined parameters. These are:
++#
++# job_name:
++#     name: myname            # the JOB's name as it will appear at the
++#                             # dashboard (by default is the job_name)
++#                             # JOBs sharing a name are mutually exclusive
++#     update_every: 1         # the JOB's data collection frequency
++#     priority: 60000         # the JOB's order on the dashboard
++#     retries: 60             # the JOB's number of restoration attempts
++#     autodetection_retry: 0  # the JOB's re-check interval in seconds
++#
++# In addition to the above parameters, linux_power_supply also supports
++# the following extra parameters.
++#
++#     supply: ''              # the name of the power supply to monitor
++#     charts: 'capacity'      # a space separated list of the charts to try
++#                             # and generate valid charts are 'capacity',
++#                             # 'charge', 'current', and 'voltage'
++#
++# Note that linux_power_supply will not automatically detect power
++# supplies in the system, you have to manually specify which ones you
++# want it to monitor.
++#
++# The following config will work to monitor the first battery in most
++# ACPI compliant battery powered systems (such as most laptops).
++#
++# battery:
++#     name: battery
++#     supply: BAT0
+diff --git a/python.d/Makefile.am b/python.d/Makefile.am
+index 8463238d8..696cdc517 100644
+--- a/python.d/Makefile.am
++++ b/python.d/Makefile.am
+@@ -37,6 +37,7 @@ dist_python_DATA = \
+     icecast.chart.py \
+     ipfs.chart.py \
+     isc_dhcpd.chart.py \
++    linux_power_supply.chart.py \
+     litespeed.chart.py \
+     logind.chart.py \
+     mdstat.chart.py \
+diff --git a/python.d/README.md b/python.d/README.md
+index 10c15295b..3ce63cf30 100644
+--- a/python.d/README.md
++++ b/python.d/README.md
+@@ -1039,6 +1039,74 @@ The module will not work If no configuration is given.
+ 
+ ---
+ 
++# linux\_power\_supply
++
++This module monitors variosu metrics reported by power supply drivers
++on Linux.  This allows tracking and alerting on things like remaining
++battery capacity.
++
++Depending on the uderlying driver, it may provide the following charts
++and metrics:
++
++1. Capacity: The power supply capacity expressed as a percentage.
++  * capacity\_now
++
++2. Charge: The charge for the power supply, expressed as microamphours.
++  * charge\_full\_design
++  * charge\_full
++  * charge\_now
++  * charge\_empty
++  * charge\_empty\_design
++
++3. Energy: The energy for the power supply, expressed as microwatthours.
++  * energy\_full\_design
++  * energy\_full
++  * energy\_now
++  * energy\_empty
++  * energy\_empty\_design
++
++2. Voltage: The voltage for the power supply, expressed as microvolts.
++  * voltage\_max\_design
++  * voltage\_max
++  * voltage\_now
++  * voltage\_min
++  * voltage\_min\_design
++
++### configuration
++
++Sample:
++
++```yaml
++battery:
++  supply: 'BAT0'
++  charts: 'capacity charge energy voltage'
++```
++
++The `supply` key specifies the name of the power supply device to monitor.
++You can use `ls /sys/class/power_supply` to get a list of such devices
++on your system.
++
++The `charts` key is a space separated list of which charts to try
++to display.  It defaults to trying to display everything.
++
++### notes
++
++* Most drivers provide at least the first chart.  Battery powered ACPI
++compliant systems (like most laptops) provide all but the third, but do
++not provide all of the metrics for each chart.
++
++* Current, energy, and voltages are reported with a _very_ high precision
++by the power\_supply framework.  Usually, this is far higher than the
++actual hardware supports reporting, so expect to see changes in these
++charts jump instead of scaling smoothly.
++
++* If `max` or `full` attribute is defined by the driver, but not a
++corresponding `min or `empty` attribute, then netdata will still provide
++the corresponding `min` or `empty`, which will then always read as zero.
++This way, alerts which match on these will still work.
++
++---
++
+ # litespeed
+ 
+ Module monitor litespeed web server performance metrics.
+diff --git a/python.d/linux_power_supply.chart.py b/python.d/linux_power_supply.chart.py
+new file mode 100644
+index 000000000..71d834e5d
+--- /dev/null
++++ b/python.d/linux_power_supply.chart.py
+@@ -0,0 +1,160 @@
++# -*- coding: utf-8 -*-
++# Description: Linux power_supply netdata python.d module
++# Author: Austin S. Hemmelgarn (Ferroin)
++
++import os
++import platform
++
++from bases.FrameworkServices.SimpleService import SimpleService
++
++# Everything except percentages is reported as µ units.
++PRECISION = 10 ** 6
++
++# A priority of 90000 places us next to the other PSU related stuff.
++PRIORITY = 90000
++
++# We add our charts dynamically when we probe for the device attributes,
++# so these are empty by default.
++ORDER = []
++
++CHARTS = {}
++
++
++def get_capacity_chart(syspath):
++    # Capacity is measured in percent.  We track one value.
++    options = [None, 'Capacity', '%', 'power_supply', 'power_supply.capacity', 'line']
++    lines = list()
++    attr_now = 'capacity'
++    if get_sysfs_value(os.path.join(syspath, attr_now)) is not None:
++        lines.append([attr_now, attr_now, 'absolute', 1, 1])
++        return {'capacity': {'options': options, 'lines': lines}}, [attr_now]
++    else:
++        return None, None
++
++
++def get_generic_chart(syspath, name, unit, maxname, minname):
++    # Used to generate charts for energy, charge, and voltage.
++    options = [None, name.title(), unit, 'power_supply', 'power_supply.{0}'.format(name), 'line']
++    lines = list()
++    attrlist = list()
++    attr_max_design = '{0}_{1}_design'.format(name, maxname)
++    attr_max = '{0}_{1}'.format(name, maxname)
++    attr_now = '{0}_now'.format(name)
++    attr_min = '{0}_{1}'.format(name, minname)
++    attr_min_design = '{0}_{1}_design'.format(name, minname)
++    if get_sysfs_value(os.path.join(syspath, attr_now)) is not None:
++        lines.append([attr_now, attr_now, 'absolute', 1, PRECISION])
++        attrlist.append(attr_now)
++    else:
++        return None, None
++    if get_sysfs_value(os.path.join(syspath, attr_max)) is not None:
++        lines.insert(0, [attr_max, attr_max, 'absolute', 1, PRECISION])
++        lines.append([attr_min, attr_min, 'absolute', 1, PRECISION])
++        attrlist.append(attr_max)
++        attrlist.append(attr_min)
++    elif get_sysfs_value(os.path.join(syspath, attr_min)) is not None:
++        lines.append([attr_min, attr_min, 'absolute', 1, PRECISION])
++        attrlist.append(attr_min)
++    if get_sysfs_value(os.path.join(syspath, attr_max_design)) is not None:
++        lines.insert(0, [attr_max_design, attr_max_design, 'absolute', 1, PRECISION])
++        lines.append([attr_min_design, attr_min_design, 'absolute', 1, PRECISION])
++        attrlist.append(attr_max_design)
++        attrlist.append(attr_min_design)
++    elif get_sysfs_value(os.path.join(syspath, attr_min_design)) is not None:
++        lines.append([attr_min_design, attr_min_design, 'absolute', 1, PRECISION])
++        attrlist.append(attr_min_design)
++    return {name: {'options': options, 'lines': lines}}, attrlist
++
++
++def get_charge_chart(syspath):
++    # Charge is measured in microamphours.  We track up to five
++    # attributes.
++    return get_generic_chart(syspath, 'charge', 'µAh', 'full', 'empty')
++
++
++def get_energy_chart(syspath):
++    # Energy is measured in microwatthours.  We track up to five
++    # attributes.
++    return get_generic_chart(syspath, 'energy', 'µWh', 'full', 'empty')
++
++
++def get_voltage_chart(syspath):
++    # Voltage is measured in microvolts. We track up to five attributes.
++    return get_generic_chart(syspath, 'voltage', 'µV', 'min', 'max')
++
++
++# This is a list of functions for generating charts.  Used below to save
++# a bit of code (and to make it a bit easier to add new charts).
++GET_CHART = {
++    'capacity': get_capacity_chart,
++    'charge': get_charge_chart,
++    'energy': get_energy_chart,
++    'voltage': get_voltage_chart
++}
++
++
++# This opens the specified file and returns the value in it or None if
++# the file doesn't exist.
++def get_sysfs_value(filepath):
++    try:
++        with open(filepath, 'r') as datasource:
++            return int(datasource.read())
++    except (OSError, IOError):
++        return None
++
++
++class Service(SimpleService):
++    def __init__(self, configuration=None, name=None):
++        SimpleService.__init__(self, configuration=configuration, name=name)
++        self.definitions = dict()
++        self.order = list()
++        self.attrlist = list()
++        self.supply = self.configuration.get('supply', None)
++        if self.supply is not None:
++            self.syspath = '/sys/class/power_supply/{0}'.format(self.supply)
++        self.types = self.configuration.get('charts', 'capacity').split()
++
++    def check(self):
++        if platform.system() != 'Linux':
++            self.error('Only supported on Linux.')
++            return False
++        if self.supply is None:
++            self.error('No power supply specified for monitoring.')
++            return False
++        if not self.types:
++            self.error('No attributes requested for monitoring.')
++            return False
++        if not os.access(self.syspath, os.R_OK):
++            self.error('Unable to access {0}'.format(self.syspath))
++            return False
++        return self.create_charts()
++
++    def create_charts(self):
++        chartset = set(GET_CHART).intersection(set(self.types))
++        if not chartset:
++            self.error('No valid attributes requested for monitoring.')
++            return False
++        charts = dict()
++        attrlist = list()
++        for item in chartset:
++            chart, attrs = GET_CHART[item](self.syspath)
++            if chart is not None:
++                charts.update(chart)
++                attrlist.extend(attrs)
++        if len(charts) == 0:
++            self.error('No charts can be created.')
++            return False
++        self.definitions.update(charts)
++        self.order.extend(sorted(charts))
++        self.attrlist.extend(attrlist)
++        return True
++
++    def _get_data(self):
++        data = dict()
++        for attr in self.attrlist:
++            attrpath = os.path.join(self.syspath, attr)
++            if attr.endswith(('_min', '_min_design', '_empty', '_empty_design')):
++                data[attr] = get_sysfs_value(attrpath) or 0
++            else:
++                data[attr] = get_sysfs_value(attrpath)
++        return data
+diff --git a/web/dashboard_info.js b/web/dashboard_info.js
+index 64d98f456..ddb686134 100644
+--- a/web/dashboard_info.js
++++ b/web/dashboard_info.js
+@@ -434,6 +434,12 @@ netdataDashboard.menu = {
+         title: 'Logind',
+         icon: '<i class="fas fa-user"></i>',
+         info: undefined
++    },
++
++    'linux_power_supply': {
++        title: 'Power Supply',
++        icon: '<i class="fas fa-battery-half"></i>',
++        info: 'Statistics for the various system power supplies.'
+     }
+ };
+ 
+
+commit 3dbcbc5d04233a5220f0cc5793fc3611adfc6121
+Author: Chris <github.account@chrigel.net>
+Date:   Fri Jul 7 00:19:27 2017 +0200
+
+    forgot the energy units
+
+diff --git a/node.d/README.md b/node.d/README.md
+index 21d156ccd..3c2977905 100644
+--- a/node.d/README.md
++++ b/node.d/README.md
+@@ -32,8 +32,8 @@ It produces per server:
+  * Relative self consumption in %. The lower the better
+ 
+ 4. **Energy**
+- * The energy produced during the current day
+- * The energy produced during the current year
++ * The energy produced during the current day, in kWh
++ * The energy produced during the current year, in kWh
+ 
+ 5. **Inverter**
+  * The current power output from the connected inverters, in W, one dimension per inverter. At least one is always present.
+
+commit b25815c0a753516f73f7c288418b3a3a391d94b2
+Author: BrainDoctor <github.account@chrigel.net>
+Date:   Thu Jul 6 15:47:06 2017 +0200
+
+    Improving the dashboard and replaced inverter energy chart with site energy chart.
+
+diff --git a/node.d/fronius.node.js b/node.d/fronius.node.js
+index 8fcad1219..555df2b95 100644
+--- a/node.d/fronius.node.js
++++ b/node.d/fronius.node.js
+@@ -19,33 +19,34 @@ var fronius = {
+     charts: {},
+ 
+     powerGridId: "p_grid",
+-    powerPvId: 'p_pv',
+-    powerAccuId: 'p_akku', // not my typo! Using the ID from the AP
+-    consumptionLoadId: 'p_load',
+-    autonomyId: 'rel_autonomy',
+-    consumptionSelfId: 'rel_selfconsumption',
+-
+-    createBasicDimension: function (id, name) {
++    powerPvId: "p_pv",
++    powerAccuId: "p_akku", // not my typo! Using the ID from the AP
++    consumptionLoadId: "p_load",
++    autonomyId: "rel_autonomy",
++    consumptionSelfId: "rel_selfconsumption",
++    energyTodayId: "e_day",
++    energyYearId: "e_year",
++
++    createBasicDimension: function (id, name, divisor) {
+         return {
+             id: id,                                     // the unique id of the dimension
+             name: name,                                 // the name of the dimension
+             algorithm: netdata.chartAlgorithms.absolute,// the id of the netdata algorithm
+             multiplier: 1,                              // the multiplier
+-            divisor: 1,                                 // the divisor
++            divisor: divisor,                           // the divisor
+             hidden: false                               // is hidden (boolean)
+         };
+     },
+ 
+     // Gets the site power chart. Will be created if not existing.
+     getSitePowerChart: function (service, id) {
+-
+         var chart = fronius.charts[id];
+         if (fronius.isDefined(chart)) return chart;
+ 
+         var dim = {};
+-        dim[fronius.powerGridId] = this.createBasicDimension(fronius.powerGridId, "Grid");
+-        dim[fronius.powerPvId] = this.createBasicDimension(fronius.powerPvId, "Photovoltaics");
+-        dim[fronius.powerAccuId] = this.createBasicDimension(fronius.powerAccuId, "Accumulator");
++        dim[fronius.powerGridId] = this.createBasicDimension(fronius.powerGridId, "Grid", 1);
++        dim[fronius.powerPvId] = this.createBasicDimension(fronius.powerPvId, "Photovoltaics", 1);
++        dim[fronius.powerAccuId] = this.createBasicDimension(fronius.powerAccuId, "Accumulator", 1);
+ 
+         chart = {
+             id: id,                                         // the unique id of the chart
+@@ -67,11 +68,10 @@ var fronius = {
+ 
+     // Gets the site consumption chart. Will be created if not existing.
+     getSiteConsumptionChart: function (service, id) {
+-
+         var chart = fronius.charts[id];
+         if (fronius.isDefined(chart)) return chart;
+         var dim = {};
+-        dim[fronius.consumptionLoadId] = this.createBasicDimension(fronius.consumptionLoadId, "Load");
++        dim[fronius.consumptionLoadId] = this.createBasicDimension(fronius.consumptionLoadId, "Load", 1);
+ 
+         chart = {
+             id: id,                                         // the unique id of the chart
+@@ -91,14 +91,13 @@ var fronius = {
+         return chart;
+     },
+ 
+-
+     // Gets the site consumption chart. Will be created if not existing.
+     getSiteAutonomyChart: function (service, id) {
+         var chart = fronius.charts[id];
+         if (fronius.isDefined(chart)) return chart;
+         var dim = {};
+-        dim[fronius.autonomyId] = this.createBasicDimension(fronius.autonomyId, "Autonomy");
+-        dim[fronius.consumptionSelfId] = this.createBasicDimension(fronius.consumptionSelfId, "Self Consumption");
++        dim[fronius.autonomyId] = this.createBasicDimension(fronius.autonomyId, "Autonomy", 1);
++        dim[fronius.consumptionSelfId] = this.createBasicDimension(fronius.consumptionSelfId, "Self Consumption", 1);
+ 
+         chart = {
+             id: id,                                         // the unique id of the chart
+@@ -118,36 +117,45 @@ var fronius = {
+         return chart;
+     },
+ 
+-    // Gets the inverter power chart. Will be created if not existing.
+-    // Needs the array of inverters in order to create a chart with all inverters as dimensions
+-    getInverterPowerChart: function (service, chartId, inverters) {
+-
++    // Gets the site energy chart for today. Will be created if not existing.
++    getSiteEnergyTodayChart: function (service, chartId) {
+         var chart = fronius.charts[chartId];
+         if (fronius.isDefined(chart)) return chart;
+-
+         var dim = {};
++        dim[fronius.energyTodayId] = this.createBasicDimension(fronius.energyTodayId, "Today", 1000);
++        chart = {
++            id: chartId,                                         // the unique id of the chart
++            name: '',                                       // the unique name of the chart
++            title: service.name + ' Energy production for today',    // the title of the chart
++            units: 'kWh',                                   // the units of the chart dimensions
++            family: 'Energy',                                  // the family of the chart
++            context: 'fronius.energy.today',                // the context of the chart
++            type: netdata.chartTypes.area,                  // the type of the chart
++            priority: fronius.base_priority + 4,             // the priority relative to others in the same family
++            update_every: service.update_every,             // the expected update frequency of the chart
++            dimensions: dim
++        };
++        chart = service.chart(chartId, chart);
++        fronius.charts[chartId] = chart;
+ 
+-        var inverterCount = Object.keys(inverters).length;
+-        var inverter = inverters[inverterCount.toString()];
+-        var i = 1;
+-        for (i; i <= inverterCount; i++) {
+-            if (fronius.isUndefined(inverter)) {
+-                netdata.error("Expected an Inverter with a numerical name! " +
+-                    "Have a look at your JSON output to verify.");
+-                continue;
+-            }
+-            dim[i.toString()] = this.createBasicDimension("inverter_" + i, "Inverter " + i);
+-        }
++        return chart;
++    },
+ 
++    // Gets the site energy chart for today. Will be created if not existing.
++    getSiteEnergyYearChart: function (service, chartId) {
++        var chart = fronius.charts[chartId];
++        if (fronius.isDefined(chart)) return chart;
++        var dim = {};
++        dim[fronius.energyYearId] = this.createBasicDimension(fronius.energyYearId, "Year", 1000);
+         chart = {
+             id: chartId,                                         // the unique id of the chart
+             name: '',                                       // the unique name of the chart
+-            title: service.name + ' Current Inverter Output',    // the title of the chart
+-            units: 'W',                                   // the units of the chart dimensions
+-            family: 'Inverters',                                  // the family of the chart
+-            context: 'fronius.inverter',                // the context of the chart
+-            type: netdata.chartTypes.stacked,                  // the type of the chart
+-            priority: fronius.base_priority + 4,             // the priority relative to others in the same family
++            title: service.name + ' Energy production for this year',    // the title of the chart
++            units: 'kWh',                                   // the units of the chart dimensions
++            family: 'Energy',                                  // the family of the chart
++            context: 'fronius.energy.year',                // the context of the chart
++            type: netdata.chartTypes.area,                  // the type of the chart
++            priority: fronius.base_priority + 5,             // the priority relative to others in the same family
+             update_every: service.update_every,             // the expected update frequency of the chart
+             dimensions: dim
+         };
+@@ -157,9 +165,9 @@ var fronius = {
+         return chart;
+     },
+ 
+-    // Gets the inverter energy production chart for today. Will be created if not existing.
++    // Gets the inverter power chart. Will be created if not existing.
+     // Needs the array of inverters in order to create a chart with all inverters as dimensions
+-    getInverterEnergyTodayChart: function (service, chartId, inverters) {
++    getInverterPowerChart: function (service, chartId, inverters) {
+ 
+         var chart = fronius.charts[chartId];
+         if (fronius.isDefined(chart)) return chart;
+@@ -175,25 +183,18 @@ var fronius = {
+                     "Have a look at your JSON output to verify.");
+                 continue;
+             }
+-            dim[i.toString()] = {
+-                id: 'inverter_' + i,           // the unique id of the dimension
+-                name: 'Inverter ' + i,  // the name of the dimension
+-                algorithm: netdata.chartAlgorithms.absolute,// the id of the netdata algorithm
+-                multiplier: 1,                              // the multiplier
+-                divisor: 1000,                                 // the divisor
+-                hidden: false                               // is hidden (boolean)
+-            };
++            dim[i.toString()] = this.createBasicDimension("inverter_" + i, "Inverter " + i, 1);
+         }
+ 
+         chart = {
+             id: chartId,                                         // the unique id of the chart
+             name: '',                                       // the unique name of the chart
+-            title: service.name + ' Inverter Energy production for today',    // the title of the chart
+-            units: 'kWh',                                   // the units of the chart dimensions
++            title: service.name + ' Current Inverter Output',    // the title of the chart
++            units: 'W',                                   // the units of the chart dimensions
+             family: 'Inverters',                                  // the family of the chart
+-            context: 'fronius.inverter',                // the context of the chart
++            context: 'fronius.inverter.output',                // the context of the chart
+             type: netdata.chartTypes.stacked,                  // the type of the chart
+-            priority: fronius.base_priority + 5,             // the priority relative to others in the same family
++            priority: fronius.base_priority + 6,             // the priority relative to others in the same family
+             update_every: service.update_every,             // the expected update frequency of the chart
+             dimensions: dim
+         };
+@@ -203,18 +204,13 @@ var fronius = {
+         return chart;
+     },
+ 
+-
+     processResponse: function (service, content) {
+         if (content === null) return;
+         var json = JSON.parse(content);
+-        // validating response
+-        if (fronius.isUndefined(json.Body)) return;
+-        if (fronius.isUndefined(json.Body.Data)) return;
+-        if (fronius.isUndefined(json.Body.Data.Site)) return;
+-        if (fronius.isUndefined(json.Body.Data.Inverters)) return;
++        if (!fronius.isResponseValid(json)) return;
+ 
+         // add the service
+-        if (service.added !== true) service.commit();
++        service.commit();
+ 
+         var site = json.Body.Data.Site;
+ 
+@@ -240,24 +236,37 @@ var fronius = {
+         service.set(fronius.consumptionSelfId, Math.round(site.rel_SelfConsumption));
+         service.end();
+ 
++        // Site Energy Today Chart
++        service.begin(fronius.getSiteEnergyTodayChart(service, 'fronius_' + service.name + '.energy.today'));
++        service.set(fronius.energyTodayId, Math.round(site.E_Day));
++        service.end();
++
++        // Site Energy Year Chart
++        service.begin(fronius.getSiteEnergyYearChart(service, 'fronius_' + service.name + '.energy.year'));
++        service.set(fronius.energyYearId, Math.round(site.E_Year));
++        service.end();
++
+         // Inverters
+         var inverters = json.Body.Data.Inverters;
+-        var inverterCount = Object.keys(inverters).length;
+-        if (inverterCount <= 0) return;
+-        var i = 1;
+-        for (i; i <= inverterCount; i++) {
+-            var inverter = inverters[i];
++        var inverterCount = Object.keys(inverters).length + 1;
++        while (inverterCount--) {
++            var inverter = inverters[inverterCount];
+             if (fronius.isUndefined(inverter)) continue;
+-            netdata.debug("Setting values");
+             service.begin(fronius.getInverterPowerChart(service, 'fronius_' + service.name + '.inverters.output', inverters));
+-            service.set(i.toString(), Math.round(inverter.P));
+-            service.end();
+-            service.begin(fronius.getInverterEnergyTodayChart(service, 'fronius_' + service.name + '.inverters.today', inverters));
+-            service.set(i.toString(), Math.round(inverter.E_Day));
++            service.set(inverterCount.toString(), Math.round(inverter.P));
+             service.end();
+         }
+     },
+ 
++    // some basic validation
++    isResponseValid: function (json) {
++        if (fronius.isUndefined(json.Body)) return false;
++        if (fronius.isUndefined(json.Body.Data)) return false;
++        if (fronius.isUndefined(json.Body.Data.Site)) return false;
++        if (fronius.isUndefined(json.Body.Data.Inverters)) return false;
++        return true;
++    },
++
+     // module.serviceExecute()
+     // this function is called only from this module
+     // its purpose is to prepare the request and call
+@@ -271,7 +280,6 @@ var fronius = {
+             update_every: update_every,
+             module: this
+         });
+-        service.request.method = 'GET';
+         service.execute(this.processResponse);
+     },
+ 
+@@ -308,8 +316,6 @@ var fronius = {
+     isDefined: function (value) {
+         return typeof value !== 'undefined';
+     }
+-
+-
+ };
+ 
+ module.exports = fronius;
+diff --git a/web/dashboard_info.js b/web/dashboard_info.js
+index 5acd1bfb7..549e468b9 100644
+--- a/web/dashboard_info.js
++++ b/web/dashboard_info.js
+@@ -285,6 +285,12 @@ netdataDashboard.menu = {
+         info: undefined
+     },
+ 
++    'fronius': {
++        title: 'Solar Power',
++        icon: '<i class="fa fa-sun-o" aria-hidden="true"></i>',
++        info: undefined
++    },
++
+     'snmp': {
+         title: 'SNMP',
+         icon: '<i class="fa fa-random" aria-hidden="true"></i>',
+@@ -1324,5 +1330,28 @@ netdataDashboard.context = {
+         info: 'These tags are optional and describe some error conditions which occured during response delivery (if any). ' +
+         '<code>ABORTED</code> when the response was not completed due to the connection being aborted (usually by the client). ' +
+         '<code>TIMEOUT</code>, when the response was not completed due to a connection timeout.'
++    },
++
++    // ------------------------------------------------------------------------
++    // Fronius Solar Power
++
++    'fronius.power': {
++        info: 'Positive <code>Grid</code> values mean that power is coming from the grid. Negative values are excess power that is going back into the grid, possibly selling it. ' +
++            '<code>Photovoltaics</code> is the power generated from the solar panels. ' +
++            '<code>Accumulator</code> is the stored power in the accumulator, if one is present.'
++    },
++
++    'fronius.autonomy': {
++        commonMin: true,
++        commonMax: true,
++        valueRange: "[0, 100]",
++        info: 'The <code>Autonomy</code> is the percentage of how autonomous the installation is. An autonomy of 100 % means that the installation is producing more energy than it is needed. ' +
++        'The <code>Self consumption</code> indicates the ratio between the current power generated and the current load. When it reaches 100 %, the <code>Autonomy</code> declines, since the solar panels can not produce enough energy and need support from the grid.'
++    },
++
++    'fronius.energy.today': {
++        commonMin: true,
++        commonMax: true,
++        valueRange: "[0, null]"
+     }
+ };
+
+commit df1913cea2e08a9a02ecb623bec218cec546de3f
+Author: Costa Tsaousis (ktsaou) <costa@tsaousis.gr>
+Date:   Sat Oct 3 21:28:44 2015 +0300
+
+    added all possible sensors (temperature, voltage, current, energy, power, humidity, fans)
+
+diff --git a/charts.d/sensors.chart.sh b/charts.d/sensors.chart.sh
+index a70c7c49c..a527c9340 100755
+--- a/charts.d/sensors.chart.sh
++++ b/charts.d/sensors.chart.sh
+@@ -3,15 +3,15 @@
+ # if this chart is called X.chart.sh, then all functions and global variables
+ # must start with X_
+ 
+-sensors_sys_dir="/sys/class/hwmon"
+-sensors_sys_depth=3
++sensors_sys_dir="/sys/devices"
++sensors_sys_depth=10
+ 
+ # _update_every is a special variable - it holds the number of seconds
+ # between the calls of the _update() function
+ sensors_update_every=
+ 
+ sensors_find_all_files() {
+-	find -L $1 -maxdepth $sensors_sys_depth -name temp\?_input -o -name temp -o -name in\?_input -o -name fan\?_input 2>/dev/null
++	find $1 -maxdepth $sensors_sys_depth -name \*_input -o -name temp 2>/dev/null
+ }
+ 
+ sensors_find_all_dirs() {
+@@ -32,6 +32,17 @@ sensors_check() {
+ 	return 1
+ }
+ 
++sensors_check_files() {
++	local f= v=
++	for f in $*
++	do
++		echo >&2 "checking $f"
++		v="$( cat $f )"
++		v=$(( v + 1 - 1 ))
++		[ $v -ne 0 ] && echo "$f"
++	done
++}
++
+ # _create is called once, to create the charts
+ sensors_create() {
+ 	local path= dir= name= x= file= lfile= labelname= labelid= device= subsystem= id= type= mode= files= multiplier= divisor=
+@@ -65,35 +76,77 @@ sensors_create() {
+ 
+ 		echo >&2 "charts.d: sensors on path='$path', dir='$dir', device='$device', subsystem='$subsystem', id='$id', name='$name'"
+ 
+-		for mode in temperature voltage fans
++		for mode in temperature voltage fans power current energy humidity
+ 		do
+ 			files=
+ 			multiplier=1
+ 			divisor=1
++			algorithm="absolute"
++
+ 			case $mode in
+ 				temperature)
+-					files="$( find -H $path -name temp\?_input -o -name temp | sort -u)"
++					files="$( ls $path/temp*_input 2>/dev/null; ls $path/temp 2>/dev/null )"
++					files="$( sensors_check_files $files )"
+ 					[ -z "$files" ] && continue
+-					echo "CHART sensors.temp_${id} '' '${name} Temperature' 'Temperature' 'Celcius Degrees' '' line 6000 $sensors_update_every"
++					echo "CHART sensors.temp_${id} '' '${name} Temperature' 'Celcius' '${device}' '' line 6000 $sensors_update_every"
+ 					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.temp_${id} \$1\""
+ 					divisor=1000
+ 					;;
+ 
+ 				voltage)
+-					files="$( find -H $path -name in\?_input )"
++					files="$( ls $path/in*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
+ 					[ -z "$files" ] && continue
+-					echo "CHART sensors.volt_${id} '' '${name} Voltage' 'Voltage' 'Volts' '' line 6001 $sensors_update_every"
++					echo "CHART sensors.volt_${id} '' '${name} Voltage' 'Volts' '${device}' '' line 6001 $sensors_update_every"
+ 					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.volt_${id} \$1\""
+ 					divisor=1000
+ 					;;
+ 
++				current)
++					files="$( ls $path/curr*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
++					[ -z "$files" ] && continue
++					echo "CHART sensors.curr_${id} '' '${name} Current' 'Ampere' '${device}' '' line 6002 $sensors_update_every"
++					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.curr_${id} \$1\""
++					divisor=1000
++					;;
++
++				power)
++					files="$( ls $path/power*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
++					[ -z "$files" ] && continue
++					echo "CHART sensors.power_${id} '' '${name} Power' 'Watt' '${device}' '' line 6003 $sensors_update_every"
++					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.power_${id} \$1\""
++					divisor=1000000
++					;;
++
+ 				fans)
+-					files="$( find -H $path -name fan\?_input )"
++					files="$( ls $path/fan*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
+ 					[ -z "$files" ] && continue
+-					echo "CHART sensors.fan_${id} '' '${name} Fans Speed' 'Fans' 'Rotations Per Minute (RPM)' '' line 6002 $sensors_update_every"
++					echo "CHART sensors.fan_${id} '' '${name} Fans Speed' 'Rotations / Minute' '${device}' '' line 6004 $sensors_update_every"
+ 					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.fan_${id} \$1\""
+ 					;;
+ 
++				emergy)
++					files="$( ls $path/energy*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
++					[ -z "$files" ] && continue
++					echo "CHART sensors.energy_${id} '' '${name} Energy' 'Joule' '${device}' '' areastack 6005 $sensors_update_every"
++					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.energy_${id} \$1\""
++					algorithm="incremental"
++					divisor=1000000
++					;;
++
++				humidity)
++					files="$( ls $path/humidity*_input 2>/dev/null )"
++					files="$( sensors_check_files $files )"
++					[ -z "$files" ] && continue
++					echo "CHART sensors.humidity_${id} '' '${name} Humidity' 'Percent' '${device}' '' line 6006 $sensors_update_every"
++					echo >>$TMP_DIR/temp.sh "echo \"BEGIN sensors.humidity_${id} \$1\""
++					divisor=1000
++					;;
++
+ 				*)
+ 					continue
+ 					;;
+@@ -111,7 +164,7 @@ sensors_create() {
+ 					labelname="$( cat "$path/$lfile" )"
+ 				fi
+ 
+-				echo "DIMENSION $fid '$labelname' absolute $multiplier $divisor"
++				echo "DIMENSION $fid '$labelname' $algorithm $multiplier $divisor"
+ 				echo >>$TMP_DIR/temp.sh "printf \"SET $fid = \"; cat $file "
+ 			done
+ 

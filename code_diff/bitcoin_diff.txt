@@ -1,0 +1,2971 @@
+commit 86c3b84388813c9d6cab6031bc36d87a8a169fee
+Merge: 8bda5e098 b69a106bc
+Author: fanquake <fanquake@gmail.com>
+Date:   Thu Sep 23 16:47:23 2021 +0800
+
+    Merge bitcoin/bitcoin#23036: test: use test_framework.p2p `P2P_SERVICES` constant in functional tests
+    
+    b69a106bcd8ddefdb810df6ebb3625c430197e04 test: use test_framework.p2p P2P_SERVICES in functional tests (Jon Atack)
+    
+    Pull request description:
+    
+      `P2P_SERVICES` is defined in `test/functional/test_framework/p2p.py`, so we can use it as a single definition for our functional tests. It may also be a tiny bit more efficient to use the constant rather than calculating `NODE_NETWORK | NODE_WITNESS` every time we need it in the tests.
+    
+    ACKs for top commit:
+      laanwj:
+        Code review ACK b69a106bcd8ddefdb810df6ebb3625c430197e04
+      klementtan:
+        crACK b69a106bcd8ddefdb810df6ebb3625c430197e04
+      fanquake:
+        ACK b69a106bcd8ddefdb810df6ebb3625c430197e04 - didn't look at the formatting changes.
+    
+    Tree-SHA512: f83e593663a69182986325d9ba2b4b787b87896d6648973f4f802f191a2573201b9e7d7e10e69662ef1965fa63268845726ed1aa5742a2e38dcccf4aebc6a961
+
+commit da4e2f1da0388d424659fa8c853fcaf37b4b5959
+Author: Jon Atack <jon@atack.com>
+Date:   Thu Sep 16 15:08:58 2021 +0200
+
+    bench: various args improvements
+    
+    - use ALLOW_BOOL for -list arg instead of ALLOW_ANY
+    - touch up `-asymptote=<n1,n2,n3...>` help
+    - pack Args struct a bit more efficiently
+    - handle args in alphabetical order
+
+commit eb2e113df13c7b1ede279878f5cbad877af49f8e
+Author: Martin Zumsande <mzumsande@gmail.com>
+Date:   Thu Sep 9 21:41:51 2021 +0200
+
+    addrman: Improve performance of Good
+    
+    This is done by removing an unnecessary loop in Good_() and looping
+    through the new tables in MakeTried() more efficiently, choosing a
+    starting value that allow us to stop early in typical cases.
+    
+    Co-authored-by: John Newbery <john@johnnewbery.com>
+
+commit 62cb4009c2acc3d72b8c71327553681295bef814
+Merge: fdd80b0a5 5c5d0b626
+Author: fanquake <fanquake@gmail.com>
+Date:   Wed Aug 18 08:33:54 2021 +0800
+
+    Merge bitcoin/bitcoin#22215: refactor: Add FoundBlock.found member
+    
+    5c5d0b62648e1b144b7b93c199f45265dac100e5 Add FoundBlock.found member (Russell Yanofsky)
+    
+    Pull request description:
+    
+      This change lets IPC serialization code handle FoundBlock arguments more simply and efficiently. Without this change there was no way to determine from a FoundBlock object whether a block was found or not. So in order to correctly implement behavior of leaving FoundBlock output variables unmodified when a block was not found, IPC code would have to read preexisting output variable values from the local process, send them to the remote process, receive output values back from the remote process, and save them to output variables unconditionally. With FoundBlock.found method, the process is simpler. There's no need to read or send preexisting local output variable values, just to read final output values from the remote process and set them conditionally if the block was found.
+    
+      ---
+    
+      This PR is part of the [process separation project](https://github.com/bitcoin/bitcoin/projects/10). The commit was first part of larger PR #10102.
+    
+    ACKs for top commit:
+      fjahr:
+        Code review ACK 5c5d0b62648e1b144b7b93c199f45265dac100e5
+      theStack:
+        Concept and code review ACK 5c5d0b62648e1b144b7b93c199f45265dac100e5
+      jamesob:
+        ACK 5c5d0b62648e1b144b7b93c199f45265dac100e5 ([`jamesob/ackr/22215.1.ryanofsky.refactor_add_foundblock`](https://github.com/jamesob/bitcoin/tree/ackr/22215.1.ryanofsky.refactor_add_foundblock))
+      Zero-1729:
+        crACK 5c5d0b6
+    
+    Tree-SHA512: d906e1b7100ff72c3aa06d80bd77673887b2db670ebd52dce7c4f6f557a23a1744c6109308228a37fda6c6ea74f05ba0efecff0ef235ab06ea8acd861fbb8675
+
+commit e841fb503d7a662bde01ec2e4794faa989265950
+Author: Pieter Wuille <pieter@wuille.net>
+Date:   Wed Feb 17 18:57:19 2021 -0800
+
+    Add precomputed txdata support to MutableTransactionSignatureCreator
+    
+    This provides a means to pass in a PrecomputedTransactionData object to
+    the MutableTransactionSignatureCreator, allowing the prevout data to be
+    passed into the signature hashers. It is also more efficient.
+
+commit 5c5d0b62648e1b144b7b93c199f45265dac100e5
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Thu Dec 10 13:31:48 2020 -0500
+
+    Add FoundBlock.found member
+    
+    This change lets IPC serialization code handle FoundBlock arguments more
+    simply and efficiently. Without this change there was no way to
+    determine from a FoundBlock object whether a block was found or not. So
+    in order to correctly implement behavior of leaving FoundBlock output
+    variables unmodified when a block was not found, IPC code would have to
+    read preexisting output variable values from the local process, send
+    them to the remote process, receive output values back from the remote
+    process, and save them to output variables unconditionally. With
+    FoundBlock.found method, the process is simpler. There's no need to read
+    or send preexisting local output variable values, just to read final
+    output values from the remote process and set them conditionally if the
+    block was found.
+
+commit 456c8d6cd80fc3461957a3553a0483756396b988
+Merge: ecddd1248 a02c970eb
+Author: W. J. van der Laan <laanwj@protonmail.com>
+Date:   Wed May 26 15:01:14 2021 +0200
+
+    Merge bitcoin-core/gui#313: qt: Optimize string concatenation by default
+    
+    a02c970eb001b456d74ddc30750fe8b55348ddac qt, refactor: Revert explicit including QStringBuilder (Hennadii Stepanov)
+    3fd3a0fc87a81d42755246830124833e9ca3f0a9 qt, build: Optimize string concatenation (Hennadii Stepanov)
+    
+    Pull request description:
+    
+      From [Qt docs](https://doc.qt.io/qt-5/qstring.html#more-efficient-string-construction):
+      > ... multiple uses of the \[`QString`\] '+' operator usually means multiple memory allocations. When concatenating n substrings, where n > 2, there can be as many as n - 1 calls to the memory allocator.
+    
+      With this PR
+      > ... the '+' will automatically be performed as the `QStringBuilder` '%' everywhere.
+    
+      The change in the `src/Makefile.qt.include` file does not justify submitting this PR into the main repo, IMHO.
+    
+    ACKs for top commit:
+      laanwj:
+        Code review ACK a02c970eb001b456d74ddc30750fe8b55348ddac
+      Talkless:
+        utACK a02c970eb001b456d74ddc30750fe8b55348ddac, built successfully on Debian Sid with Qt 5.15.2, but did not check if any displayed strings are "wrong" after refactoring.
+      jarolrod:
+        ACK a02c970eb001b456d74ddc30750fe8b55348ddac
+    
+    Tree-SHA512: cbb476ee96f27c3bd6e125efab74d8bf24bbdb4c30576b3feea45e203405f3bf5b497dd7d3e11361fc825fcbf4b893b152921a9efdeaf73b42d1865d85f0ae84
+
+commit 3fd3a0fc87a81d42755246830124833e9ca3f0a9
+Author: Hennadii Stepanov <32963518+hebasto@users.noreply.github.com>
+Date:   Mon May 3 11:16:06 2021 +0300
+
+    qt, build: Optimize string concatenation
+    
+    The defined QT_USE_QSTRINGBUILDER macro means using the QStringBuilder
+    for efficient string concatenation in all Qt code by default.
+
+commit 2b45cf0bcdb3d2c1de46899e30885c953b57b475
+Merge: 480bf01c2 5f96d7d22
+Author: W. J. van der Laan <laanwj@protonmail.com>
+Date:   Fri Apr 30 08:31:41 2021 +0200
+
+    Merge bitcoin/bitcoin#19521: Coinstats Index
+    
+    5f96d7d22d8e05876c6fc014e70488699950fe38 rpc: gettxoutsetinfo rejects hash_serialized_2 for specific height (Fabian Jahr)
+    23fe50436be641d7417152adc683192649ba206a test: Add test for coinstatsindex behavior in reorgs (Fabian Jahr)
+    90c966b0f3cfbd6bce5883f46d8527c6853a86a2 rpc: Allow gettxoutsetinfo and getblockstats for stale blocks (Fabian Jahr)
+    b9362392aef2689bc106c20925859ede555d082b index, rpc: Add use_index option for gettxoutsetinfo (Fabian Jahr)
+    bb7788b121a30489bc81a1f46dde6a9b19ae4ec1 test: Test coinstatsindex robustness across restarts (Fabian Jahr)
+    e0938c29099635150014ffc9bb0cafa8049ec55a test: Add tests for block_info in gettxoutsetinfo (Fabian Jahr)
+    2501576eccb08af80471c7b7b843b189ad6758c0 rpc, index: Add verbose amounts tracking to Coinstats index (Fabian Jahr)
+    655d929836a71af23d2035d2e2e99ad8b8c340c3 test: add coinstatsindex getindexinfo coverage, improve current tests (Jon Atack)
+    ca01bb8d689f93e1c7669b0ba7a4994c0206dabd rpc: Add Coinstats index to getindexinfo (Fabian Jahr)
+    57a026c30fef3138bb8db46e6865acb9dc2674f8 test: Add unit test for Coinstats index (Fabian Jahr)
+    6a4c0c09ab4d073a26c3c4a02783d5dcd88f6eef test: Add functional test for Coinstats index (Fabian Jahr)
+    3f166ecc125fce6ccd995687fa16572090a5d099 rpc: gettxoutsetinfo can be requested for specific blockheights (Fabian Jahr)
+    3c914d58ff323255b32e717d0ce28209ec0abdaa index: Coinstats index can be activated with command line flag (Fabian Jahr)
+    dd58a4de21469d6d848ae309edc47f558628221d index: Add Coinstats index (Fabian Jahr)
+    a8a46c4b3cfda4b95c92a36f8cebd3606377e57d refactor: Simplify ApplyStats and ApplyHash (Fabian Jahr)
+    9c8a265fd21a87228c18a1661df99fedc1866baf refactor: Pass hash_type to CoinsStats in stats object (Fabian Jahr)
+    2e2648a9021dfbb6e17dfa81472f057dacbc34e0 crypto: Make MuHash Remove method efficient (Fabian Jahr)
+    
+    Pull request description:
+    
+      This is part of the coinstats index project tracked in #18000
+    
+      While the review of the new UTXO set hash algorithm (MuHash) takes longer recently #19328 was merged which added the possibility to run `gettxoutsetinfo` with a specific hash type. As the first type it added `hash_type=none` which skips the hashing of the UTXO set altogether. This alone did not make `gettxoutsetinfo` much faster but it allows the use of an index for the remaining coin statistics even before a new hashing algorithm has been added. Credit to Sjors for the idea to take this intermediate step.
+    
+      Features summary:
+      - Users can start their node with the option `-coinstatsindex` which syncs the index in the background
+      - After the index is synced the user can  use `gettxoutsetinfo` with `hash_type=none` or `hash_type=muhash` and will get the response instantly out of the index
+      - The user can specify a height or block hash when calling `gettxoutsetinfo` to see coin statistics at a specific block height
+    
+    ACKs for top commit:
+      Sjors:
+        re-tACK 5f96d7d22d8e05876c6fc014e70488699950fe38
+      jonatack:
+        Code review re-ACK 5f96d7d22d8e05876c6fc014e70488699950fe38 per `git range-diff 13d27b4 07201d3 5f96d7d`
+      promag:
+        Tested ACK 5f96d7d22d8e05876c6fc014e70488699950fe38. Light code review ACK 5f96d7d22d8e05876c6fc014e70488699950fe38.
+    
+    Tree-SHA512: cbca78bee8e9605c19da4fbcd184625fb280200718396c694a56c7daab6f44ad23ca9fb5456d09f245d8b8d9659fdc2b3f3ce5e953c1c6cf4003dbc74c0463c2
+
+commit 2e2648a9021dfbb6e17dfa81472f057dacbc34e0
+Author: Fabian Jahr <fjahr@protonmail.com>
+Date:   Thu Feb 25 19:09:12 2021 +0100
+
+    crypto: Make MuHash Remove method efficient
+    
+    Division of MuHash objects are very expensive and multiplication relatively cheap. The whole idea of introducing and tracking numerator and denominators seperately as a representation of the internal state was so that divisions would be rare. So using divison in the Remove method did not make any sense and was just a silly mistake which is corrected here.
+
+commit 9017d55e7c325eba486075bc3403dc8c9b252b75
+Merge: cd66d8b1d 84716b134
+Author: Jonas Schnelli <dev@jonasschnelli.ch>
+Date:   Thu Feb 18 09:40:33 2021 +0100
+
+    Merge #15946: Allow maintaining the blockfilterindex when using prune
+    
+    84716b134e9afca2fba7731de4af1f22fa1b1518 Add "index/blockfilterindex -> validation -> index/blockfilterindex" to expected circular dependencies (Jonas Schnelli)
+    ab3a0a2fb915d8b8384c30a8b38b4b5cc35236fd Add functional test for blockfilterindex in prune-mode (Jonas Schnelli)
+    c286a22f7b63a8bd336d5d7606c339053ee0054b Add debug startup parameter -fastprune for more effective pruning tests (Jonas Schnelli)
+    5e112269c311a559bfded814d3c3c438349a1986 Avoid pruning below the blockfilterindex sync height (Jonas Schnelli)
+    00d57ff76854938ead800767fb673a8af46eac8e Avoid accessing nullpointer in BaseIndex::GetSummary() (Jonas Schnelli)
+    6abe9f5b11cd4a5ecb6caca8443fe2950a417842 Allow blockfilter in conjunction with prune (Jonas Schnelli)
+    
+    Pull request description:
+    
+      Maintaining the blockfilterindexes in prune mode is possible and may lead to efficient p2p based rescans of wallets (restore backups, import/sweep keys) beyond the prune height (rescans not part of that PR).
+    
+      This PR allows running the blockfilterindex(es) in conjunction with pruning.
+      * Bitcoind/Qt will shutdown during startup when missing block data has been detected ([re]enable `-blockfilterindex` when we already have pruned)
+      * manual block pruning is disabled during blockfilterindex sync
+      * auto-pruning is delayed during blockfilterindex sync
+    
+      ToDos:
+      * [x] Functional tests
+    
+    ACKs for top commit:
+      fjahr:
+        Code review ACK 84716b1
+      ryanofsky:
+        Code review ACK 84716b134e9afca2fba7731de4af1f22fa1b1518. Only changes since last review were suggested new FindFilesToPrune argument and test.
+      benthecarman:
+        tACK 84716b134e9afca2fba7731de4af1f22fa1b1518
+    
+    Tree-SHA512: 91d832c6c562c463f7ec7655c08956385413a99a896640b9737bda0183607fac530435d03d87c3c0e70c61ccdfe73fe8f3639bc7d26d33ca7e60925ebb97d77a
+
+commit 3f205808a5f20c9398d8e74b7e83220a129acc7d
+Merge: 9dbcd3710 cd03513dc
+Author: Wladimir J. van der Laan <laanwj@protonmail.com>
+Date:   Wed Dec 16 16:40:42 2020 +0100
+
+    Merge #20605: init: Signal-safe instant shutdown
+    
+    cd03513dc2fcccaa142e9632a28b38efd0056436 init: Signal-safe instant shutdown (Wladimir J. van der Laan)
+    
+    Pull request description:
+    
+      Replace the 200ms polling loop with a faster and more efficient waiting operation. This should speed up short RPC tests.
+    
+      This change has been tried a few times before, but abandoned every time because solutions used a condition variable which is not safe for use in signals, as they need to be reentrant.
+    
+      On UNIX-ish OSes, use a safe way: a pipe. When shutdown is requested write a dummy byte to the pipe. Waiting for shutdown is a matter of a blocking read from the pipe.
+    
+      On Windows, there are no signals so using a condition variable is safe.
+    
+      This only affects bitcoind. The GUI is unaffected by this change, and keeps polling as before in `BitcoinGUI::detectShutdown()`. It might be possible to listen to a pipe there, too, but I'm not sure, and it's complicated by the GUI-node abstraction.
+    
+    ACKs for top commit:
+      jonatack:
+        ACK cd03513dc2fcccaa142e9632a28b38efd0056436 tested on Debian 5.9.11-1 (2020-11-27) x86_64 GNU/Linux
+    
+    Tree-SHA512: ed2f532f69fec4855c17bf7b8f3d0eb96e78ee2a3c13d374dd2c6add06e3ad6a190da8ed8f9d7a76532cf998222d67f57e35b206aec29675e96437448ae7e13c
+
+commit cd03513dc2fcccaa142e9632a28b38efd0056436
+Author: Wladimir J. van der Laan <laanwj@protonmail.com>
+Date:   Tue Dec 8 21:49:06 2020 +0100
+
+    init: Signal-safe instant shutdown
+    
+    Replace the 200ms polling loop with a faster and more efficient waiting
+    operation.
+    
+    This was tried a few times before, but given up every time because
+    solutions use a condition variable which is not safe for use in signals
+    as they need to be reentrant.
+    
+    On UNIX-ish OSes, use a safe way: a pipe. When shutdown is requested
+    write a dummy byte to the pipe. Waiting for shutdown is a matter of a
+    blocking read from the pipe.
+    
+    On Windows, there are no signals so using a condition variable is safe.
+
+commit ba4b3fbcf21317a9410f3be913e4437d58968091
+Merge: be375b220 894fb33f4
+Author: fanquake <fanquake@gmail.com>
+Date:   Mon Sep 14 10:28:45 2020 +0800
+
+    Merge #19944: Update secp256k1 subtree (including BIP340 support)
+    
+    b9c1a7648131c5deec9704ee9acd00ec1820b9ce Squashed 'src/secp256k1/' changes from 2ed54da18a..8ab24e8dad (Pieter Wuille)
+    
+    Pull request description:
+    
+      This updates our src/secp256k1 subtree to the latest libsecp256k1 upstream version.
+    
+      As it adds BIP340 support (see https://github.com/bitcoin-core/secp256k1/pull/558), this is a prerequisite for #17977. In particular, it contains:
+      * A few generic library improvements
+      * Support for x-only public keys as used by BIP340.
+      * Support for "key pair" objects, making signing more efficient by using a precomputed public key.
+      * Signing support for BIP340 Schnorr (single-party) signatures.
+      * Verification support for BIP340 Schnorr signatures.
+      * Support for verifying tweaked x-only keys, as used by BIP341's Taproot construction.
+    
+      Things that are not included:
+      * MuSig, nor any kind of multisignatures, threshold signatures, ... on top.
+      * Batch verification.
+      * Support for variable-length messages in BIP340 (which are still being discussed, but won't affect BIP341, or Bitcoin Core).
+      * A few more generic improvements that are still in the pipeline, including faster modular inversions.
+    
+    ACKs for top commit:
+      instagibbs:
+        ACK 894fb33f4c1b24667891f7d2aff9f486177b1173
+      fanquake:
+        ACK 894fb33f4c1b24667891f7d2aff9f486177b1173. Any Valgrind concerns will be addressed upstream, see discussion in https://github.com/bitcoin-core/secp256k1/pull/813, and if necessary, can be pulled into our tree prior to the 0.21.0 branch off. They are not a blocker for merging this PR in it's current state.
+      benthecarman:
+        ACK `894fb33`
+    
+    Tree-SHA512: 6dc992f4477069b7fbd223316f1be955750923be1479c38adad2312649fdca1f316edb375c42ef9d97cea2407caaef49fb8c93abd6c037fe1a522910cbbc2479
+
+commit 4ebe2f6e752c453ff572eda4a108e747d6586c97
+Merge: 2a784723f 78c312c98
+Author: Wladimir J. van der Laan <laanwj@protonmail.com>
+Date:   Thu Jul 30 15:20:19 2020 +0200
+
+    Merge #18011: Replace current benchmarking framework with nanobench
+    
+    78c312c983255e15fc274de2368a2ec13ce81cbf Replace current benchmarking framework with nanobench (Martin Ankerl)
+    
+    Pull request description:
+    
+      Replace current benchmarking framework with nanobench
+    
+      This replaces the current benchmarking framework with nanobench [1], an
+      MIT licensed single-header benchmarking library, of which I am the
+      autor. This has in my opinion several advantages, especially on Linux:
+    
+      * fast: Running all benchmarks takes ~6 seconds instead of 4m13s on
+        an Intel i7-8700 CPU @ 3.20GHz.
+    
+      * accurate: I ran e.g. the benchmark for SipHash_32b 10 times and
+        calculate standard deviation / mean = coefficient of variation:
+    
+        * 0.57% CV for old benchmarking framework
+        * 0.20% CV for nanobench
+    
+        So the benchmark results with nanobench seem to vary less than with
+        the old framework.
+    
+      * It automatically determines runtime based on clock precision, no need
+        to specify number of evaluations.
+    
+      * measure instructions, cycles, branches, instructions per cycle,
+        branch misses (only Linux, when performance counters are available)
+    
+      * output in markdown table format.
+    
+      * Warn about unstable environment (frequency scaling, turbo, ...)
+    
+      * For better profiling, it is possible to set the environment variable
+        NANOBENCH_ENDLESS to force endless running of a particular benchmark
+        without the need to recompile. This makes it to e.g. run "perf top"
+        and look at hotspots.
+    
+      Here is an example copy & pasted from the terminal output:
+    
+      |             ns/byte |              byte/s |    err% |        ins/byte |        cyc/byte |    IPC |       bra/byte |   miss% |     total | benchmark
+      |--------------------:|--------------------:|--------:|----------------:|----------------:|-------:|---------------:|--------:|----------:|:----------
+      |                2.52 |      396,529,415.94 |    0.6% |           25.42 |            8.02 |  3.169 |           0.06 |    0.0% |      0.03 | `bench/crypto_hash.cpp RIPEMD160`
+      |                1.87 |      535,161,444.83 |    0.3% |           21.36 |            5.95 |  3.589 |           0.06 |    0.0% |      0.02 | `bench/crypto_hash.cpp SHA1`
+      |                3.22 |      310,344,174.79 |    1.1% |           36.80 |           10.22 |  3.601 |           0.09 |    0.0% |      0.04 | `bench/crypto_hash.cpp SHA256`
+      |                2.01 |      496,375,796.23 |    0.0% |           18.72 |            6.43 |  2.911 |           0.01 |    1.0% |      0.00 | `bench/crypto_hash.cpp SHA256D64_1024`
+      |                7.23 |      138,263,519.35 |    0.1% |           82.66 |           23.11 |  3.577 |           1.63 |    0.1% |      0.00 | `bench/crypto_hash.cpp SHA256_32b`
+      |                3.04 |      328,780,166.40 |    0.3% |           35.82 |            9.69 |  3.696 |           0.03 |    0.0% |      0.03 | `bench/crypto_hash.cpp SHA512`
+    
+      [1] https://github.com/martinus/nanobench
+    
+    ACKs for top commit:
+      laanwj:
+        ACK 78c312c983255e15fc274de2368a2ec13ce81cbf
+    
+    Tree-SHA512: 9e18770b18b6f95a7d0105a4a5497d31cf4eb5efe6574f4482f6f1b4c88d7e0946b9a4a1e9e8e6ecbf41a3f2d7571240677dcb45af29a6f0584e89b25f32e49e
+
+commit 655b1957470c39bcab64917747c9f467444bd809
+Author: John Newbery <john@johnnewbery.com>
+Date:   Mon Jun 15 11:33:14 2020 -0400
+
+    [net processing] Continue SendMessages processing if not disconnecting peer
+    
+    If we don't disconnect a peer in MaybeDiscourageAndDisconnect because it
+    has NOBAN permissions or it's a manual connection, continue SendMessages
+    processing rather than exiting early.
+    
+    The previous behaviour was that we'd miss the SendMessages processing on
+    this iteration of the MessageHandler loop. That's not a problem since
+    SendMessages() would just be called again on the next iteration, but it
+    was slightly inefficient and confusing.
+
+commit 78c312c983255e15fc274de2368a2ec13ce81cbf
+Author: Martin Ankerl <martin.ankerl@gmail.com>
+Date:   Sat Jun 13 09:37:27 2020 +0200
+
+    Replace current benchmarking framework with nanobench
+    
+    This replaces the current benchmarking framework with nanobench [1], an
+    MIT licensed single-header benchmarking library, of which I am the
+    autor. This has in my opinion several advantages, especially on Linux:
+    
+    * fast: Running all benchmarks takes ~6 seconds instead of 4m13s on
+      an Intel i7-8700 CPU @ 3.20GHz.
+    
+    * accurate: I ran e.g. the benchmark for SipHash_32b 10 times and
+      calculate standard deviation / mean = coefficient of variation:
+    
+      * 0.57% CV for old benchmarking framework
+      * 0.20% CV for nanobench
+    
+      So the benchmark results with nanobench seem to vary less than with
+      the old framework.
+    
+    * It automatically determines runtime based on clock precision, no need
+      to specify number of evaluations.
+    
+    * measure instructions, cycles, branches, instructions per cycle,
+      branch misses (only Linux, when performance counters are available)
+    
+    * output in markdown table format.
+    
+    * Warn about unstable environment (frequency scaling, turbo, ...)
+    
+    * For better profiling, it is possible to set the environment variable
+      NANOBENCH_ENDLESS to force endless running of a particular benchmark
+      without the need to recompile. This makes it to e.g. run "perf top"
+      and look at hotspots.
+    
+    Here is an example copy & pasted from the terminal output:
+    
+    |             ns/byte |              byte/s |    err% |        ins/byte |        cyc/byte |    IPC |       bra/byte |   miss% |     total | benchmark
+    |--------------------:|--------------------:|--------:|----------------:|----------------:|-------:|---------------:|--------:|----------:|:----------
+    |                2.52 |      396,529,415.94 |    0.6% |           25.42 |            8.02 |  3.169 |           0.06 |    0.0% |      0.03 | `bench/crypto_hash.cpp RIPEMD160`
+    |                1.87 |      535,161,444.83 |    0.3% |           21.36 |            5.95 |  3.589 |           0.06 |    0.0% |      0.02 | `bench/crypto_hash.cpp SHA1`
+    |                3.22 |      310,344,174.79 |    1.1% |           36.80 |           10.22 |  3.601 |           0.09 |    0.0% |      0.04 | `bench/crypto_hash.cpp SHA256`
+    |                2.01 |      496,375,796.23 |    0.0% |           18.72 |            6.43 |  2.911 |           0.01 |    1.0% |      0.00 | `bench/crypto_hash.cpp SHA256D64_1024`
+    |                7.23 |      138,263,519.35 |    0.1% |           82.66 |           23.11 |  3.577 |           1.63 |    0.1% |      0.00 | `bench/crypto_hash.cpp SHA256_32b`
+    |                3.04 |      328,780,166.40 |    0.3% |           35.82 |            9.69 |  3.696 |           0.03 |    0.0% |      0.03 | `bench/crypto_hash.cpp SHA512`
+    
+    [1] https://github.com/martinus/nanobench
+    
+    * Adds support for asymptotes
+    
+      This adds support to calculate asymptotic complexity of a benchmark.
+      This is similar to #17375, but currently only one asymptote is
+      supported, and I have added support in the benchmark `ComplexMemPool`
+      as an example.
+    
+      Usage is e.g. like this:
+    
+      ```
+      ./bench_bitcoin -filter=ComplexMemPool -asymptote=25,50,100,200,400,600,800
+      ```
+    
+      This runs the benchmark `ComplexMemPool` several times but with
+      different complexityN settings. The benchmark can extract that number
+      and use it accordingly. Here, it's used for `childTxs`. The output is
+      this:
+    
+      | complexityN |               ns/op |                op/s |    err% |          ins/op |          cyc/op |    IPC |     total | benchmark
+      |------------:|--------------------:|--------------------:|--------:|----------------:|----------------:|-------:|----------:|:----------
+      |          25 |        1,064,241.00 |              939.64 |    1.4% |    3,960,279.00 |    2,829,708.00 |  1.400 |      0.01 | `ComplexMemPool`
+      |          50 |        1,579,530.00 |              633.10 |    1.0% |    6,231,810.00 |    4,412,674.00 |  1.412 |      0.02 | `ComplexMemPool`
+      |         100 |        4,022,774.00 |              248.58 |    0.6% |   16,544,406.00 |   11,889,535.00 |  1.392 |      0.04 | `ComplexMemPool`
+      |         200 |       15,390,986.00 |               64.97 |    0.2% |   63,904,254.00 |   47,731,705.00 |  1.339 |      0.17 | `ComplexMemPool`
+      |         400 |       69,394,711.00 |               14.41 |    0.1% |  272,602,461.00 |  219,014,691.00 |  1.245 |      0.76 | `ComplexMemPool`
+      |         600 |      168,977,165.00 |                5.92 |    0.1% |  639,108,082.00 |  535,316,887.00 |  1.194 |      1.86 | `ComplexMemPool`
+      |         800 |      310,109,077.00 |                3.22 |    0.1% |1,149,134,246.00 |  984,620,812.00 |  1.167 |      3.41 | `ComplexMemPool`
+    
+      |   coefficient |   err% | complexity
+      |--------------:|-------:|------------
+      |   4.78486e-07 |   4.5% | O(n^2)
+      |   6.38557e-10 |  21.7% | O(n^3)
+      |   3.42338e-05 |  38.0% | O(n log n)
+      |   0.000313914 |  46.9% | O(n)
+      |     0.0129823 | 114.4% | O(log n)
+      |     0.0815055 | 133.8% | O(1)
+    
+      The best fitting curve is O(n^2), so the algorithm seems to scale
+      quadratic with `childTxs` in the range 25 to 800.
+
+commit bf0a510981ddc28c754881ca21c50ab18e5f2b59
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Thu Apr 2 07:42:01 2020 -0400
+
+    gui: Avoid wallet tryGetBalances calls before TransactionChanged or BlockTip notifications
+    
+    interfaces::Wallet::tryGetBalances was recently updated in
+    https://github.com/bitcoin/bitcoin/pull/18160 to avoid computing balances
+    internally, but this not efficient as it could be with #10102 because
+    tryGetBalances is an interprocess call.
+    
+    Implementing the TransactionChanged / BlockTip check outside of tryGetBalances
+    also allows tryGetBalances to be simplified in next commit 'Revert "gui: Avoid
+    Wallet::GetBalance in WalletModel::pollBalanceChanged"'.
+
+commit 3eb8b1c3924c1d14c1a4234eb5360f32808b86dc
+Merge: 75917591c 96cb59732
+Author: MarcoFalke <falke.marco@gmail.com>
+Date:   Fri Apr 10 16:32:12 2020 -0400
+
+    Merge #17905: gui: Avoid redundant tx status updates
+    
+    96cb597325f64cadb3cf43e2cdb3d7c1e2e49891 gui: Avoid redundant tx status updates (Russell Yanofsky)
+    
+    Pull request description:
+    
+      This PR is part of the [process separation project](https://github.com/bitcoin/bitcoin/projects/10).
+    
+      In `TransactionTablePriv::index`, avoid calling `interfaces::Wallet::tryGetTxStatus` if the status is up to date as of the most recent `NotifyBlockTip` notification.  Store height from the most recent notification in a new `ClientModel::cachedNumBlocks` variable in order to check this.
+    
+      This avoids floods of IPC traffic from `tryGetTxStatus` with #10102 when there are a lot of transactions. It might also make the GUI a little more efficient even when there is no IPC.
+    
+    ACKs for top commit:
+      promag:
+        Code review ACK 96cb597325f64cadb3cf43e2cdb3d7c1e2e49891.
+      hebasto:
+        ACK 96cb597325f64cadb3cf43e2cdb3d7c1e2e49891
+    
+    Tree-SHA512: fce597bf52a813ad4923110d0a39229ea09e1631e0d580ea18cffb09e58cdbb4b111a40a9a9270ff16d8163cd47b0bd9f1fe7e3a6c7ebb19198f049f8dd1aa46
+
+commit 4d80274b9963e85d6e6dc79a41cd3ff4f389ada5
+Merge: 3516a31ea 79facb11e
+Author: fanquake <fanquake@gmail.com>
+Date:   Sat Mar 7 07:05:38 2020 +0800
+
+    Merge #18241: wallet/refactor: refer to CWallet immutably when possible
+    
+    79facb11e92f8b61063f301027dee7c7344eb1be wallet: use constant CWallets in rpcwallet.cpp (Karl-Johan Alm)
+    d9b0ebc1da8758645f6de24a4a557511ef9b5e36 wallet: make ReserveDestination pwallet ivar const (Karl-Johan Alm)
+    57c569e4d9779e2263848770e0ba7eab3054a1bf wallet: make BackupWallet() const (Karl-Johan Alm)
+    df3a818d2a9fe48e656a8ad2da18fab8a1bfd6e3 wallet: make getters const (Karl-Johan Alm)
+    227b9dd2d6e1914edfec108af6bec5f12d9f6f39 wallet/spkm: make GetOldestKeyPoolTime() const (Karl-Johan Alm)
+    22d329ad0ed3ed501bd811720be6a2876d1afe4d wallet: use constant CWallets in rpcdump.cpp (Karl-Johan Alm)
+    7b3587b29db9eaf11718fc09d48817a45a0a429a wallet/db: make IsDummy() const (Karl-Johan Alm)
+    d366795d180bc52ba750f71f201a6e5e0c40f1b6 wallet/db: make Backup() const (Karl-Johan Alm)
+    8cd0b86340870d8f359e4ae26880e03ea36818ab wallet: make CanGetAddresses() const (Karl-Johan Alm)
+    037fa770eb1ed5152b3ef2c5d3fb2a812d3ef944 wallet: make KeypoolCountExternalKeys() const (Karl-Johan Alm)
+    ddc93557ad0cf8e433df850d38710828ccd99c16 wallet: make CanGenerateKeys() const (Karl-Johan Alm)
+    dc2d0650fdb69d27fe1b0092555b7841d542a635 make BlockUntilSyncedToCurrentChain() const (Karl-Johan Alm)
+    
+    Pull request description:
+    
+      A lot of places refer to `CWallet*`'s as `CWallet * const`, which translates to *"an immutable pointer to a mutable `CWallet` instance"*; this is
+    
+      1. often not what the author meant, especially as a lot of these places do not at all modify the wallet object, and
+      2. confusing, as it tends to suggest that this is a proper way to refer to a constant `CWallet` instance.
+    
+      This PR changes references to wallets to `const CWallet* const` whenever immutability is expected. This should result in no behavioral changes at all, and improved compile-time error checking.
+    
+      Note from irc:
+    
+      > &lt;sipa&gt; sounds good to me; this is the sort of change that as long as it compiles, the behavior shouldn't change
+      > &lt;sipa&gt; though in general it may lead to introducing automatic copying of objects sometimes (e.g. trying to std::move a const object will work, but generally result in a copy rather than an efficient move)
+      > &lt;sipa&gt; CWallet objects aren't copied or moved though
+    
+    ACKs for top commit:
+      laanwj:
+        ACK 79facb11e92f8b61063f301027dee7c7344eb1be
+      Empact:
+        ACK https://github.com/bitcoin/bitcoin/pull/18241/commits/79facb11e92f8b61063f301027dee7c7344eb1be
+      promag:
+        ACK 79facb11e92f8b61063f301027dee7c7344eb1be.
+      fjahr:
+        ACK 79facb11e92f8b61063f301027dee7c7344eb1be
+    
+    Tree-SHA512: 80a80c1a52f0f788d0ccb268b53bc0f46c796643a3c5a22b55bbbde4ffa6c7e347784e5e53b1e488a3b4e14399e31d5be9417ad5b6319c74a462609e9b1a98e8
+
+commit 96cb597325f64cadb3cf43e2cdb3d7c1e2e49891
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Wed Aug 1 13:38:45 2018 -0400
+
+    gui: Avoid redundant tx status updates
+    
+    In TransactionTablePriv::index, avoid calling
+    interfaces::Wallet::tryGetTxStatus if the status is up to date as of the most
+    recent NotifyBlockTip notification.  Store height from the most recent
+    notification in a new ClientModel::cachedNumBlocks variable in order to check
+    this.
+    
+    This avoids floods of IPC traffic from tryGetTxStatus with #10102 when there
+    are a lot of transactions. It might also make the GUI a little more efficient
+    even when there is no IPC.
+
+commit dc0f1480746b34aa3ca2d9c0f1ec764083026b40
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Mon Nov 11 19:05:12 2019 -0500
+
+    refactor: Replace FlagsOfKnownArg with GetArgFlags
+    
+    Rename suggested by João Barbosa <joao.paulo.barbosa@gmail.com>
+    https://github.com/bitcoin/bitcoin/pull/16545#issuecomment-519048000
+    
+    This also gets rid of ArgsManager::NONE constant, which was an implementation
+    detail not meant to be used by ArgsManager callers.
+    
+    Finally this reverts a change from 7f40528cd50fc43ac0bd3e785de24d661adddb7a
+    https://github.com/bitcoin/bitcoin/pull/15934 adding "-" characters to argument
+    names. Better for GetArgFlags to require "-" prefixes for consistency with
+    other ArgsManager methods, and to be more efficient later when GetArg functions
+    need to call GetArgFlags (https://github.com/bitcoin/bitcoin/pull/16545)
+    
+    This commit does not change behavior.
+
+commit 4a0abf694ee10cf186f25a67ca35c3fce0c10874
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Tue Nov 5 10:36:55 2019 -0500
+
+    Pass CTxDestination to ScriptPubKeyMan::GetMetadata
+    
+    Pass CTxDestination instead of more ambiguous uint160 hash value. This is more
+    type safe and more efficient since it avoids doing map lookups that will always
+    fail and were not done previously before
+    a18edd7b383d667b15b6d4b87aa3a055a9fa5051 from
+    https://github.com/bitcoin/bitcoin/pull/17304
+    
+    Change suggested by Andrew Chow <achow101-github@achow101.com> in
+    https://github.com/bitcoin/bitcoin/pull/17304#discussion_r340345745 and
+    https://github.com/bitcoin/bitcoin/pull/17381#issuecomment-549994944
+
+commit 0ff7cd7d0c074448db636bcc73e7879b7e4b21ec
+Merge: f2a094884 7d8d3e6a2
+Author: MarcoFalke <falke.marco@gmail.com>
+Date:   Fri Oct 18 09:56:43 2019 -0400
+
+    Merge #16889: Add some general std::vector utility functions
+    
+    7d8d3e6a2ad827fa916e3909a18dedb9f7fdce43 Add tests for util/vector.h's Cat and Vector (Pieter Wuille)
+    e65e61c812df90a56e3ce4a8e76c4b746766f387 Add some general std::vector utility functions (Pieter Wuille)
+    
+    Pull request description:
+    
+      This is another general improvement extracted from #16800 .
+    
+      Two functions are added are:
+    
+      * Vector(arg1,arg2,arg3,...) constructs a vector with the specified arguments as elements. The vector's type is derived from the arguments. If some of the arguments are rvalue references, they will be moved into place rather than copied (which can't be achieved using list initialization).
+      * Cat(vector1,vector2) returns a concatenation of the two vectors, efficiently moving elements when relevant.
+    
+      Vector generalizes (and replaces) the `Singleton` function in src/descriptor.cpp, and `Cat` replaces the function in bech32.cpp
+    
+    ACKs for top commit:
+      laanwj:
+        ACK 7d8d3e6a2ad827fa916e3909a18dedb9f7fdce43
+      MarcoFalke:
+        ACK 7d8d3e6a2ad827fa916e3909a18dedb9f7fdce43 (enjoyed reading the tests, but did not compile)
+    
+    Tree-SHA512: 92325f14e90d7e7d9d920421979aec22bb0d730e0291362b4326cccc76f9c2d865bec33a797c5c0201773468c3773cb50ce52c8eee4c1ec1a4d10db5cf2b9d2a
+
+commit e65e61c812df90a56e3ce4a8e76c4b746766f387
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Wed Aug 28 15:12:51 2019 -0700
+
+    Add some general std::vector utility functions
+    
+    Added are:
+    
+    * Vector(arg1,arg2,arg3,...) constructs a vector with the specified
+      arguments as elements. The vector's type is derived from the
+      arguments. If some of the arguments are rvalue references, they
+      will be moved into place rather than copied (which can't be achieved
+      using list initialization).
+    
+    * Cat(vector1,vector2) returns a concatenation of the two vectors,
+      efficiently moving elements when relevant.
+    
+    Vector generalizes (and replaces) the Singleton function in
+    src/descriptor.cpp, and Cat replaces the Cat function in bech32.cpp
+
+commit 67be6d7a177cb14ca8a68b9c6361dfaae9e64f2b
+Merge: a7aa80902 c5b404e8f
+Author: Wladimir J. van der Laan <laanwj@protonmail.com>
+Date:   Wed Aug 14 16:35:54 2019 +0200
+
+    Merge #16248: Make whitebind/whitelist permissions more flexible
+    
+    c5b404e8f1973afe071a07c63ba1038eefe13f0f Add functional tests for flexible whitebind/list (nicolas.dorier)
+    d541fa391844f658bd7035659b5b16695733dd56 Replace the use of fWhitelisted by permission checks (nicolas.dorier)
+    ecd5cf7ea4c3644a30092100ffc399e30e193275 Do not disconnect peer for asking mempool if it has NO_BAN permission (nicolas.dorier)
+    e5b26deaaa6842f7dd7c4537ede000f965ea0189 Make whitebind/whitelist permissions more flexible (nicolas.dorier)
+    
+    Pull request description:
+    
+      # Motivation
+    
+      In 0.19, bloom filter will be disabled by default. I tried to make [a PR](https://github.com/bitcoin/bitcoin/pull/16176) to enable bloom filter for whitelisted peers regardless of `-peerbloomfilters`.
+    
+      Bloom filter have non existent privacy and server can omit filter's matches. However, both problems are completely irrelevant when you connect to your own node. If you connect to your own node, bloom filters are the most bandwidth efficient way to synchronize your light client without the need of some middleware like Electrum.
+    
+      It is also a superior alternative to BIP157 as it does not require to maintain an additional index and it would work well on pruned nodes.
+    
+      When I attempted to allow bloom filters for whitelisted peer, my proposal has been NACKed in favor of [a more flexible approach](https://github.com/bitcoin/bitcoin/pull/16176#issuecomment-500762907) which should allow node operator to set fine grained permissions instead of a global `whitelisted` attribute.
+    
+      Doing so will also make follow up idea very easy to implement in a backward compatible way.
+    
+      # Implementation details
+    
+      The PR propose a new format for `--white{list,bind}`. I added a way to specify permissions granted to inbound connection matching `white{list,bind}`.
+    
+      The following permissions exists:
+      * ForceRelay
+      * Relay
+      * NoBan
+      * BloomFilter
+      * Mempool
+    
+      Example:
+      * `-whitelist=bloomfilter@127.0.0.1/32`.
+      * `-whitebind=bloomfilter,relay,noban@127.0.0.1:10020`.
+    
+      If no permissions are specified, `NoBan | Mempool` is assumed. (making this PR backward compatible)
+    
+      When we receive an inbound connection, we calculate the effective permissions for this peer by fetching the permissions granted from `whitelist`  and add to it the permissions granted from `whitebind`.
+    
+      To keep backward compatibility, if no permissions are specified in `white{list,bind}` (e.g. `--whitelist=127.0.0.1`) then parameters `-whitelistforcerelay` and `-whiterelay` will add the permissions `ForceRelay` and `Relay` to the inbound node.
+    
+      `-whitelistforcerelay` and `-whiterelay` are ignored if the permissions flags are explicitly set in `white{bind,list}`.
+    
+      # Follow up idea
+    
+      Based on this PR, other changes become quite easy to code in a trivially review-able, backward compatible way:
+    
+      * Changing `connect` at rpc and config file level to understand the permissions flags.
+      * Changing the permissions of a peer at RPC level.
+    
+    ACKs for top commit:
+      laanwj:
+        re-ACK c5b404e8f1973afe071a07c63ba1038eefe13f0f
+    
+    Tree-SHA512: adfefb373d09e68cae401247c8fc64034e305694cdef104bdcdacb9f1704277bd53b18f52a2427a5cffdbc77bda410d221aed252bc2ece698ffbb9cf1b830577
+
+commit 2d071f5a7055f85d1c7d92de43646663a03a8fce
+Merge: d67eff800 55771b7c6
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Mon Jun 18 15:19:23 2018 +0200
+
+    Merge #13443: Removed unused == operator from CMutableTransaction.
+    
+    55771b7c6a8d4a204c63e70db73a0071c41a0dc4 Removed unused == operator from CMutableTransaction. (lucash.dev@gmail.com)
+    
+    Pull request description:
+    
+      This removes the unused == operator from `CMutableTransaction`.
+    
+      The motivation is that unused code has a cost but offers no benefit (in general), while also adding the risk of introducing silent bugs. On top of that this particular code is quite inefficient, unnecessarily calculating the hash (it could, say, compare serializations). So if anyone ever needs to use a == comparison on `CMutableTransaction`, they'd be better of having to reimplement it (and add tests) than relying on code that's not being maintained.
+    
+      Note: after this, trying to use the == operator on CMutableTransactions results in a compilation error:
+      ```
+      ./primitives/transaction.h:405:15: error: invalid operands to binary expression ('CMutableTransaction' and
+            'CMutableTransaction')
+      ```
+    
+    Tree-SHA512: a565af563e09d99347b6fe419f6d48c750b1377295af293a3e0c3c0d815e58aede8d7058987a68d66cfa7ed023e5d3285b12afabd17d0ff9cf11322ba3ce20fe
+
+commit fd96d54f39cf4f66890e0bb40812d47e69728cec
+Merge: 25d2df2aa c814e2e7e
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed May 30 16:13:02 2018 +0200
+
+    Merge #13194: Remove template matching and pseudo opcodes
+    
+    c814e2e7e81fd01fcb07f4a28435741bdc463801 Remove template matching and pseudo opcodes (Pieter Wuille)
+    
+    Pull request description:
+    
+      The current code contains a rather complex script template matching engine, which is only used for 3 particular script types (P2PK, P2PKH, multisig). The first two of these are trivial to match for otherwise, and a specialized matcher for multisig is both more compact and more efficient than a generic one.
+    
+      The goal is being more flexible, so that for example larger standard multisigs inside SegWit outputs are easier to implement.
+    
+      As a side-effect, it also gets rid of the pseudo opcodes hack.
+    
+    Tree-SHA512: 643b409c5c36821519f613a43efd399af0ec99b6131f35cd4024decfb2d483d719e0e921cd088bc9832a7ac797cb4a6b1158b8574c82f7fbebb75f1b31b359df
+
+commit c814e2e7e81fd01fcb07f4a28435741bdc463801
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Tue May 8 20:24:06 2018 -0700
+
+    Remove template matching and pseudo opcodes
+    
+    The current code contains a rather complex script template matching engine,
+    which is only used for 3 particular script types (P2PK, P2PKH, multisig).
+    The first two of these are trivial to match for otherwise, and a specialized
+    matcher for multisig is both more compact and more efficient than a generic
+    one.
+    
+    The goal is being more flexible, so that for example larger standard multisigs
+    inside SegWit outputs are more easy to implement.
+    
+    As a side-effect, it also gets rid of the pseudo opcodes hack.
+
+commit cd5e4381d46d01ca8282f02a18515e7b61de1dde
+Merge: 12ac2f0d7 1dfb4e7d7
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Tue Mar 6 22:14:44 2018 +0100
+
+    Merge #12479: RPC: Add child transactions to getrawmempool verbose output
+    
+    1dfb4e7d7 [Tests] Check output of parent/child tx list from getrawmempool, getmempooldescendants, getmempoolancestors, and REST interface (Conor Scott)
+    fc44cb108 [RPC] Add list of child transactions to verbose output of getrawmempool (Conor Scott)
+    
+    Pull request description:
+    
+      `bitcoin-cli getrawmempool true` only lists a transaction's parents in the `depends` field. This change adds a `spentby` field to the json response, which lists the transaction's children in the mempool.
+    
+      Currently the only way to find child transactions is to use `getrawmempool` or make another call to `getmempooldescendants` and search the response for transactions that list the parent_txid in the `depends` list, which is inefficient.
+    
+      This change allows direct lookup of children.
+    
+      Example Output
+      ```
+        "9a9b5733c0d89f207908cfa3fe17809bee71f629aa095c9f8754524e29e98ba4": {
+          ...other geterawmempool data...
+          "wtxid": "9a9b5733c0d89f207908cfa3fe17809bee71f629aa095c9f8754524e29e98ba4",
+          "depends": [
+            "bdd92851d5766a42aeb62af667bb422a116cab4e032bba5e3dd6efe5b4b40aa0"
+          ],
+          "spentby": [
+            "dc5d3ec388a9121421208738a041ac30a22163bc2e17758f2275b6c51a15ba7b"
+          ]
+        },
+      ```
+    
+    Tree-SHA512: 83da7d421c9799a40ef65af3b7fdb586d6d87385f3f2ede3afd2c311725444b858f9d91cc110422a0fa31905779934fee07211ca6fe6b746792b83692c94b3ce
+
+commit bf3353de90598f08a68d966c50b57ceaeb5b5d96
+Merge: 07090c533 90ba2df11
+Author: Jonas Schnelli <dev@jonasschnelli.ch>
+Date:   Sun Feb 25 09:05:34 2018 +0800
+
+    Merge #12287: Optimise lock behaviour for GuessVerificationProgress()
+    
+    90ba2df11 Fix missing cs_main lock for GuessVerificationProgress() (Jonas Schnelli)
+    
+    Pull request description:
+    
+      `GuessVerificationProgress()` needs `cs_main` due to accessing the `pindex->nChainTx`.
+      This adds a `AssertLockHeld` in `GuessVerificationProgress()` and adds the missing locks in...
+      * `LoadChainTip()`
+      * `ScanForWalletTransactions()` (got missed in #11281)
+      * GUI, `ClientModel::getVerificationProgress()` <--- **this may have GUI performance impacts**, but could be relaxed later with a cache or something more efficient.
+    
+    Tree-SHA512: 13302946571422375f32af8e396b9d2c1180f2693ea363aeba9e98c8266ddec64fe7862bfdcbb5a93a4b12165a61eec1e51e4e7d7a8515fa50879095dc163412
+
+commit 961901f77e55aa07d5048000d57bcd218ae74b08
+Merge: 39ae41389 864cd2787
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed Sep 6 22:21:39 2017 +0200
+
+    Merge #11117: Prepare for non-Base58 addresses
+    
+    864cd2787 Move CBitcoinAddress to base58.cpp (Pieter Wuille)
+    5c8ff0d44 Introduce wrappers around CBitcoinAddress (Pieter Wuille)
+    
+    Pull request description:
+    
+      This patch removes the need for the intermediary Base58 type `CBitcoinAddress`, by providing {`Encode`,`Decode`,`IsValid`}`Destination` functions that directly operate on the conversion between `std::string`s and `CTxDestination`.
+    
+      As a side, it also fixes a number of indentation issues, and removes probably several unnecessary implicit `CTxDestination`<->`CBitcoinAddress` conversions.
+    
+      This change is far from complete. In follow-ups I'd like to:
+      * Split off the specific address and key encoding logic from base58.h, and move it to a address.h or so.
+      * Replace `CTxDestination` with a non-`boost::variant` version (which can be more efficient as `boost::variant` allocates everything on the heap, and remove the need for `boost::get<...>` and `IsValidDestination` calls everywhere).
+      * Do the same for `CBitcoinSecret`, `CBitcoinExtKey`, and `CBitcoinExtPubKey`.
+    
+      However, I've tried to keep this patch to be minimally invasive, but still enough to support non-Base58 addresses. Perhaps a smaller patch is possible to hack Bech32 support into `CBitcoinAddress`, but I would consider that a move in the wrong direction.
+    
+    Tree-SHA512: c2c77ffb57caeadf2429b1c2562ce60e8c7be8aa9f8e51b591f354b6b441162625b2efe14c023a1ae485cf2ed417263afa35c892891dfaa7844e7fbabccab85e
+
+commit 66270a416edb1610f276124483feceef9cba93ff
+Merge: db825d293 18bacec6c
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Jul 14 11:54:09 2017 -0700
+
+    Merge #10557: Make check to distinguish between orphan txs and old txs more efficient.
+    
+    18bacec6c Make check to distinguish between orphan txs and old txs more efficient. (Alex Morcos)
+    
+    Tree-SHA512: b6b4bad89aa561975dce7b68b2fdad5623af5ebcb9c38fd6a72b5f6d0544ed441df4865591ac018f7ae0df9b5c60820cb4d9e55664f5667c9268458df70fd554
+
+commit 18bacec6c2c8493fd6b7011778446b3c7473bb25
+Author: Alex Morcos <morcos@chaincode.com>
+Date:   Thu Jun 8 10:41:19 2017 -0400
+
+    Make check to distinguish between orphan txs and old txs more efficient.
+    
+    Checking for the existence in the CCoinsViewCache of the outputs of a new tx
+    will result in a disk hit for every output since they will not be found.  On the
+    other hand if those outputs exist already, then the inputs must also have been
+    missing, so we can move this check inside the input existence check so in the
+    common case of a new tx it doesn't need to run.
+    
+    The purpose of the check is to avoid spamming the orphanMap with slightly old
+    txs which we have already seen in a block, but it is already only optimistic
+    (depending on the outputs not being spent), so make it even more efficient by
+    only checking the cache and not the entire pcoinsTip.
+
+commit cf44e4ca7762742c6c3154447b40869ec9d041db
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Jun 9 19:24:30 2017 -0700
+
+    Squashed 'src/leveldb/' changes from a31c8aa40..196962ff0
+    
+    196962ff0 Add AcceleratedCRC32C to port_win.h
+    1bdf1c34c Merge upstream LevelDB v1.20
+    d31721eb0 Merge #17: Fixed file sharing errors
+    fecd44902 Fixed file sharing error in Win32Env::GetFileSize(), Win32SequentialFile::_Init(), Win32RandomAccessFile::_Init() Fixed error checking in Win32SequentialFile::_Init()
+    5b7510f1b Merge #14: Merge upstream LevelDB 1.19
+    0d969fd57 Merge #16: [LevelDB] Do no crash if filesystem can't fsync
+    c8c029b5b [LevelDB] Do no crash if filesystem can't fsync
+    a53934a3a Increase leveldb version to 1.20.
+    f3f139737 Separate Env tests from PosixEnv tests.
+    eb4f0972f leveldb: Fix compilation warnings in port_posix_sse.cc on x86 (32-bit).
+    d0883b600 Fixed path to doc file: index.md.
+    7fa20948d Convert documentation to markdown.
+    ea175e28f Implement support for Intel crc32 instruction (SSE 4.2)
+    95cd743e5 Including <limits> for std::numeric_limits.
+    646c3588d Limit the number of read-only files the POSIX Env will have open.
+    d40bc3fa5 Merge #13: Typo
+    ebbd772d3 Typo
+    a2fb086d0 Add option for max file size. The currend hard-coded value of 2M is inefficient in colossus.
+    
+    git-subtree-dir: src/leveldb
+    git-subtree-split: 196962ff01c39b4705d8117df5c3f8c205349950
+
+commit e484652fc36ef7135cf08ad380ea7142b6cbadc0
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Tue Apr 25 11:29:14 2017 -0700
+
+    Introduce CHashVerifier to hash read data
+    
+    This is necessary later, when we drop the nVersion field from the undo
+    data. At that point deserializing and reserializing the data won't
+    roundtrip anymore, and thus that approach can't be used to verify
+    checksums anymore.
+    
+    With this CHashVerifier approach, we can deserialize while hashing the
+    exact serialized form that was used. This is both more efficient and
+    more correct in that case.
+
+commit 657e05ab2e87ff725723fe8a375fc3f8aad02126
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Oct 28 16:51:33 2016 -0700
+
+    Make GetSerializeSize a wrapper on top of CSizeComputer
+    
+    Given that in default GetSerializeSize implementations created by
+    ADD_SERIALIZE_METHODS we're already using CSizeComputer(), get rid
+    of the specialized GetSerializeSize methods everywhere, and just use
+    CSizeComputer. This removes a lot of code which isn't actually used
+    anywhere.
+    
+    For CCompactSize and CVarInt this actually removes a more efficient
+    size computing algorithm, which is brought back in a later commit.
+
+commit f17032f703288d43a76cffe8fa89b87ade9e3074
+Merge: fbd84788e 1953c40aa
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Mon May 9 08:31:14 2016 +0200
+
+    Merge #7934: Improve rolling bloom filter performance and benchmark
+    
+    1953c40 More efficient bitsliced rolling Bloom filter (Pieter Wuille)
+    aa62b68 Benchmark rolling bloom filter (Pieter Wuille)
+
+commit 1953c40aa9589a03035fd294f3ba3549374a4826
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Sun Apr 24 18:37:29 2016 +0200
+
+    More efficient bitsliced rolling Bloom filter
+    
+    This patch changes the implementation from one that stores 16 2-bit integers
+    in one uint32_t's, to one that stores the first bit of 64 2-bit integers in
+    one uint64_t and the second bit in another. This allows for 450x faster
+    refreshing and 2.2x faster average speed.
+
+commit be6d5a617d297bbbabcc56730976f9f025892e56
+Merge: 2cd004b12 d11fc1695
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed Jan 13 15:47:38 2016 +0100
+
+    Merge pull request #7312
+    
+    d11fc16 [Wallet] Call notification signal when a transaction is abandoned (Jonas Schnelli)
+    df0e222 Add RPC test for abandoned and conflicted transactions. (Alex Morcos)
+    01e06d1 Add new rpc call: abandontransaction (Alex Morcos)
+    9e69717 Make wallet descendant searching more efficient (Alex Morcos)
+
+commit 9e697172542e2b01517e4025df2c23d0ed5447f4
+Author: Alex Morcos <morcos@chaincode.com>
+Date:   Thu Jan 7 16:31:12 2016 -0500
+
+    Make wallet descendant searching more efficient
+
+commit 54a550bef8a8f92b86af318962f8a75bbdef2c4a
+Merge: 884367662 086ee67d8
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Thu Dec 3 13:35:55 2015 +0100
+
+    Merge pull request #7113
+    
+    086ee67 Switch to a more efficient rolling Bloom filter (Pieter Wuille)
+
+commit 086ee67d839b33bf475177f680fcc848a0625266
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Nov 27 13:20:29 2015 +0100
+
+    Switch to a more efficient rolling Bloom filter
+    
+    For each 'bit' in the filter we really maintain 2 bits, which store either:
+    0: not set
+    1-3: set in generation N
+    
+    After (nElements / 2) insertions, we switch to a new generation, and wipe
+    entries which already had the new generation number, effectively switching
+    from the last 1.5 * nElements set to the last 1.0 * nElements set.
+    
+    This is 25% more space efficient than the previous implementation, and can
+    (at peak) store 1.5 times the requested amount of history (though only
+    1.0 times the requested history is guaranteed).
+    
+    The existing unit tests should be sufficient.
+
+commit eb6172a8ca7e0474457c1206c9907514348243ea
+Merge: 54e8bfec8 69d373ff6
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Thu Nov 12 17:37:42 2015 +0100
+
+    Merge pull request #6918
+    
+    69d373f Don't wipe the sigcache in TestBlockValidity (Pieter Wuille)
+    0b9e9dc Evict sigcache entries that are seen in a block (Pieter Wuille)
+    830e3f3 Make sigcache faster and more efficient (Pieter Wuille)
+
+commit 830e3f3d027ba5c8121eed0f6a9ce99961352572
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Oct 30 23:14:38 2015 +0100
+
+    Make sigcache faster and more efficient
+
+commit a56054be650052361e8de79f0f03a56a043759e5
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Wed Apr 22 14:28:26 2015 -0700
+
+    Update key.cpp to use new libsecp256k1
+    
+    libsecp256k1's API changed, so update key.cpp to use it.
+    
+    Libsecp256k1 now has explicit context objects, which makes it completely thread-safe.
+    In turn, keep an explicit context object in key.cpp, which is explicitly initialized
+    destroyed. This is not really pretty now, but it's more efficient than the static
+    initialized object in key.cpp (which made for example bitcoin-tx slow, as for most of
+    its calls, libsecp256k1 wasn't actually needed).
+    
+    This also brings in the new blinding support in libsecp256k1. By passing in a random
+    seed, temporary variables during the elliptic curve computations are altered, in such
+    a way that if an attacker does not know the blind, observing the internal operations
+    leaks less information about the keys used. This was implemented by Greg Maxwell.
+
+commit e6b343d880f50d52390c5af8623afa15fcbc65a2
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Wed Mar 18 09:31:49 2015 -0700
+
+    Make addrman's bucket placement deterministic.
+    
+    Give each address a single fixed location in the new and tried tables,
+    which become simple fixed-size arrays instead of sets and vectors.
+    
+    This prevents attackers from having an advantages by inserting an
+    address multiple times.
+    
+    This change was suggested as Countermeasure 1 in
+    Eclipse Attacks on Bitcoin’s Peer-to-Peer Network, Ethan Heilman,
+    Alison Kendler, Aviv Zohar, Sharon Goldberg. ePrint Archive Report
+    2015/263. March 2015.
+    
+    It is also more efficient.
+
+commit 584a358997e52a87e8c5402269c7fb3784ed2065
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Tue Sep 16 00:30:05 2014 +0200
+
+    Do merkle root and txid duplicates check simultaneously
+    
+    Move the txid duplicates check into BuildMerkleTree, where it can be done
+    much more efficiently (without needing to build a full txid set to detect
+    duplicates).
+    
+    The previous version (using the std::set<uint256> to detect duplicates) was
+    also slightly too weak. A block mined with actual duplicate transactions
+    (which is invalid, due to the inputs of the duplicated transactions being
+    seen as double spends) would trigger the duplicates logic, resulting in the
+    block not being stored on disk, and rerequested. This change fixes that by
+    only triggering in the case of duplicated transactions that can actually
+    result in an identical merkle root.
+
+commit 629d75faac84bc0a00533d01dd291a4e6394a51f
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Tue Sep 2 21:21:15 2014 +0200
+
+    Combine CCoinsViewCache's HaveCoins and const GetCoins into AccessCoins.
+    
+    The efficient version of CCoinsViewCache::GetCoins only works for known-to-exist
+    cache entries, requiring a separate HaveCoins call beforehand. This is
+    inefficient as both perform a hashtable lookup.
+    
+    Replace the non-mutable GetCoins with AccessCoins, which returns a potentially-NULL
+    pointer. This also decreases the overloading of GetCoins.
+    
+    Also replace some copying (inefficient) GetCoins calls with equivalent AccessCoins,
+    decreasing the copying.
+
+commit dd638dd712861a2fc419fe9b2b064ae303b074e6
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed Jun 25 13:45:29 2014 +0200
+
+    typedef std::map<uint256, CCoins> to CCoinsMap
+    
+    This makes it possible to switch to a more efficient map type
+    without changing all occurences manually.
+    
+    Merges half of #4413.
+
+commit e4daecda0bcd47a2672eb625232f00e388a3cd87
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Sat Oct 12 15:18:08 2013 +0200
+
+    Reimplement CBlockLocator's chain-related logic in CChain.
+    
+    This removes a few unused CBlockLocator methods, and moves the
+    construction and fork-finding logic to CChain (which can do these
+    more efficiently, as it has a height-indexable chain available).
+    It also makes CBlockLocator independent from the validation code.
+
+commit 607dbfdeaf7ec053d959c47c125d60c0b7e7216a
+Author: Jeff Garzik <jgarzik@exmulti.com>
+Date:   Thu Nov 15 19:41:12 2012 -0500
+
+    P2P: parse network datastream into header/data components in socket thread
+    
+    Replaces CNode::vRecv buffer with a vector of CNetMessage's.  This simplifies
+    ProcessMessages() and eliminates several redundant data copies.
+    
+    Overview:
+    
+    * socket thread now parses incoming message datastream into
+      header/data components, as encapsulated by CNetMessage
+    * socket thread adds each CNetMessage to a vector inside CNode
+    * message thread (ProcessMessages) iterates through CNode's CNetMessage vector
+    
+    Message parsing is made more strict:
+    
+    * Socket is disconnected, if message larger than MAX_SIZE
+      or if CMessageHeader deserialization fails (latter is impossible?).
+      Previously, code would simply eat garbage data all day long.
+    * Socket is disconnected, if we fail to find pchMessageStart.
+      We do not search through garbage, to find pchMessageStart.  Each
+      message must begin precisely after the last message ends.
+    
+    ProcessMessages() always processes a complete message, and is more efficient:
+    
+    * buffer is always precisely sized, using CDataStream::resize(),
+      rather than progressively sized in 64k chunks.  More efficient
+      for large messages like "block".
+    * whole-buffer memory copy eliminated (vRecv -> vMsg)
+    * other buffer-shifting memory copies eliminated (vRecv.insert, vRecv.erase)
+
+commit 4fea06db25108e7f72710bf22c3d1896707eeb74
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Aug 10 15:13:57 2012 +0200
+
+    Automatically reorganize at startup to best known block
+    
+    Given that the block tree database (chain.dat) and the active chain
+    database (coins.dat) are entirely separate now, it becomes legal to
+    swap one with another instance without affecting the other.
+    
+    This commit introduces a check in the startup code that detects the
+    presence of a better chain in chain.dat that has not been activated
+    yet, and does so efficiently (in batch, while reusing the blk???.dat
+    files).
+
+commit bba89aa82a80f0373dcb7288d96d5b0fcb453d73
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Thu Aug 16 02:21:28 2012 +0200
+
+    Pre-allocate block and undo files in chunks
+    
+    Introduce a AllocateFileRange() function in util, which wipes or
+    at least allocates a given range of a file. It can be overriden
+    by more efficient OS-dependent versions if necessary.
+    
+    Block and undo files are now allocated in chunks of 16 and 1 MiB,
+    respectively.
+
+commit 69fc8047a9a96bcf5360f810c796049c27e16fcd
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Fri Jun 15 18:52:19 2012 +0200
+
+    Compact serialization for scripts
+    
+    Special serializers for script which detect common cases and encode
+    them much more efficiently. 3 special cases are defined:
+    * Pay to pubkey hash (encoded as 21 bytes)
+    * Pay to script hash (encoded as 21 bytes)
+    * Pay to pubkey starting with 0x02, 0x03 or 0x04 (encoded as 33 bytes)
+    
+    Other scripts up to 121 bytes require 1 byte + script length. Above
+    that, scripts up to 16505 bytes require 2 bytes + script length.
+
+commit 4b603f1cd6a0b8480c15555389077a4b401c2c7b
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Tue Sep 20 15:38:29 2011 +0200
+
+    Inline base64 encoder/decoder
+    
+    This replaces the openssl-based base64 encoder and decoder with a more
+    efficient internal one. Tested against the rfc4648 test vectors.
+    
+    Decoder is based on JoelKatz' version.
+
+commit 683bcb9154422011ef01e8c5677bad2c4b323436
+Author: s_nakamoto <s_nakamoto@1a98c847-1fd6-4fd8-948a-caf3550aa51b>
+Date:   Fri Nov 19 20:22:46 2010 +0000
+
+    efficiently sort transaction dependencies in one pass
+    
+    git-svn-id: https://bitcoin.svn.sourceforge.net/svnroot/bitcoin/trunk@184 1a98c847-1fd6-4fd8-948a-caf3550aa51b
+commit 4fc15d15667d9d9c4fb5515ce73c05b4596298ec
+Merge: 192a959b6 47c48b5f3
+Author: MarcoFalke <falke.marco@gmail.com>
+Date:   Fri Aug 20 17:38:38 2021 +0200
+
+    Merge bitcoin/bitcoin#22707: test: refactor use of getrawmempool in functional tests for efficiency
+    
+    47c48b5f35b4910fcf87caa6e37407e67d879c80 test: only use verbose for getrawmempool when necessary in functional tests (Michael Dietz)
+    77349713b189e80f2c140db4df50177353a1cb83 test: use getmempoolentry instead of getrawmempool in functional tests when appropriate (Michael Dietz)
+    86dbd54ae8a8f9c693c0ea67114bbff24a0754df test: improve mempool_updatefrom efficiency by using getmempoolentry for specific txns (Michael Dietz)
+    
+    Pull request description:
+    
+      I don't think this changes the intention of the test. But it does shave ~30 seconds off the time it takes to run. From what I've seen our CI `macOS 11 native [gui] [no depends]` runs `mempool_updatefrom.py` in ~135 seconds. After this PR it should run in ~105 seconds
+    
+      I noticed this improvement should probably be made when testing performance/runtimes of https://github.com/bitcoin/bitcoin/pull/22698. But I wanted to separate this out from that PR so the affects of each is decoupled
+    
+      Edit: The major change in this PR is improving mempool_updatefrom.py's runtime as this is a very long running test. Then made the same efficiency improvements across all the functional tests as it made since to do that here
+    
+    ACKs for top commit:
+      theStack:
+        Tested ACK 47c48b5f35b4910fcf87caa6e37407e67d879c80
+    
+    Tree-SHA512: 40f553715f3d4649dc18c2738554eafaca9ea800c4b028c099217896cc1c466ff457ae814d59cf8564c782a8964d8fac3eda60c1b6ffb08bbee1439b2d34434b
+
+commit 86dbd54ae8a8f9c693c0ea67114bbff24a0754df
+Author: Michael Dietz <michael.dietz@waya.ai>
+Date:   Mon Aug 16 17:56:28 2021 +0500
+
+    test: improve mempool_updatefrom efficiency by using getmempoolentry for specific txns
+
+diff --git a/test/functional/mempool_updatefromblock.py b/test/functional/mempool_updatefromblock.py
+index 8baf974a0..4cd11e9d1 100755
+--- a/test/functional/mempool_updatefromblock.py
++++ b/test/functional/mempool_updatefromblock.py
+@@ -86,7 +86,7 @@ class MempoolUpdateFromBlockTest(BitcoinTestFramework):
+             unsigned_raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
+             signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(unsigned_raw_tx)
+             tx_id.append(self.nodes[0].sendrawtransaction(signed_raw_tx['hex']))
+-            tx_size.append(self.nodes[0].getrawmempool(True)[tx_id[-1]]['vsize'])
++            tx_size.append(self.nodes[0].getmempoolentry(tx_id[-1])['vsize'])
+ 
+             if tx_count in n_tx_to_mine:
+                 # The created transactions are mined into blocks by batches.
+@@ -109,10 +109,11 @@ class MempoolUpdateFromBlockTest(BitcoinTestFramework):
+         self.log.info('Checking descendants/ancestors properties of all of the in-mempool transactions...')
+         for k, tx in enumerate(tx_id):
+             self.log.debug('Check transaction #{}.'.format(k))
+-            assert_equal(self.nodes[0].getrawmempool(True)[tx]['descendantcount'], size - k)
+-            assert_equal(self.nodes[0].getrawmempool(True)[tx]['descendantsize'], sum(tx_size[k:size]))
+-            assert_equal(self.nodes[0].getrawmempool(True)[tx]['ancestorcount'], k + 1)
+-            assert_equal(self.nodes[0].getrawmempool(True)[tx]['ancestorsize'], sum(tx_size[0:(k + 1)]))
++            entry = self.nodes[0].getmempoolentry(tx)
++            assert_equal(entry['descendantcount'], size - k)
++            assert_equal(entry['descendantsize'], sum(tx_size[k:size]))
++            assert_equal(entry['ancestorcount'], k + 1)
++            assert_equal(entry['ancestorsize'], sum(tx_size[0:(k + 1)]))
+ 
+     def run_test(self):
+         # Use batch size limited by DEFAULT_ANCESTOR_LIMIT = 25 to not fire "too many unconfirmed parents" error.
+
+commit 89895773b72275a620951730aef0b52e9437bc13
+Author: Dmitry Petukhov <dp@simplexum.com>
+Date:   Mon Oct 26 22:03:41 2020 +0500
+
+    Fix length of R check in test/key_tests.cpp:key_signature_tests
+    
+    The code before the fix only checked the length of R value of the last
+    signature in the loop, and only for equality (but the length can be
+    less than 32)
+    
+    The fixed code checks that length of the R value is less than or equal
+    to 32 on each iteration of the loop
+    
+    The BOOST_CHECK(sig.size() <= 70) is merged with sig[3] <= 32 check,
+    and BOOST_CHECKs are moved outside the loop, for efficiency
+
+diff --git a/src/test/key_tests.cpp b/src/test/key_tests.cpp
+index 3362b8d17..cb66d5164 100644
+--- a/src/test/key_tests.cpp
++++ b/src/test/key_tests.cpp
+@@ -172,20 +172,30 @@ BOOST_AUTO_TEST_CASE(key_signature_tests)
+     }
+     BOOST_CHECK(found);
+ 
+-    // When entropy is not specified, we should always see low R signatures that are less than 70 bytes in 256 tries
++    // When entropy is not specified, we should always see low R signatures that are less than or equal to 70 bytes in 256 tries
++    // The low R signatures should always have the value of their "length of R" byte less than or equal to 32
+     // We should see at least one signature that is less than 70 bytes.
+-    found = true;
+     bool found_small = false;
++    bool found_big = false;
++    bool bad_sign = false;
+     for (int i = 0; i < 256; ++i) {
+         sig.clear();
+         std::string msg = "A message to be signed" + ToString(i);
+         msg_hash = Hash(msg);
+-        BOOST_CHECK(key.Sign(msg_hash, sig));
+-        found = sig[3] == 0x20;
+-        BOOST_CHECK(sig.size() <= 70);
++        if (!key.Sign(msg_hash, sig)) {
++            bad_sign = true;
++            break;
++        }
++        // sig.size() > 70 implies sig[3] > 32, because S is always low.
++        // But check both conditions anyway, just in case this implication is broken for some reason
++        if (sig[3] > 32 || sig.size() > 70) {
++            found_big = true;
++            break;
++        }
+         found_small |= sig.size() < 70;
+     }
+-    BOOST_CHECK(found);
++    BOOST_CHECK(!bad_sign);
++    BOOST_CHECK(!found_big);
+     BOOST_CHECK(found_small);
+ }
+ 
+
+commit 1c4f59728c35dc61c213932ffa593826db10095a
+Merge: 62e3eb988 a8a64acaf
+Author: fanquake <fanquake@gmail.com>
+Date:   Wed Sep 16 06:05:08 2020 +0800
+
+    Merge #19879: [p2p] miscellaneous wtxid followups
+    
+    a8a64acaf32ac21feeb885671772282b531ef9a2 [BroadcastTransaction] Remove unsafe move operator (Amiti Uttarwar)
+    125c0381266e0e05a408f8e1818501ab73d29110 [p2p] Remove dead code (Amiti Uttarwar)
+    fc66d0a65cdc52a3b259effe0c29b5eafb1b5ff5 [p2p] Check for nullptr before dereferencing pointer (Adam Jonas)
+    cb79b9dbf4cd06e17c8c65b36bf15c3ea2641de4 [mempool] Revert unbroadcast set to tracking just txid (Amiti Uttarwar)
+    
+    Pull request description:
+    
+      Addresses some outstanding review comments from #18044
+    
+      - reverts unbroadcast txids to a set instead of a map (simpler, communicates intent better, takes less space, no efficiency advantages of map)
+      - adds safety around two touchpoints (check for nullptr before dereferencing pointer, remove an inaccurate std::move operator)
+      - removes some dead code
+    
+      Links to comments on wtxid PR: [1](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r460495254) [2](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r460496023) [3](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r463532611)
+    
+      thanks to jnewbery & adamjonas for flagging these ! !
+    
+    ACKs for top commit:
+      sdaftuar:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+      naumenkogs:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+      jnewbery:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+    
+    Tree-SHA512: 7be669cb30cc17fb9e06b50e636ef7887c6a27354697987e4e4d38dba4b8f50e175647587430cd9bc3295bec01ce8b1e6639a50a4249d8fff9b1ca1b9ead3277
+
+commit 3ce16ad2f91d1e2edc7e7bdc5a19f72aa8c3e739
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Fri Jan 24 17:02:41 2020 -0500
+
+    refactor: Use psbt forward declaration
+    
+    Also clean up forward other forward declarations in interfaces/wallet.h with !sort
+    
+    Original motivation for this change was to fix a circular dependencies lint
+    error: "interfaces/chain.h -> interfaces/wallet.h -> psbt -> node/transaction
+    -> node/context -> interfaces/chain.h" from an earlier commit in this PR adding
+    a "interfaces/chain.h -> interfaces/wallet.h" include. Now, the wallet include
+    is no longer added, but it is still good to clean up the psbt include for
+    efficiency, and to sort the forward declarations.
+
+diff --git a/src/interfaces/wallet.h b/src/interfaces/wallet.h
+index d4280e809..935fc6992 100644
+--- a/src/interfaces/wallet.h
++++ b/src/interfaces/wallet.h
+@@ -14,7 +14,6 @@
+ #include <functional>
+ #include <map>
+ #include <memory>
+-#include <psbt.h>
+ #include <stdint.h>
+ #include <string>
+ #include <tuple>
+@@ -25,12 +24,13 @@ class CCoinControl;
+ class CFeeRate;
+ class CKey;
+ class CWallet;
+-enum isminetype : unsigned int;
+ enum class FeeReason;
+-typedef uint8_t isminefilter;
+-
+ enum class OutputType;
++enum class TransactionError;
++enum isminetype : unsigned int;
+ struct CRecipient;
++struct PartiallySignedTransaction;
++typedef uint8_t isminefilter;
+ 
+ namespace interfaces {
+ 
+diff --git a/src/qt/walletmodel.cpp b/src/qt/walletmodel.cpp
+index 8a84a8c16..83796c384 100644
+--- a/src/qt/walletmodel.cpp
++++ b/src/qt/walletmodel.cpp
+@@ -20,6 +20,7 @@
+ #include <interfaces/handler.h>
+ #include <interfaces/node.h>
+ #include <key_io.h>
++#include <psbt.h>
+ #include <ui_interface.h>
+ #include <util/system.h> // for GetBoolArg
+ #include <wallet/coincontrol.h>
+
+commit cc7cbd756acd79623230f7a1b0b0e40c772a82e1
+Merge: 4a7e64fc8 86edf4a2a
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Thu Jun 14 19:38:19 2018 +0200
+
+    Merge #13451: rpc: expose CBlockIndex::nTx in getblock(header)
+    
+    86edf4a2a502416ba8d6cebbce61030992f7ff6f expose CBlockIndex::nTx in getblock(header) (Gregory Sanders)
+    
+    Pull request description:
+    
+      Recent publication of a weakness in Bitcoin's merkle tree construction demonstrates many SPV applications vulnerable to an expensive to pull off yet still plausible attack: https://bitslog.wordpress.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/
+    
+      Including the coinbase in the txoutproof seems the most effective fix, however results in a significant efficiency downgrade. Transactors will not even know a priori what the size of their proof will be within a couple orders of magnitude, unless they use the mid-state of SHA2 as detailed in the blog post.
+    
+      Some applications, like Elements blockchain platform that take SPV-style proofs have optional access to a bitcoind to verify these proofs of inclusion and check depth in the chain. Returning `CBlockIndex::nTx` would allow an extremely easy and compact way of checking the depth of the tree, with no additional overhead to the codebase, and works with pruned nodes.
+    
+      `getblockheader` is arguably not the place for it, but as mentioned before, is a natural workflow for us checking depth of a block in a possibly pruned node.
+    
+      We should also ensure that `verifytxoutproof` ends up validating this depth fact as well, but left this for another PR.
+    
+    Tree-SHA512: af4cf48e704c6088f8da06a477fda1aaa6f8770cee9b876c4465d1075966d6a95831a88817673fe5a0d6bbcdc1ffcbc1892e2be0d838c60fc6958d33eacdcc14
+
+commit e4bbd3d230f22401ba0a0a72c8ed41ee1bd098a0
+Merge: c45da3204 4fbae7792
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Mon May 1 16:34:45 2017 -0700
+
+    Merge #10292: Improved efficiency in COutPoint constructors
+    
+    4fbae77 Improved efficiency in COutPoint constructors (Marcos Mayorga)
+    
+    Tree-SHA512: 1e402d5021a47724b6159af90955f1a5932c383f48e3e704f1c9a52daa18d2dce5d8e1fcd02fae6977eab04ab83fa22872110b821d4c6593d940d9642abc9bcd
+
+commit 4fbae77929e6344bc49ab60af10a9c5ff21d2cdf
+Author: Marcos Mayorga <mm@mm-studios.com>
+Date:   Fri Apr 28 09:03:51 2017 +0100
+
+    Improved efficiency in COutPoint constructors
+
+diff --git a/src/primitives/transaction.h b/src/primitives/transaction.h
+index d413e8b08..505903030 100644
+--- a/src/primitives/transaction.h
++++ b/src/primitives/transaction.h
+@@ -22,8 +22,8 @@ public:
+     uint256 hash;
+     uint32_t n;
+ 
+-    COutPoint() { SetNull(); }
+-    COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
++    COutPoint(): n((uint32_t) -1) { }
++    COutPoint(const uint256& hashIn, uint32_t nIn): hash(hashIn), n(nIn) { }
+ 
+     ADD_SERIALIZE_METHODS;
+ 
+
+commit fc0899400082496bf2b3e061105e1e6a13399889
+Merge: 6a0720838 2409865e1
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Fri Jan 22 15:30:54 2016 +0100
+
+    Merge #7262: Reduce inefficiency of GetAccountAddress()
+    
+    2409865 Reduce inefficiency of GetAccountAddress() (Chris Moore)
+
+commit 2409865e14dca0704e5618915d6ef902610d91be
+Author: Chris Moore <dooglus@gmail.com>
+Date:   Mon Dec 28 16:56:53 2015 -0800
+
+    Reduce inefficiency of GetAccountAddress()
+    
+    Don't scan the wallet to see if the current key has been used if we're going to make a new key anyway.
+    Stop scanning the wallet as soon as we see that the current key has been used.
+    Don't call isValid() twice on the current key.
+
+diff --git a/src/wallet/rpcwallet.cpp b/src/wallet/rpcwallet.cpp
+index db60e498d..f5b1a7de9 100644
+--- a/src/wallet/rpcwallet.cpp
++++ b/src/wallet/rpcwallet.cpp
+@@ -137,26 +137,25 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
+     CAccount account;
+     walletdb.ReadAccount(strAccount, account);
+ 
+-    bool bKeyUsed = false;
+-
+-    // Check if the current key has been used
+-    if (account.vchPubKey.IsValid())
+-    {
+-        CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID());
+-        for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
+-             it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid();
+-             ++it)
+-        {
+-            const CWalletTx& wtx = (*it).second;
+-            BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+-                if (txout.scriptPubKey == scriptPubKey)
+-                    bKeyUsed = true;
++    if (!bForceNew) {
++        if (!account.vchPubKey.IsValid())
++            bForceNew = true;
++        else {
++            // Check if the current key has been used
++            CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID());
++            for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
++                 it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid();
++                 ++it)
++                BOOST_FOREACH(const CTxOut& txout, (*it).second.vout)
++                    if (txout.scriptPubKey == scriptPubKey) {
++                        bForceNew = true;
++                        break;
++                    }
+         }
+     }
+ 
+     // Generate a new key
+-    if (!account.vchPubKey.IsValid() || bForceNew || bKeyUsed)
+-    {
++    if (bForceNew) {
+         if (!pwalletMain->GetKeyFromPool(account.vchPubKey))
+             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+ 
+
+commit 47162673c79c757a9c038c4ddc41fb3022223bde
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed Jul 1 17:38:15 2015 +0200
+
+    Use real number of cores for default -par, ignore virtual cores
+    
+    To determine the default for `-par`, the number of script verification
+    threads, use [boost::thread::physical_concurrency()](http://www.boost.org/doc/libs/1_58_0/doc/html/thread/thread_management.html#thread.thread_management.thread.physical_concurrency)
+    which counts only physical cores, not virtual cores.
+    
+    Virtual cores are roughly a set of cached registers to avoid context
+    switches while threading, they cannot actually perform work, so spawning
+    a verification thread for them could even reduce efficiency and will put
+    undue load on the system.
+    
+    Should fix issue #6358, as well as some other reported system overload
+    issues, especially on Intel processors.
+    
+    The function was only introduced in boost 1.56, so provide a utility
+    function `GetNumCores` to fall back for older Boost versions.
+
+diff --git a/src/init.cpp b/src/init.cpp
+index c4e3573de..de239df6b 100644
+--- a/src/init.cpp
++++ b/src/init.cpp
+@@ -283,7 +283,7 @@ std::string HelpMessage(HelpMessageMode mode)
+     strUsage += HelpMessageOpt("-loadblock=<file>", _("Imports blocks from external blk000??.dat file") + " " + _("on startup"));
+     strUsage += HelpMessageOpt("-maxorphantx=<n>", strprintf(_("Keep at most <n> unconnectable transactions in memory (default: %u)"), DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+     strUsage += HelpMessageOpt("-par=<n>", strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"),
+-        -(int)boost::thread::hardware_concurrency(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
++        -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
+ #ifndef WIN32
+     strUsage += HelpMessageOpt("-pid=<file>", strprintf(_("Specify pid file (default: %s)"), "bitcoind.pid"));
+ #endif
+@@ -774,7 +774,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
+     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
+     nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+     if (nScriptCheckThreads <= 0)
+-        nScriptCheckThreads += boost::thread::hardware_concurrency();
++        nScriptCheckThreads += GetNumCores();
+     if (nScriptCheckThreads <= 1)
+         nScriptCheckThreads = 0;
+     else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
+diff --git a/src/miner.cpp b/src/miner.cpp
+index f5919ca3a..57af2981d 100644
+--- a/src/miner.cpp
++++ b/src/miner.cpp
+@@ -560,7 +560,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
+         if (Params().DefaultMinerThreads())
+             nThreads = Params().DefaultMinerThreads();
+         else
+-            nThreads = boost::thread::hardware_concurrency();
++            nThreads = GetNumCores();
+     }
+ 
+     if (minerThreads != NULL)
+diff --git a/src/qt/optionsdialog.cpp b/src/qt/optionsdialog.cpp
+index efb2bf415..87c727335 100644
+--- a/src/qt/optionsdialog.cpp
++++ b/src/qt/optionsdialog.cpp
+@@ -42,7 +42,7 @@ OptionsDialog::OptionsDialog(QWidget *parent, bool enableWallet) :
+     /* Main elements init */
+     ui->databaseCache->setMinimum(nMinDbCache);
+     ui->databaseCache->setMaximum(nMaxDbCache);
+-    ui->threadsScriptVerif->setMinimum(-(int)boost::thread::hardware_concurrency());
++    ui->threadsScriptVerif->setMinimum(-GetNumCores());
+     ui->threadsScriptVerif->setMaximum(MAX_SCRIPTCHECK_THREADS);
+ 
+     /* Network elements init */
+diff --git a/src/util.cpp b/src/util.cpp
+index da5821e53..bb7df2320 100644
+--- a/src/util.cpp
++++ b/src/util.cpp
+@@ -756,3 +756,13 @@ void SetThreadPriority(int nPriority)
+ #endif // PRIO_THREAD
+ #endif // WIN32
+ }
++
++int GetNumCores()
++{
++#if BOOST_VERSION >= 105600
++    return boost::thread::physical_concurrency();
++#else // Must fall back to hardware_concurrency, which unfortunately counts virtual cores
++    return boost::thread::hardware_concurrency();
++#endif
++}
++
+diff --git a/src/util.h b/src/util.h
+index 6ec81698e..6019e2501 100644
+--- a/src/util.h
++++ b/src/util.h
+@@ -199,6 +199,13 @@ std::string HelpMessageGroup(const std::string& message);
+  */
+ std::string HelpMessageOpt(const std::string& option, const std::string& message);
+ 
++/**
++ * Return the number of physical cores available on the current system.
++ * @note This does not count virtual cores, such as those provided by HyperThreading
++ * when boost is newer than 1.56.
++ */
++int GetNumCores();
++
+ void SetThreadPriority(int nPriority);
+ void RenameThread(const char* name);
+ 
+
+commit fe4a655042f7de31dce120aeed72345579f1b59f
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Sat May 5 16:07:14 2012 +0200
+
+    Fine-grained UI updates
+    
+    Gets rid of `MainFrameRepaint` in favor of specific update functions that tell the UI exactly what changed.
+    
+    This improves the efficiency of various handlers. Also fixes problems with mined transactions not showing up until restart.
+    
+    The following notifications were added:
+    
+    - `NotifyBlocksChanged`: Block chain changed
+    - `NotifyKeyStoreStatusChanged`: Wallet status (encrypted, locked) changed.
+    - `NotifyAddressBookChanged`: Address book entry changed.
+    - `NotifyTransactionChanged`: Wallet transaction added, removed or updated.
+    - `NotifyNumConnectionsChanged`: Number of connections changed.
+    - `NotifyAlertChanged`: New, updated or cancelled alert. As this finally makes it possible for the UI to know when a new alert arrived, it can be shown as OS notification.
+    
+    These notifications could also be useful for RPC clients. However, currently, they are ignored in bitcoind (in noui.cpp).
+    
+    Also brings back polling with timer for numBlocks in ClientModel. This value updates so frequently during initial download that the number of signals clogs the UI thread and causes heavy CPU usage. And after initial block download, the value changes so rarely that a delay of half a second until the UI updates is unnoticable.
+
+diff --git a/src/keystore.cpp b/src/keystore.cpp
+index 313518711..55fba4c37 100644
+--- a/src/keystore.cpp
++++ b/src/keystore.cpp
+@@ -5,6 +5,7 @@
+ 
+ #include "keystore.h"
+ #include "script.h"
++#include "ui_interface.h"
+ 
+ bool CKeyStore::GetPubKey(const CBitcoinAddress &address, std::vector<unsigned char> &vchPubKeyOut) const
+ {
+@@ -73,6 +74,20 @@ bool CCryptoKeyStore::SetCrypted()
+     return true;
+ }
+ 
++bool CCryptoKeyStore::Lock()
++{
++    if (!SetCrypted())
++        return false;
++
++    {
++        LOCK(cs_KeyStore);
++        vMasterKey.clear();
++    }
++
++    NotifyKeyStoreStatusChanged(this);
++    return true;
++}
++
+ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
+ {
+     {
+@@ -99,6 +114,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
+         }
+         vMasterKey = vMasterKeyIn;
+     }
++    NotifyKeyStoreStatusChanged(this);
+     return true;
+ }
+ 
+diff --git a/src/keystore.h b/src/keystore.h
+index 52889b184..dd7110db5 100644
+--- a/src/keystore.h
++++ b/src/keystore.h
+@@ -143,18 +143,7 @@ public:
+         return result;
+     }
+ 
+-    bool Lock()
+-    {
+-        if (!SetCrypted())
+-            return false;
+-
+-        {
+-            LOCK(cs_KeyStore);
+-            vMasterKey.clear();
+-        }
+-
+-        return true;
+-    }
++    bool Lock();
+ 
+     virtual bool AddCryptedKey(const std::vector<unsigned char> &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret);
+     bool AddKey(const CKey& key);
+diff --git a/src/main.cpp b/src/main.cpp
+index 8ff6d6fec..7e7a0badf 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -946,7 +946,7 @@ void static InvalidChainFound(CBlockIndex* pindexNew)
+     {
+         bnBestInvalidWork = pindexNew->bnChainWork;
+         CTxDB().WriteBestInvalidWork(bnBestInvalidWork);
+-        MainFrameRepaint();
++        NotifyBlocksChanged();
+     }
+     printf("InvalidChainFound: invalid block=%s  height=%d  work=%s\n", pindexNew->GetBlockHash().ToString().substr(0,20).c_str(), pindexNew->nHeight, pindexNew->bnChainWork.ToString().c_str());
+     printf("InvalidChainFound:  current best=%s  height=%d  work=%s\n", hashBestChain.ToString().substr(0,20).c_str(), nBestHeight, bnBestChainWork.ToString().c_str());
+@@ -1647,7 +1647,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
+         hashPrevBestCoinBase = vtx[0].GetHash();
+     }
+ 
+-    MainFrameRepaint();
++    NotifyBlocksChanged();
+     return true;
+ }
+ 
+@@ -2176,6 +2176,18 @@ string GetWarnings(string strFor)
+     return "error";
+ }
+ 
++CAlert CAlert::getAlertByHash(const uint256 &hash)
++{
++    CAlert retval;
++    {
++        LOCK(cs_mapAlerts);
++        map<uint256, CAlert>::iterator mi = mapAlerts.find(hash);
++        if(mi != mapAlerts.end())
++            retval = mi->second;
++    }
++    return retval;
++}
++
+ bool CAlert::ProcessAlert()
+ {
+     if (!CheckSignature())
+@@ -2192,11 +2204,13 @@ bool CAlert::ProcessAlert()
+             if (Cancels(alert))
+             {
+                 printf("cancelling alert %d\n", alert.nID);
++                NotifyAlertChanged((*mi).first, CT_DELETED);
+                 mapAlerts.erase(mi++);
+             }
+             else if (!alert.IsInEffect())
+             {
+                 printf("expiring alert %d\n", alert.nID);
++                NotifyAlertChanged((*mi).first, CT_DELETED);
+                 mapAlerts.erase(mi++);
+             }
+             else
+@@ -2216,10 +2230,12 @@ bool CAlert::ProcessAlert()
+ 
+         // Add to mapAlerts
+         mapAlerts.insert(make_pair(GetHash(), *this));
++        // Notify UI if it applies to me
++        if(AppliesToMe())
++            NotifyAlertChanged(GetHash(), CT_NEW);
+     }
+ 
+     printf("accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
+-    MainFrameRepaint();
+     return true;
+ }
+ 
+diff --git a/src/main.h b/src/main.h
+index 9700909f8..f4a9759d7 100644
+--- a/src/main.h
++++ b/src/main.h
+@@ -1574,6 +1574,11 @@ public:
+     }
+ 
+     bool ProcessAlert();
++
++    /*
++     * Get copy of (active) alert object by hash. Returns a null alert if it is not found.
++     */
++    static CAlert getAlertByHash(const uint256 &hash);
+ };
+ 
+ class CTxMemPool
+diff --git a/src/net.cpp b/src/net.cpp
+index 8d1938760..32875b0f0 100644
+--- a/src/net.cpp
++++ b/src/net.cpp
+@@ -705,7 +705,7 @@ void ThreadSocketHandler2(void* parg)
+         if (vNodes.size() != nPrevNodeCount)
+         {
+             nPrevNodeCount = vNodes.size();
+-            MainFrameRepaint();
++            NotifyNumConnectionsChanged(vNodes.size());
+         }
+ 
+ 
+diff --git a/src/noui.cpp b/src/noui.cpp
+index 08a08b439..c7b74bea7 100644
+--- a/src/noui.cpp
++++ b/src/noui.cpp
+@@ -19,14 +19,6 @@ bool ThreadSafeAskFee(int64 nFeeRequired, const std::string& strCaption)
+     return true;
+ }
+ 
+-void MainFrameRepaint()
+-{
+-}
+-
+-void AddressBookRepaint()
+-{
+-}
+-
+ void InitMessage(const std::string &message)
+ {
+ }
+@@ -42,3 +34,26 @@ void QueueShutdown()
+     CreateThread(Shutdown, NULL);
+ }
+ 
++void NotifyBlocksChanged()
++{
++}
++
++void NotifyKeyStoreStatusChanged(CBasicKeyStore *wallet)
++{
++}
++
++void NotifyAddressBookChanged(CWallet *wallet, const std::string &address, const std::string &label, EntryStatus status)
++{
++}
++
++void NotifyTransactionChanged(CWallet *wallet, const uint256 &hashTx, EntryStatus status)
++{
++}
++
++void NotifyNumConnectionsChanged(int newNumConnections)
++{
++}
++
++void NotifyAlertChanged(const uint256 &hash, EntryStatus status)
++{
++}
+diff --git a/src/qt/addresstablemodel.cpp b/src/qt/addresstablemodel.cpp
+index 7b95f51c0..4af4c3ac1 100644
+--- a/src/qt/addresstablemodel.cpp
++++ b/src/qt/addresstablemodel.cpp
+@@ -232,9 +232,10 @@ QModelIndex AddressTableModel::index(int row, int column, const QModelIndex & pa
+     }
+ }
+ 
+-void AddressTableModel::update()
++void AddressTableModel::updateEntry(const QString &address, const QString &label, int status)
+ {
+     // Update address book model from Bitcoin core
++    // TODO: use address, label, status to update only the specified entry (like in WalletModel)
+     beginResetModel();
+     priv->refreshAddressTable();
+     endResetModel();
+diff --git a/src/qt/addresstablemodel.h b/src/qt/addresstablemodel.h
+index 7fd07cfb8..bd73c6d14 100644
+--- a/src/qt/addresstablemodel.h
++++ b/src/qt/addresstablemodel.h
+@@ -78,9 +78,9 @@ signals:
+     void defaultAddressChanged(const QString &address);
+ 
+ public slots:
+-    /* Update address list from core. Invalidates any indices.
++    /* Update address list from core.
+      */
+-    void update();
++    void updateEntry(const QString &address, const QString &label, int status);
+ };
+ 
+ #endif // ADDRESSTABLEMODEL_H
+diff --git a/src/qt/bitcoin.cpp b/src/qt/bitcoin.cpp
+index 6a0a32fbd..a50443021 100644
+--- a/src/qt/bitcoin.cpp
++++ b/src/qt/bitcoin.cpp
+@@ -84,20 +84,6 @@ void ThreadSafeHandleURI(const std::string& strURI)
+                                Q_ARG(QString, QString::fromStdString(strURI)));
+ }
+ 
+-void MainFrameRepaint()
+-{
+-    if(clientmodel)
+-        QMetaObject::invokeMethod(clientmodel, "update", Qt::QueuedConnection);
+-    if(walletmodel)
+-        QMetaObject::invokeMethod(walletmodel, "update", Qt::QueuedConnection);
+-}
+-
+-void AddressBookRepaint()
+-{
+-    if(walletmodel)
+-        QMetaObject::invokeMethod(walletmodel, "updateAddressList", Qt::QueuedConnection);
+-}
+-
+ void InitMessage(const std::string &message)
+ {
+     if(splashref)
+@@ -120,6 +106,61 @@ std::string _(const char* psz)
+     return QCoreApplication::translate("bitcoin-core", psz).toStdString();
+ }
+ 
++void NotifyBlocksChanged()
++{
++    // This notification is too frequent. Don't trigger a signal.
++    // Don't remove it, though, as it might be useful later.
++}
++
++void NotifyKeyStoreStatusChanged(CBasicKeyStore *wallet)
++{
++    // This currently ignores the wallet argument. When multiple wallet support is implemented, this
++    // parameter should be mapped to a specific WalletModel for that wallet.
++    OutputDebugStringF("NotifyKeyStoreStatusChanged\n");
++    if(walletmodel)
++        QMetaObject::invokeMethod(walletmodel, "updateStatus", Qt::QueuedConnection);
++}
++
++void NotifyAddressBookChanged(CWallet *wallet, const std::string &address, const std::string &label, ChangeType status)
++{
++    // This currently ignores the wallet argument. When multiple wallet support is implemented, this
++    // parameter should be mapped to a specific WalletModel for that wallet.
++    OutputDebugStringF("NotifyAddressBookChanged %s %s status=%i\n", address.c_str(), label.c_str(), status);
++    if(walletmodel)
++        QMetaObject::invokeMethod(walletmodel, "updateAddressBook", Qt::QueuedConnection,
++                                  Q_ARG(QString, QString::fromStdString(address)),
++                                  Q_ARG(QString, QString::fromStdString(label)),
++                                  Q_ARG(int, status));
++}
++
++void NotifyTransactionChanged(CWallet *wallet, const uint256 &hash, ChangeType status)
++{
++    // This currently ignores the wallet argument. When multiple wallet support is implemented, this
++    // parameter should be mapped to a specific WalletModel for that wallet.
++    OutputDebugStringF("NotifyTransactionChanged %s status=%i\n", hash.GetHex().c_str(), status);
++    if(walletmodel)
++        QMetaObject::invokeMethod(walletmodel, "updateTransaction", Qt::QueuedConnection,
++                                  Q_ARG(QString, QString::fromStdString(hash.GetHex())),
++                                  Q_ARG(int, status));
++}
++
++void NotifyNumConnectionsChanged(int newNumConnections)
++{
++    // Too noisy: OutputDebugStringF("NotifyNumConnectionsChanged %i\n", newNumConnections);
++    if(clientmodel)
++        QMetaObject::invokeMethod(clientmodel, "updateNumConnections", Qt::QueuedConnection,
++                                  Q_ARG(int, newNumConnections));
++}
++
++void NotifyAlertChanged(const uint256 &hash, ChangeType status)
++{
++    OutputDebugStringF("NotifyAlertChanged %s status=%i\n", hash.GetHex().c_str(), status);
++    if(clientmodel)
++        QMetaObject::invokeMethod(clientmodel, "updateAlert", Qt::QueuedConnection,
++                                  Q_ARG(QString, QString::fromStdString(hash.GetHex())),
++                                  Q_ARG(int, status));
++}
++
+ /* Handle runaway exceptions. Shows a message box with the problem and quits the program.
+  */
+ static void handleRunawayException(std::exception *e)
+diff --git a/src/qt/bitcoingui.cpp b/src/qt/bitcoingui.cpp
+index 7070e5944..9deaa4b6d 100644
+--- a/src/qt/bitcoingui.cpp
++++ b/src/qt/bitcoingui.cpp
+@@ -350,11 +350,11 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
+         setNumConnections(clientModel->getNumConnections());
+         connect(clientModel, SIGNAL(numConnectionsChanged(int)), this, SLOT(setNumConnections(int)));
+ 
+-        setNumBlocks(clientModel->getNumBlocks());
+-        connect(clientModel, SIGNAL(numBlocksChanged(int)), this, SLOT(setNumBlocks(int)));
++        setNumBlocks(clientModel->getNumBlocks(), clientModel->getNumBlocksOfPeers());
++        connect(clientModel, SIGNAL(numBlocksChanged(int,int)), this, SLOT(setNumBlocks(int,int)));
+ 
+         // Report errors from network/worker thread
+-        connect(clientModel, SIGNAL(error(QString,QString, bool)), this, SLOT(error(QString,QString,bool)));
++        connect(clientModel, SIGNAL(error(QString,QString,bool)), this, SLOT(error(QString,QString,bool)));
+ 
+         rpcConsole->setClientModel(clientModel);
+     }
+@@ -493,7 +493,7 @@ void BitcoinGUI::setNumConnections(int count)
+     labelConnectionsIcon->setToolTip(tr("%n active connection(s) to Bitcoin network", "", count));
+ }
+ 
+-void BitcoinGUI::setNumBlocks(int count)
++void BitcoinGUI::setNumBlocks(int count, int nTotalBlocks)
+ {
+     // don't show / hide progressBar and it's label if we have no connection(s) to the network
+     if (!clientModel || clientModel->getNumConnections() == 0)
+@@ -504,7 +504,6 @@ void BitcoinGUI::setNumBlocks(int count)
+         return;
+     }
+ 
+-    int nTotalBlocks = clientModel->getNumBlocksOfPeers();
+     QString tooltip;
+ 
+     if(count < nTotalBlocks)
+diff --git a/src/qt/bitcoingui.h b/src/qt/bitcoingui.h
+index 88e6d064d..8a7f6e541 100644
+--- a/src/qt/bitcoingui.h
++++ b/src/qt/bitcoingui.h
+@@ -111,7 +111,7 @@ public slots:
+     /** Set number of connections shown in the UI */
+     void setNumConnections(int count);
+     /** Set number of blocks shown in the UI */
+-    void setNumBlocks(int count);
++    void setNumBlocks(int count, int countOfPeers);
+     /** Set the encryption status as shown in the UI.
+        @param[in] status            current encryption status
+        @see WalletModel::EncryptionStatus
+diff --git a/src/qt/clientmodel.cpp b/src/qt/clientmodel.cpp
+index 85ab03612..1914ef90b 100644
+--- a/src/qt/clientmodel.cpp
++++ b/src/qt/clientmodel.cpp
+@@ -5,15 +5,23 @@
+ #include "transactiontablemodel.h"
+ 
+ #include "main.h"
+-static const int64 nClientStartupTime = GetTime();
++#include "ui_interface.h"
+ 
+ #include <QDateTime>
++#include <QTimer>
++
++static const int64 nClientStartupTime = GetTime();
+ 
+ ClientModel::ClientModel(OptionsModel *optionsModel, QObject *parent) :
+     QObject(parent), optionsModel(optionsModel),
+-    cachedNumConnections(0), cachedNumBlocks(0)
++    cachedNumBlocks(0), cachedNumBlocksOfPeers(0), pollTimer(0)
+ {
+     numBlocksAtStartup = -1;
++
++    pollTimer = new QTimer();
++    pollTimer->setInterval(MODEL_UPDATE_DELAY);
++    pollTimer->start();
++    connect(pollTimer, SIGNAL(timeout()), this, SLOT(updateTimer()));
+ }
+ 
+ int ClientModel::getNumConnections() const
+@@ -37,27 +45,42 @@ QDateTime ClientModel::getLastBlockDate() const
+     return QDateTime::fromTime_t(pindexBest->GetBlockTime());
+ }
+ 
+-void ClientModel::update()
++void ClientModel::updateTimer()
+ {
+-    int newNumConnections = getNumConnections();
++    // Some quantities (such as number of blocks) change so fast that we don't want to be notified for each change.
++    // Periodically check and update with a timer.
+     int newNumBlocks = getNumBlocks();
+-    QString newStatusBar = getStatusBarWarnings();
++    int newNumBlocksOfPeers = getNumBlocksOfPeers();
+ 
+-    if(cachedNumConnections != newNumConnections)
+-        emit numConnectionsChanged(newNumConnections);
+-    if(cachedNumBlocks != newNumBlocks || cachedStatusBar != newStatusBar)
++    if(cachedNumBlocks != newNumBlocks || cachedNumBlocksOfPeers != newNumBlocksOfPeers)
++        emit numBlocksChanged(newNumBlocks, newNumBlocksOfPeers);
++
++    cachedNumBlocks = newNumBlocks;
++    cachedNumBlocksOfPeers = newNumBlocksOfPeers;
++}
++
++void ClientModel::updateNumConnections(int numConnections)
++{
++    emit numConnectionsChanged(numConnections);
++}
++
++void ClientModel::updateAlert(const QString &hash, int status)
++{
++    // Show error message notification for new alert
++    if(status == CT_NEW)
+     {
+-        // Simply emit a numBlocksChanged for now in case the status message changes,
+-        // so that the view updates the status bar.
+-        // TODO: It should send a notification.
+-        //    (However, this might generate looped notifications and needs to be thought through and tested carefully)
+-        //    error(tr("Network Alert"), newStatusBar);
+-        emit numBlocksChanged(newNumBlocks);
++        uint256 hash_256;
++        hash_256.SetHex(hash.toStdString());
++        CAlert alert = CAlert::getAlertByHash(hash_256);
++        if(!alert.IsNull())
++        {
++            emit error(tr("Network Alert"), QString::fromStdString(alert.strStatusBar), false);
++        }
+     }
+ 
+-    cachedNumConnections = newNumConnections;
+-    cachedNumBlocks = newNumBlocks;
+-    cachedStatusBar = newStatusBar;
++    // Emit a numBlocksChanged when the status message changes,
++    // so that the view recomputes and updates the status bar.
++    emit numBlocksChanged(getNumBlocks(), getNumBlocksOfPeers());
+ }
+ 
+ bool ClientModel::isTestNet() const
+diff --git a/src/qt/clientmodel.h b/src/qt/clientmodel.h
+index 67835db72..bf2cd84a1 100644
+--- a/src/qt/clientmodel.h
++++ b/src/qt/clientmodel.h
+@@ -10,6 +10,7 @@ class CWallet;
+ 
+ QT_BEGIN_NAMESPACE
+ class QDateTime;
++class QTimer;
+ QT_END_NAMESPACE
+ 
+ /** Model for Bitcoin network client. */
+@@ -44,23 +45,24 @@ public:
+ private:
+     OptionsModel *optionsModel;
+ 
+-    int cachedNumConnections;
+     int cachedNumBlocks;
+-    QString cachedStatusBar;
++    int cachedNumBlocksOfPeers;
+ 
+     int numBlocksAtStartup;
+ 
++    QTimer *pollTimer;
++
+ signals:
+     void numConnectionsChanged(int count);
+-    void numBlocksChanged(int count);
++    void numBlocksChanged(int count, int countOfPeers);
+ 
+     //! Asynchronous error notification
+     void error(const QString &title, const QString &message, bool modal);
+ 
+ public slots:
+-
+-private slots:
+-    void update();
++    void updateTimer();
++    void updateNumConnections(int numConnections);
++    void updateAlert(const QString &hash, int status);
+ };
+ 
+ #endif // CLIENTMODEL_H
+diff --git a/src/qt/rpcconsole.cpp b/src/qt/rpcconsole.cpp
+index 0c77b05c5..7029ee33b 100644
+--- a/src/qt/rpcconsole.cpp
++++ b/src/qt/rpcconsole.cpp
+@@ -157,7 +157,7 @@ void RPCConsole::setClientModel(ClientModel *model)
+     {
+         // Subscribe to information, replies, messages, errors
+         connect(model, SIGNAL(numConnectionsChanged(int)), this, SLOT(setNumConnections(int)));
+-        connect(model, SIGNAL(numBlocksChanged(int)), this, SLOT(setNumBlocks(int)));
++        connect(model, SIGNAL(numBlocksChanged(int,int)), this, SLOT(setNumBlocks(int,int)));
+ 
+         // Provide initial values
+         ui->clientVersion->setText(model->formatFullVersion());
+@@ -168,7 +168,7 @@ void RPCConsole::setClientModel(ClientModel *model)
+         setNumConnections(model->getNumConnections());
+         ui->isTestNet->setChecked(model->isTestNet());
+ 
+-        setNumBlocks(model->getNumBlocks());
++        setNumBlocks(model->getNumBlocks(), model->getNumBlocksOfPeers());
+     }
+ }
+ 
+@@ -235,9 +235,10 @@ void RPCConsole::setNumConnections(int count)
+     ui->numberOfConnections->setText(QString::number(count));
+ }
+ 
+-void RPCConsole::setNumBlocks(int count)
++void RPCConsole::setNumBlocks(int count, int countOfPeers)
+ {
+     ui->numberOfBlocks->setText(QString::number(count));
++    ui->totalBlocks->setText(QString::number(countOfPeers));
+     if(clientModel)
+     {
+         // If there is no current number available display N/A instead of 0, which can't ever be true
+diff --git a/src/qt/rpcconsole.h b/src/qt/rpcconsole.h
+index 27f41817e..4b71cdb98 100644
+--- a/src/qt/rpcconsole.h
++++ b/src/qt/rpcconsole.h
+@@ -42,7 +42,7 @@ public slots:
+     /** Set number of connections shown in the UI */
+     void setNumConnections(int count);
+     /** Set number of blocks shown in the UI */
+-    void setNumBlocks(int count);
++    void setNumBlocks(int count, int countOfPeers);
+     /** Go forward or back in history */
+     void browseHistory(int offset);
+     /** Scroll console view to end */
+diff --git a/src/qt/transactionrecord.cpp b/src/qt/transactionrecord.cpp
+index 53cfb409f..017244ffd 100644
+--- a/src/qt/transactionrecord.cpp
++++ b/src/qt/transactionrecord.cpp
+@@ -40,114 +40,111 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
+     uint256 hash = wtx.GetHash();
+     std::map<std::string, std::string> mapValue = wtx.mapValue;
+ 
+-    if (showTransaction(wtx))
++    if (nNet > 0 || wtx.IsCoinBase())
+     {
+-        if (nNet > 0 || wtx.IsCoinBase())
++        //
++        // Credit
++        //
++        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+         {
+-            //
+-            // Credit
+-            //
+-            BOOST_FOREACH(const CTxOut& txout, wtx.vout)
++            if(wallet->IsMine(txout))
+             {
+-                if(wallet->IsMine(txout))
++                TransactionRecord sub(hash, nTime);
++                CBitcoinAddress address;
++                sub.idx = parts.size(); // sequence number
++                sub.credit = txout.nValue;
++                if (wtx.IsCoinBase())
+                 {
+-                    TransactionRecord sub(hash, nTime);
+-                    CBitcoinAddress address;
+-                    sub.idx = parts.size(); // sequence number
+-                    sub.credit = txout.nValue;
+-                    if (wtx.IsCoinBase())
+-                    {
+-                        // Generated
+-                        sub.type = TransactionRecord::Generated;
+-                    }
+-                    else if (ExtractAddress(txout.scriptPubKey, address) && wallet->HaveKey(address))
+-                    {
+-                        // Received by Bitcoin Address
+-                        sub.type = TransactionRecord::RecvWithAddress;
+-                        sub.address = address.ToString();
+-                    }
+-                    else
+-                    {
+-                        // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
+-                        sub.type = TransactionRecord::RecvFromOther;
+-                        sub.address = mapValue["from"];
+-                    }
+-
+-                    parts.append(sub);
++                    // Generated
++                    sub.type = TransactionRecord::Generated;
+                 }
++                else if (ExtractAddress(txout.scriptPubKey, address) && wallet->HaveKey(address))
++                {
++                    // Received by Bitcoin Address
++                    sub.type = TransactionRecord::RecvWithAddress;
++                    sub.address = address.ToString();
++                }
++                else
++                {
++                    // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
++                    sub.type = TransactionRecord::RecvFromOther;
++                    sub.address = mapValue["from"];
++                }
++
++                parts.append(sub);
+             }
+         }
+-        else
++    }
++    else
++    {
++        bool fAllFromMe = true;
++        BOOST_FOREACH(const CTxIn& txin, wtx.vin)
++            fAllFromMe = fAllFromMe && wallet->IsMine(txin);
++
++        bool fAllToMe = true;
++        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
++            fAllToMe = fAllToMe && wallet->IsMine(txout);
++
++        if (fAllFromMe && fAllToMe)
+         {
+-            bool fAllFromMe = true;
+-            BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+-                fAllFromMe = fAllFromMe && wallet->IsMine(txin);
++            // Payment to self
++            int64 nChange = wtx.GetChange();
+ 
+-            bool fAllToMe = true;
+-            BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+-                fAllToMe = fAllToMe && wallet->IsMine(txout);
++            parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
++                            -(nDebit - nChange), nCredit - nChange));
++        }
++        else if (fAllFromMe)
++        {
++            //
++            // Debit
++            //
++            int64 nTxFee = nDebit - wtx.GetValueOut();
+ 
+-            if (fAllFromMe && fAllToMe)
++            for (unsigned int nOut = 0; nOut < wtx.vout.size(); nOut++)
+             {
+-                // Payment to self
+-                int64 nChange = wtx.GetChange();
++                const CTxOut& txout = wtx.vout[nOut];
++                TransactionRecord sub(hash, nTime);
++                sub.idx = parts.size();
+ 
+-                parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
+-                                -(nDebit - nChange), nCredit - nChange));
+-            }
+-            else if (fAllFromMe)
+-            {
+-                //
+-                // Debit
+-                //
+-                int64 nTxFee = nDebit - wtx.GetValueOut();
++                if(wallet->IsMine(txout))
++                {
++                    // Ignore parts sent to self, as this is usually the change
++                    // from a transaction sent back to our own address.
++                    continue;
++                }
+ 
+-                for (unsigned int nOut = 0; nOut < wtx.vout.size(); nOut++)
++                CBitcoinAddress address;
++                if (ExtractAddress(txout.scriptPubKey, address))
+                 {
+-                    const CTxOut& txout = wtx.vout[nOut];
+-                    TransactionRecord sub(hash, nTime);
+-                    sub.idx = parts.size();
+-
+-                    if(wallet->IsMine(txout))
+-                    {
+-                        // Ignore parts sent to self, as this is usually the change
+-                        // from a transaction sent back to our own address.
+-                        continue;
+-                    }
+-
+-                    CBitcoinAddress address;
+-                    if (ExtractAddress(txout.scriptPubKey, address))
+-                    {
+-                        // Sent to Bitcoin Address
+-                        sub.type = TransactionRecord::SendToAddress;
+-                        sub.address = address.ToString();
+-                    }
+-                    else
+-                    {
+-                        // Sent to IP, or other non-address transaction like OP_EVAL
+-                        sub.type = TransactionRecord::SendToOther;
+-                        sub.address = mapValue["to"];
+-                    }
+-
+-                    int64 nValue = txout.nValue;
+-                    /* Add fee to first output */
+-                    if (nTxFee > 0)
+-                    {
+-                        nValue += nTxFee;
+-                        nTxFee = 0;
+-                    }
+-                    sub.debit = -nValue;
+-
+-                    parts.append(sub);
++                    // Sent to Bitcoin Address
++                    sub.type = TransactionRecord::SendToAddress;
++                    sub.address = address.ToString();
+                 }
++                else
++                {
++                    // Sent to IP, or other non-address transaction like OP_EVAL
++                    sub.type = TransactionRecord::SendToOther;
++                    sub.address = mapValue["to"];
++                }
++
++                int64 nValue = txout.nValue;
++                /* Add fee to first output */
++                if (nTxFee > 0)
++                {
++                    nValue += nTxFee;
++                    nTxFee = 0;
++                }
++                sub.debit = -nValue;
++
++                parts.append(sub);
+             }
+-            else
+-            {
+-                //
+-                // Mixed debit transaction, can't break down payees
+-                //
+-                parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
+-            }
++        }
++        else
++        {
++            //
++            // Mixed debit transaction, can't break down payees
++            //
++            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
+         }
+     }
+ 
+diff --git a/src/qt/transactiontablemodel.cpp b/src/qt/transactiontablemodel.cpp
+index 5f505f444..d36bb495a 100644
+--- a/src/qt/transactiontablemodel.cpp
++++ b/src/qt/transactiontablemodel.cpp
+@@ -9,6 +9,7 @@
+ #include "bitcoinunits.h"
+ 
+ #include "wallet.h"
++#include "ui_interface.h"
+ 
+ #include <QLocale>
+ #include <QList>
+@@ -66,15 +67,14 @@ public:
+      */
+     void refreshWallet()
+     {
+-#ifdef WALLET_UPDATE_DEBUG
+-        qDebug() << "refreshWallet";
+-#endif
++        OutputDebugStringF("refreshWallet\n");
+         cachedWallet.clear();
+         {
+             LOCK(wallet->cs_wallet);
+             for(std::map<uint256, CWalletTx>::iterator it = wallet->mapWallet.begin(); it != wallet->mapWallet.end(); ++it)
+             {
+-                cachedWallet.append(TransactionRecord::decomposeTransaction(wallet, it->second));
++                if(TransactionRecord::showTransaction(it->second))
++                    cachedWallet.append(TransactionRecord::decomposeTransaction(wallet, it->second));
+             }
+         }
+     }
+@@ -82,49 +82,55 @@ public:
+     /* Update our model of the wallet incrementally, to synchronize our model of the wallet
+        with that of the core.
+ 
+-       Call with list of hashes of transactions that were added, removed or changed.
++       Call with transaction that was added, removed or changed.
+      */
+-    void updateWallet(const QList<uint256> &updated)
++    void updateWallet(const uint256 &hash, int status)
+     {
+-        // Walk through updated transactions, update model as needed.
+-#ifdef WALLET_UPDATE_DEBUG
+-        qDebug() << "updateWallet";
+-#endif
+-        // Sort update list, and iterate through it in reverse, so that model updates
+-        //  can be emitted from end to beginning (so that earlier updates will not influence
+-        // the indices of latter ones).
+-        QList<uint256> updated_sorted = updated;
+-        qSort(updated_sorted);
+-
++        OutputDebugStringF("updateWallet %s %i\n", hash.ToString().c_str(), status);
+         {
+             LOCK(wallet->cs_wallet);
+-            for(int update_idx = updated_sorted.size()-1; update_idx >= 0; --update_idx)
++
++            // Find transaction in wallet
++            std::map<uint256, CWalletTx>::iterator mi = wallet->mapWallet.find(hash);
++            bool inWallet = mi != wallet->mapWallet.end();
++
++            // Find bounds of this transaction in model
++            QList<TransactionRecord>::iterator lower = qLowerBound(
++                cachedWallet.begin(), cachedWallet.end(), hash, TxLessThan());
++            QList<TransactionRecord>::iterator upper = qUpperBound(
++                cachedWallet.begin(), cachedWallet.end(), hash, TxLessThan());
++            int lowerIndex = (lower - cachedWallet.begin());
++            int upperIndex = (upper - cachedWallet.begin());
++            bool inModel = (lower != upper);
++
++            // Determine whether to show transaction or not
++            bool showTransaction = (inWallet && TransactionRecord::showTransaction(mi->second));
++
++            if(status == CT_UPDATED)
+             {
+-                const uint256 &hash = updated_sorted.at(update_idx);
+-                // Find transaction in wallet
+-                std::map<uint256, CWalletTx>::iterator mi = wallet->mapWallet.find(hash);
+-                bool inWallet = mi != wallet->mapWallet.end();
+-                // Find bounds of this transaction in model
+-                QList<TransactionRecord>::iterator lower = qLowerBound(
+-                    cachedWallet.begin(), cachedWallet.end(), hash, TxLessThan());
+-                QList<TransactionRecord>::iterator upper = qUpperBound(
+-                    cachedWallet.begin(), cachedWallet.end(), hash, TxLessThan());
+-                int lowerIndex = (lower - cachedWallet.begin());
+-                int upperIndex = (upper - cachedWallet.begin());
+-
+-                // Determine if transaction is in model already
+-                bool inModel = false;
+-                if(lower != upper)
+-                {
+-                    inModel = true;
+-                }
++                if(showTransaction && !inModel)
++                    status = CT_NEW; /* Not in model, but want to show, treat as new */
++                if(!showTransaction && inModel)
++                    status = CT_DELETED; /* In model, but want to hide, treat as deleted */
++            }
+ 
+-#ifdef WALLET_UPDATE_DEBUG
+-                qDebug() << "  " << QString::fromStdString(hash.ToString()) << inWallet << " " << inModel
+-                        << lowerIndex << "-" << upperIndex;
+-#endif
++            OutputDebugStringF("   inWallet=%i inModel=%i Index=%i-%i showTransaction=%i derivedStatus=%i\n",
++                     inWallet, inModel, lowerIndex, upperIndex, showTransaction, status);
+ 
+-                if(inWallet && !inModel)
++            switch(status)
++            {
++            case CT_NEW:
++                if(inModel)
++                {
++                    OutputDebugStringF("Warning: updateWallet: Got CT_NEW, but transaction is already in model\n");
++                    break;
++                }
++                if(!inWallet)
++                {
++                    OutputDebugStringF("Warning: updateWallet: Got CT_NEW, but transaction is not in wallet\n");
++                    break;
++                }
++                if(showTransaction)
+                 {
+                     // Added -- insert at the right position
+                     QList<TransactionRecord> toInsert =
+@@ -141,17 +147,22 @@ public:
+                         parent->endInsertRows();
+                     }
+                 }
+-                else if(!inWallet && inModel)
+-                {
+-                    // Removed -- remove entire transaction from table
+-                    parent->beginRemoveRows(QModelIndex(), lowerIndex, upperIndex-1);
+-                    cachedWallet.erase(lower, upper);
+-                    parent->endRemoveRows();
+-                }
+-                else if(inWallet && inModel)
++                break;
++            case CT_DELETED:
++                if(!inModel)
+                 {
+-                    // Updated -- nothing to do, status update will take care of this
++                    OutputDebugStringF("Warning: updateWallet: Got CT_DELETED, but transaction is not in model\n");
++                    break;
+                 }
++                // Removed -- remove entire transaction from table
++                parent->beginRemoveRows(QModelIndex(), lowerIndex, upperIndex-1);
++                cachedWallet.erase(lower, upper);
++                parent->endRemoveRows();
++                break;
++            case CT_UPDATED:
++                // Miscellaneous updates -- nothing to do, status update will take care of this, and is only computed for
++                // visible transactions.
++                break;
+             }
+         }
+     }
+@@ -209,14 +220,15 @@ TransactionTableModel::TransactionTableModel(CWallet* wallet, WalletModel *paren
+         QAbstractTableModel(parent),
+         wallet(wallet),
+         walletModel(parent),
+-        priv(new TransactionTablePriv(wallet, this))
++        priv(new TransactionTablePriv(wallet, this)),
++        cachedNumBlocks(0)
+ {
+     columns << QString() << tr("Date") << tr("Type") << tr("Address") << tr("Amount");
+ 
+     priv->refreshWallet();
+ 
+     QTimer *timer = new QTimer(this);
+-    connect(timer, SIGNAL(timeout()), this, SLOT(update()));
++    connect(timer, SIGNAL(timeout()), this, SLOT(updateConfirmations()));
+     timer->start(MODEL_UPDATE_DELAY);
+ }
+ 
+@@ -225,29 +237,23 @@ TransactionTableModel::~TransactionTableModel()
+     delete priv;
+ }
+ 
+-void TransactionTableModel::update()
++void TransactionTableModel::updateTransaction(const QString &hash, int status)
+ {
+-    QList<uint256> updated;
++    uint256 updated;
++    updated.SetHex(hash.toStdString());
+ 
+-    // Check if there are changes to wallet map
+-    {
+-        TRY_LOCK(wallet->cs_wallet, lockWallet);
+-        if (lockWallet && !wallet->vWalletUpdated.empty())
+-        {
+-            BOOST_FOREACH(uint256 hash, wallet->vWalletUpdated)
+-            {
+-                updated.append(hash);
+-            }
+-            wallet->vWalletUpdated.clear();
+-        }
+-    }
++    priv->updateWallet(updated, status);
++}
+ 
+-    if(!updated.empty())
++void TransactionTableModel::updateConfirmations()
++{
++    if(nBestHeight != cachedNumBlocks)
+     {
+-        priv->updateWallet(updated);
+-
+-        // Status (number of confirmations) and (possibly) description
+-        //  columns changed for all rows.
++        cachedNumBlocks = nBestHeight;
++        // Blocks came in since last poll.
++        // Invalidate status (number of confirmations) and (possibly) description
++        //  for all rows. Qt is smart enough to only actually request the data for the
++        //  visible rows.
+         emit dataChanged(index(0, Status), index(priv->size()-1, Status));
+         emit dataChanged(index(0, ToAddress), index(priv->size()-1, ToAddress));
+     }
+diff --git a/src/qt/transactiontablemodel.h b/src/qt/transactiontablemodel.h
+index db88a0604..0aafa7091 100644
+--- a/src/qt/transactiontablemodel.h
++++ b/src/qt/transactiontablemodel.h
+@@ -60,6 +60,7 @@ private:
+     WalletModel *walletModel;
+     QStringList columns;
+     TransactionTablePriv *priv;
++    int cachedNumBlocks;
+ 
+     QString lookupAddress(const std::string &address, bool tooltip) const;
+     QVariant addressColor(const TransactionRecord *wtx) const;
+@@ -72,8 +73,9 @@ private:
+     QVariant txStatusDecoration(const TransactionRecord *wtx) const;
+     QVariant txAddressDecoration(const TransactionRecord *wtx) const;
+ 
+-private slots:
+-    void update();
++public slots:
++    void updateTransaction(const QString &hash, int status);
++    void updateConfirmations();
+ 
+     friend class TransactionTablePriv;
+ };
+diff --git a/src/qt/walletmodel.cpp b/src/qt/walletmodel.cpp
+index b9ccb06c0..4e082a8ab 100644
+--- a/src/qt/walletmodel.cpp
++++ b/src/qt/walletmodel.cpp
+@@ -40,30 +40,38 @@ int WalletModel::getNumTransactions() const
+     return numTransactions;
+ }
+ 
+-void WalletModel::update()
++void WalletModel::updateStatus()
+ {
++    EncryptionStatus newEncryptionStatus = getEncryptionStatus();
++
++    if(cachedEncryptionStatus != newEncryptionStatus)
++        emit encryptionStatusChanged(newEncryptionStatus);
++}
++
++void WalletModel::updateTransaction(const QString &hash, int status)
++{
++    if(transactionTableModel)
++        transactionTableModel->updateTransaction(hash, status);
++
++    // Balance and number of transactions might have changed
+     qint64 newBalance = getBalance();
+     qint64 newUnconfirmedBalance = getUnconfirmedBalance();
+     int newNumTransactions = getNumTransactions();
+-    EncryptionStatus newEncryptionStatus = getEncryptionStatus();
+ 
+     if(cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance)
+         emit balanceChanged(newBalance, newUnconfirmedBalance);
+-
+     if(cachedNumTransactions != newNumTransactions)
+         emit numTransactionsChanged(newNumTransactions);
+ 
+-    if(cachedEncryptionStatus != newEncryptionStatus)
+-        emit encryptionStatusChanged(newEncryptionStatus);
+-
+     cachedBalance = newBalance;
+     cachedUnconfirmedBalance = newUnconfirmedBalance;
+     cachedNumTransactions = newNumTransactions;
+ }
+ 
+-void WalletModel::updateAddressList()
++void WalletModel::updateAddressBook(const QString &address, const QString &label, int status)
+ {
+-    addressTableModel->update();
++    if(addressTableModel)
++        addressTableModel->updateEntry(address, label, status);
+ }
+ 
+ bool WalletModel::validateAddress(const QString &address)
+diff --git a/src/qt/walletmodel.h b/src/qt/walletmodel.h
+index 6c47f61be..8250794f2 100644
+--- a/src/qt/walletmodel.h
++++ b/src/qt/walletmodel.h
+@@ -137,8 +137,12 @@ signals:
+     void error(const QString &title, const QString &message, bool modal);
+ 
+ public slots:
+-    void update();
+-    void updateAddressList();
++    /* Wallet status might have changed */
++    void updateStatus();
++    /* New transaction, or transaction changed status */
++    void updateTransaction(const QString &hash, int status);
++    /* New, updated or removed address book entry */
++    void updateAddressBook(const QString &address, const QString &label, int status);
+ };
+ 
+ 
+diff --git a/src/rpcdump.cpp b/src/rpcdump.cpp
+index 1119aeaf7..9f5693a8b 100644
+--- a/src/rpcdump.cpp
++++ b/src/rpcdump.cpp
+@@ -73,8 +73,6 @@ Value importprivkey(const Array& params, bool fHelp)
+         pwalletMain->ReacceptWalletTransactions();
+     }
+ 
+-    MainFrameRepaint();
+-
+     return Value::null;
+ }
+ 
+diff --git a/src/ui_interface.h b/src/ui_interface.h
+index 514768086..c1ed265a0 100644
+--- a/src/ui_interface.h
++++ b/src/ui_interface.h
+@@ -7,6 +7,10 @@
+ #include <string>
+ #include "util.h" // for int64
+ 
++class CBasicKeyStore;
++class CWallet;
++class uint256;
++
+ #define wxYES                   0x00000002
+ #define wxOK                    0x00000004
+ #define wxNO                    0x00000008
+@@ -36,15 +40,46 @@
+ // Force blocking, modal message box dialog (not just notification)
+ #define wxMODAL                 0x00040000
+ 
++enum ChangeType
++{
++    CT_NEW,
++    CT_UPDATED,
++    CT_DELETED
++};
++
+ /* These UI communication functions are implemented in bitcoin.cpp (for ui) and noui.cpp (no ui) */
+ 
+ extern int ThreadSafeMessageBox(const std::string& message, const std::string& caption, int style=wxOK);
+ extern bool ThreadSafeAskFee(int64 nFeeRequired, const std::string& strCaption);
+ extern void ThreadSafeHandleURI(const std::string& strURI);
+-extern void MainFrameRepaint();
+-extern void AddressBookRepaint();
+ extern void QueueShutdown();
+ extern void InitMessage(const std::string &message);
+ extern std::string _(const char* psz);
+ 
++/* Block chain changed. */
++extern void NotifyBlocksChanged();
++
++/* Wallet status (encrypted, locked) changed.
++ * Note: Called without locks held.
++ */
++extern void NotifyKeyStoreStatusChanged(CBasicKeyStore *wallet);
++
++/* Address book entry changed.
++ * Note: called with lock cs_wallet held.
++ */
++extern void NotifyAddressBookChanged(CWallet *wallet, const std::string &address, const std::string &label, ChangeType status);
++
++/* Wallet transaction added, removed or updated.
++ * Note: called with lock cs_wallet held.
++ */
++extern void NotifyTransactionChanged(CWallet *wallet, const uint256 &hashTx, ChangeType status);
++
++/* Number of connections changed. */
++extern void NotifyNumConnectionsChanged(int newNumConnections);
++
++/* New, updated or cancelled alert.
++ * Note: called with lock cs_mapAlerts held.
++ */
++extern void NotifyAlertChanged(const uint256 &hash, ChangeType status);
++
+ #endif
+diff --git a/src/wallet.cpp b/src/wallet.cpp
+index 768f9f85e..132f68bee 100644
+--- a/src/wallet.cpp
++++ b/src/wallet.cpp
+@@ -274,7 +274,9 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
+         // Need to completely rewrite the wallet file; if we don't, bdb might keep
+         // bits of the unencrypted private key in slack space in the database file.
+         CDB::Rewrite(strWalletFile);
++
+     }
++    NotifyKeyStoreStatusChanged(this);
+ 
+     return true;
+ }
+@@ -297,7 +299,7 @@ void CWallet::WalletUpdateSpent(const CTransaction &tx)
+                     printf("WalletUpdateSpent found spent coin %sbc %s\n", FormatMoney(wtx.GetCredit()).c_str(), wtx.GetHash().ToString().c_str());
+                     wtx.MarkSpent(txin.prevout.n);
+                     wtx.WriteToDisk();
+-                    vWalletUpdated.push_back(txin.prevout.hash);
++                    NotifyTransactionChanged(this, txin.prevout.hash, CT_UPDATED);
+                 }
+             }
+         }
+@@ -373,15 +375,12 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
+             }
+         }
+ #endif
+-        // Notify UI
+-        vWalletUpdated.push_back(hash);
+-
+         // since AddToWallet is called directly for self-originating transactions, check for consumption of own coins
+         WalletUpdateSpent(wtx);
+-    }
+ 
+-    // Refresh UI
+-    MainFrameRepaint();
++        // Notify UI of new or updated transaction
++        NotifyTransactionChanged(this, hash, fInsertedNew ? CT_NEW : CT_UPDATED);
++    }
+     return true;
+ }
+ 
+@@ -1183,7 +1182,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
+                 coin.BindWallet(this);
+                 coin.MarkSpent(txin.prevout.n);
+                 coin.WriteToDisk();
+-                vWalletUpdated.push_back(coin.GetHash());
++                NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
+             }
+ 
+             if (fFileBacked)
+@@ -1202,7 +1201,6 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
+         }
+         wtxNew.RelayWalletTransaction();
+     }
+-    MainFrameRepaint();
+     return true;
+ }
+ 
+@@ -1237,7 +1235,6 @@ string CWallet::SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew,
+     if (!CommitTransaction(wtxNew, reservekey))
+         return _("Error: The transaction was rejected.  This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here.");
+ 
+-    MainFrameRepaint();
+     return "";
+ }
+ 
+@@ -1290,8 +1287,9 @@ int CWallet::LoadWallet(bool& fFirstRunRet)
+ 
+ bool CWallet::SetAddressBookName(const CBitcoinAddress& address, const string& strName)
+ {
++    std::map<CBitcoinAddress, std::string>::iterator mi = mapAddressBook.find(address);
+     mapAddressBook[address] = strName;
+-    AddressBookRepaint();
++    NotifyAddressBookChanged(this, address.ToString(), strName, (mi == mapAddressBook.end()) ? CT_NEW : CT_UPDATED);
+     if (!fFileBacked)
+         return false;
+     return CWalletDB(strWalletFile).WriteName(address.ToString(), strName);
+@@ -1300,7 +1298,7 @@ bool CWallet::SetAddressBookName(const CBitcoinAddress& address, const string& s
+ bool CWallet::DelAddressBookName(const CBitcoinAddress& address)
+ {
+     mapAddressBook.erase(address);
+-    AddressBookRepaint();
++    NotifyAddressBookChanged(this, address.ToString(), "", CT_DELETED);
+     if (!fFileBacked)
+         return false;
+     return CWalletDB(strWalletFile).EraseName(address.ToString());
+@@ -1558,3 +1556,14 @@ void CWallet::GetAllReserveAddresses(set<CBitcoinAddress>& setAddress)
+         setAddress.insert(address);
+     }
+ }
++
++void CWallet::UpdatedTransaction(const uint256 &hashTx)
++{
++    {
++        LOCK(cs_wallet);
++        // Only notify UI if this transaction is in this wallet
++        map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(hashTx);
++        if (mi != mapWallet.end())
++            NotifyTransactionChanged(this, hashTx, CT_UPDATED);
++    }
++}
+diff --git a/src/wallet.h b/src/wallet.h
+index 44c11e2ec..f84e6a329 100644
+--- a/src/wallet.h
++++ b/src/wallet.h
+@@ -102,8 +102,6 @@ public:
+     }
+ 
+     std::map<uint256, CWalletTx> mapWallet;
+-    std::vector<uint256> vWalletUpdated;
+-
+     std::map<uint256, int> mapRequestCount;
+ 
+     std::map<CBitcoinAddress, std::string> mapAddressBook;
+@@ -232,13 +230,7 @@ public:
+ 
+     bool DelAddressBookName(const CBitcoinAddress& address);
+ 
+-    void UpdatedTransaction(const uint256 &hashTx)
+-    {
+-        {
+-            LOCK(cs_wallet);
+-            vWalletUpdated.push_back(hashTx);
+-        }
+-    }
++    void UpdatedTransaction(const uint256 &hashTx);
+ 
+     void PrintWallet(const CBlock& block);
+ 

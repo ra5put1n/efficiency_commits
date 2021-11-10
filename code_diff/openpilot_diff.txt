@@ -1,0 +1,199 @@
+commit 77321dbac4ebfedf9cb5e9085e16055346299749
+Author: Josh Smith <cmyuiosu@gmail.com>
+Date:   Thu Jun 3 06:21:04 2021 -0400
+
+    Add type hints, small cleanups (#21080)
+    
+    * improve tools.lib.kbhit and tools.sim.lib.keyboard_ctrl
+    
+    * unpack more efficiently
+    
+    * minor improvements
+    
+    * agnos.py match spec better
+    
+    * manual_ctrl test missing queue arg
+    
+    * fix incorrect type annotation
+    
+    * queues are generic
+    
+    * varname reuse resulting in incorrect type inference
+    
+    * bytes().hex() rather than bytes.hex(bytes())
+    
+    * a bit of type hinting stuff
+
+commit 6e5a2d404bfbc33e5a63986f7d618d07d9c9c07f
+Author: George Hotz <72895+geohot@users.noreply.github.com>
+Date:   Mon Mar 30 14:20:51 2020 -0700
+
+    Preparing for the efficientnet (#1255)
+    
+    * snpe version 1.35.0.698
+    
+    * fix files common for new snpe
+    
+    * efficient net with normal names
+    
+    * compiling with 1.32 works
+    
+    * actual snpe files
+    
+    * fix monitoring, delete unneeded
+    
+    * point the symlinks to the right places
+    
+    * err, modeld needs the CPU
+    
+    * benchmark for 50 its
+    
+    * put back old model for now
+    
+    Co-authored-by: Comma Device <device@comma.ai>
+    Co-authored-by: Harald Schafer <harald.the.engineer@gmail.com>
+    Co-authored-by: George Hotz <geohot@gmail.com>
+commit 84de248fa7cbee37ecb2fd6a9d4df50ba60a1e04
+Author: Adeeb Shihadeh <adeebshihadeh@gmail.com>
+Date:   Mon Oct 18 13:21:24 2021 -0700
+
+    tici: affine loggerd to efficiency cores (#22581)
+
+diff --git a/selfdrive/boardd/boardd.cc b/selfdrive/boardd/boardd.cc
+index 0ec94c18..edf5e5e8 100644
+--- a/selfdrive/boardd/boardd.cc
++++ b/selfdrive/boardd/boardd.cc
+@@ -564,7 +564,7 @@ int main() {
+   int err = set_realtime_priority(54);
+   LOG("set priority returns %d", err);
+ 
+-  err = set_core_affinity(Hardware::TICI() ? 4 : 3);
++  err = set_core_affinity({Hardware::TICI() ? 4 : 3});
+   LOG("set affinity returns %d", err);
+ 
+   LOGW("attempting to connect");
+diff --git a/selfdrive/camerad/main.cc b/selfdrive/camerad/main.cc
+index b4f5ff79..1f90b417 100644
+--- a/selfdrive/camerad/main.cc
++++ b/selfdrive/camerad/main.cc
+@@ -44,12 +44,11 @@ void party(cl_device_id device_id, cl_context context) {
+ #endif
+ 
+ int main(int argc, char *argv[]) {
+-  set_realtime_priority(53);
+-  if (Hardware::EON()) {
+-    set_core_affinity(2);
+-  } else if (Hardware::TICI()) {
+-    set_core_affinity(6);
+-  }
++  int ret;
++  ret = set_realtime_priority(53);
++  assert(ret == 0);
++  ret = set_core_affinity({Hardware::EON() ? 2 : 6});
++  assert(ret == 0);
+ 
+   cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+ 
+diff --git a/selfdrive/common/util.cc b/selfdrive/common/util.cc
+index 99cf2ae8..cd00b626 100644
+--- a/selfdrive/common/util.cc
++++ b/selfdrive/common/util.cc
+@@ -40,14 +40,16 @@ int set_realtime_priority(int level) {
+ #endif
+ }
+ 
+-int set_core_affinity(int core) {
++int set_core_affinity(std::vector<int> cores) {
+ #ifdef __linux__
+   long tid = syscall(SYS_gettid);
+-  cpu_set_t rt_cpu;
++  cpu_set_t cpu;
+ 
+-  CPU_ZERO(&rt_cpu);
+-  CPU_SET(core, &rt_cpu);
+-  return sched_setaffinity(tid, sizeof(rt_cpu), &rt_cpu);
++  CPU_ZERO(&cpu);
++  for (const int n : cores) {
++    CPU_SET(n, &cpu);
++  }
++  return sched_setaffinity(tid, sizeof(cpu), &cpu);
+ #else
+   return -1;
+ #endif
+diff --git a/selfdrive/common/util.h b/selfdrive/common/util.h
+index 987bf95a..d3d2a2e4 100644
+--- a/selfdrive/common/util.h
++++ b/selfdrive/common/util.h
+@@ -12,6 +12,7 @@
+ #include <memory>
+ #include <string>
+ #include <thread>
++#include <vector>
+ 
+ // keep trying if x gets interrupted by a signal
+ #define HANDLE_EINTR(x)                                       \
+@@ -31,7 +32,7 @@ typedef void (*sighandler_t)(int sig);
+ void set_thread_name(const char* name);
+ 
+ int set_realtime_priority(int level);
+-int set_core_affinity(int core);
++int set_core_affinity(std::vector<int> cores);
+ 
+ namespace util {
+ 
+diff --git a/selfdrive/debug/check_timings.py b/selfdrive/debug/check_timings.py
+index 8b289138..03e39fd7 100755
+--- a/selfdrive/debug/check_timings.py
++++ b/selfdrive/debug/check_timings.py
+@@ -20,5 +20,5 @@ if __name__ == "__main__":
+ 
+       if len(ts[s]):
+         d = np.diff(ts[s])
+-        print(f"{s:17} {np.mean(d):.2f} {np.std(d):.2f} {np.max(d):.2f} {np.min(d):.2f}")
++        print(f"{s:25} {np.mean(d):.2f} {np.std(d):.2f} {np.max(d):.2f} {np.min(d):.2f}")
+     time.sleep(1)
+diff --git a/selfdrive/loggerd/loggerd.cc b/selfdrive/loggerd/loggerd.cc
+index d0f0ac18..1d3a005f 100644
+--- a/selfdrive/loggerd/loggerd.cc
++++ b/selfdrive/loggerd/loggerd.cc
+@@ -299,7 +299,16 @@ void rotate_if_needed() {
+ } // namespace
+ 
+ int main(int argc, char** argv) {
+-  setpriority(PRIO_PROCESS, 0, -20);
++  if (Hardware::EON()) {
++    setpriority(PRIO_PROCESS, 0, -20);
++  } else {
++    int ret;
++    ret = set_core_affinity({0, 1, 2, 3});
++    assert(ret == 0);
++    // TODO: why does this impact camerad timings?
++    //ret = set_realtime_priority(1);
++    //assert(ret == 0);
++  }
+ 
+   clear_locks();
+ 
+diff --git a/selfdrive/modeld/modeld.cc b/selfdrive/modeld/modeld.cc
+index 460e33c5..ef9d59bf 100644
+--- a/selfdrive/modeld/modeld.cc
++++ b/selfdrive/modeld/modeld.cc
+@@ -131,13 +131,12 @@ void run_model(ModelState &model, VisionIpcClient &vipc_client) {
+ }
+ 
+ int main(int argc, char **argv) {
+-  set_realtime_priority(54);
++  int ret;
++  ret = set_realtime_priority(54);
++  assert(ret == 0);
++  set_core_affinity({Hardware::EON() ? 2 : 7});
++  assert(ret == 0);
+ 
+-  if (Hardware::EON()) {
+-    set_core_affinity(2);
+-  } else if (Hardware::TICI()) {
+-    set_core_affinity(7);  
+-  }
+   bool wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
+ 
+   // start calibration thread

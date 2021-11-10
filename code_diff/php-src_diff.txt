@@ -1,0 +1,2123 @@
+commit f458b16041b6c9101d2f846027aba4a4b08e5a50
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Tue Aug 24 19:20:06 2021 +0200
+
+    Combine punctuation into one character group
+    
+    We're not currently interested in distinguishing between
+    individual punctuation types, so just merge everything into one
+    general category to make the property lookup more efficient.
+
+commit 82f6f6da67a265170fe533d97edb59520da0024f
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Mon May 31 12:31:56 2021 +0200
+
+    Fixed bug #81090
+    
+    For concatenation, the in-place variant can be much more efficient,
+    because it will reallocate the string in-place. Special-case the
+    typed property compound assignment code for the case where we
+    concatenate to a string, in which case we know that the result
+    will also be a string, and we don't need the type check anyway.
+
+commit 82ccd47d397314d82feeb90b055625f0fcc9bde4
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Wed May 26 09:36:23 2021 +0200
+
+    Use ZEND_TLS for spl (#7043)
+    
+    For extension globals that do not require cross-module visibility, we can
+    use ZEND_TLS as a more efficient TLS mechanism.
+
+commit 21422e8536a6b95e5a8d1ce4a6083073e562db24
+Author: K <git@k47.cz>
+Date:   Fri May 14 11:32:46 2021 +0200
+
+    Optimize unpack() for named fields (#6958)
+    
+    Create name using either zend_init_string_fast (no repetitions) or by concatenating the name with zend_print_ulong_to_buf. This is much more efficient than using snprintf. We also avoid repeated strlen() calculations.
+
+commit f26047fc9b8158046f9e521502429d516dc02540
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Mon Apr 26 15:21:58 2021 +0200
+
+    Don't store resolved pgsql field/table oids as resources
+    
+    Store these in hash tables indexed by oid. This is simpler and
+    more efficient, as we don't need to create resources or hash keys.
+
+commit d1b1c043988277b7c0d46ec7c953418cbfbb2608
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Tue Jan 5 15:52:38 2021 +0100
+
+    Fix #77565: Incorrect locator detection in ZIP-based phars
+    
+    We must not assume that the first end of central dir signature in a ZIP
+    archive actually designates the end of central directory record, since
+    the data in the archive may contain arbitrary byte patterns.  Thus, we
+    better search from the end of the data, what is also slightly more
+    efficient.
+    
+    There is, however, no way to detect the end of central directory
+    signature by searching from the end of the ZIP archive with absolute
+    certainty, since the signature could be part of the trailing comment.
+    To mitigate, we check that the comment length fits to the found
+    position, but that might still not be the correct position in rare
+    cases.
+    
+    Closes GH-6507.
+
+commit a25886d16389821a1615afd0bdac91aba37a3d85
+Author: Tyson Andre <tysonandre775@hotmail.com>
+Date:   Tue Dec 29 11:18:59 2020 -0500
+
+    Optimize SplFixedArray when magic methods aren't overridden
+    
+    This decreases the memory usage of SplFixedArrays by 32 bytes per object
+    on 64-bit systems (use 1 null pointer instead of 5 null pointers)
+    If allocating a lot of arrays of size 1, memory usage was 19.44MiB before this
+    change, and 16.24MiB after the change.
+    
+    Existing tests continue to pass.
+    
+    Subclassing SplFixedArray is already inefficient and rarely done.
+    It checks for the existence of 5 methods every time a subclass is instantiated.
+    (and has to switch back from C to the php vm to call those methods)
+    
+    Closes GH-6552
+
+commit dfb9e03336fed7c4c07fb1a30a8be25cfbf546e4
+Author: Tyson Andre <tysonandre775@hotmail.com>
+Date:   Sat Jan 2 14:07:45 2021 -0500
+
+    Use Z_PARAM_OBJ macros when zval isn't needed
+    
+    In some cases, like spl_object_id, the code is simpler but equally efficient
+    after optimizations.
+    
+    In other cases, like get_mangled_object_vars(), the compiler can't infer that
+    the object in the zval won't change.
+    
+    Closes GH-6567
+
+commit caa710037e663fd78f67533b29611183090068b2
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Thu Dec 17 12:05:37 2020 +0100
+
+    Rewrite PDO result binding
+    
+    Instead of requiring the type to be determined in advance by the
+    describer function and then requiring get_col to return a buffer
+    of appropriate type, allow get_col to return an arbitrary zval.
+    See UPGRADING.INTERNALS for a more detailed description of the
+    change.
+    
+    This makes the result fetching simpler, more efficient and more
+    flexible. The general possibility already existed via the special
+    PDO_PARAM_ZVAL type, but the usage was very inconvenient and/or
+    inefficient. Now it's possible to easily implement behavior like
+    "return int if it fits, otherwise string" and to avoid any kind
+    of complex management of temporary buffers.
+    
+    This also fixes bug #40913 (our second highest voted bug of all
+    time, for some reason). PARAM_LOB result bindings will now
+    consistently return a stream resource, independently of the used
+    database driver.
+    
+    I've tried my best to update all PDO drivers for this change, but
+    some of the changes may be broken, as I cannot test or even build
+    some of these drivers (in particular PDO dblib and PDO oci).
+    Fixes are appreciated -- a working CI setup would be even more
+    appreciated ;)
+
+commit 1c74bab8e61199c400217afc4082ee2cd9b722e3
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Wed Jun 10 14:50:35 2020 +0200
+
+    More efficient check for valid class name
+    
+    Use a bitset of valid characters instead of strspn. This is both
+    more efficient and more compact.
+
+commit 94df2f697fa1434bfca0d729a14abd53f3e2586e
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Wed Jun 10 10:25:50 2020 +0200
+
+    Fix bug #65006
+    
+    The "callable name" may be the same for multiple distinct callables.
+    The code already worked around this for the case of instance methods,
+    but there are other cases in which callable names clash, such as
+    the use of self:: reported in the referenced bug.
+    
+    Rather than trying to generate a unique name for callables, compare
+    the content of the alfi structures. This is less efficient if there
+    are many autoload functions, but autoload *registration* does not
+    need to be particularly efficient.
+    
+    As a side-effect, this no longer permits unregistering non-callables.
+
+commit 543684e7962073dcae3ecdd9504211876e630bec
+Author: Tyson Andre <tysonandre775@hotmail.com>
+Date:   Sun Jun 7 13:17:40 2020 -0400
+
+    Optimize out no-op `yield from` statements
+    
+    If the array is empty, then I'd expect that the generator is never left,
+    and that can be converted to a no-op and the return value would always be `null`.
+    
+    Make `yield from [];` as efficient as `if (false) { yield null; }`
+    when opcache's sccp pass is enabled.
+    
+    Closes GH-5679
+
+commit b8e7b30b4715ae5f052dec428d82b705e29220b7
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Wed Jun 3 12:05:00 2020 +0200
+
+    Fix #79668: get_defined_functions(true) may miss functions
+    
+    Instead of some brittle and unefficient string matching, we can just
+    check for the function handler.
+
+commit cc27781f40f1df6234b277d460d9bb20ec540a12
+Author: Tyson Andre <tysonandre775@hotmail.com>
+Date:   Wed Apr 29 18:35:52 2020 -0400
+
+    [RFC] Always enable JSON support in php 8.0
+    
+    Currently, it's possible to disable the json extension with
+    `./configure --disable-json` (for historical reasons that no longer apply).
+    However, JSON is widely used in many use cases - web sites, logging output,
+    and as a data format that can be used to share data with many applications
+    and programming languages,
+    so I'd personally find it useful if it was always enabled.
+    
+    Examples of where this would be useful:
+    
+    - For internal classes to be able to implement `JsonSerializable`
+      which currently requires a hard dependency on the JSON extension.
+    - For PHP users to publish single-file scripts that use json_encode and
+      json_decode and don't require polyfills or less readable var_export output.
+      (polyfills are less efficient and may have issues with recursive data
+      structures)
+    - So that php-src's own modules, tools and test cases can start using JSON
+      if it's a good choice for encoding a value. (same for PECLs)
+    
+    https://wiki.php.net/rfc/jsond mentions that in PHP 5,
+    
+    > The current Json Parser in the json extension does not have a free license
+    > which is a problem for many Linux distros.
+    > This has been referenced at Bug #63520.
+    > That results in not packaging json extension in the many Linux distributions.
+    
+    Starting in php 7.0 with the switch to jsond,
+    It looks like licensing is no longer an issue.
+    
+    Changes:
+    
+    - Remove all flags related to JSON such as `configure --disable-json`
+    - Require that JSON be compiled statically instead of as a shared library
+    
+    Examples of uses of JSON in various distros
+    (backwards incompatible changes such as changing packaging are typically
+    reserved for major versions, and 8.0 is a major version)
+    
+    - JSON is required by `php-cli` or `php` in ubuntu:
+      https://packages.ubuntu.com/focal/php/
+    - The php-json package has to be installed separately
+      from the PHP binary in Fedora repos.
+    
+    Closes GH-5495
+
+commit 2414b3d7756f7a4937d845fb2cb64947ab6796c8
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Thu May 7 18:50:42 2020 +0200
+
+    Ensure ctype_string is NULL for C locale
+    
+    We already document that this is the case, but currently it's only
+    true if setlocale() has not been called. Make sure ctype_string is
+    always NULL, even with an explicit "C" locale call, so we can
+    more efficiently check whether we are in the "C" locale.
+    
+    Closes GH-5542.
+
+commit 48a34bc1202e9664121c9e9aa004c79ac71af3f5
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Fri Apr 24 18:59:13 2020 +0200
+
+    Add helper APIs for get_gc implementations
+    
+    get_gc() implementations that need to explore heterogeneous data
+    currently work by computing how many GC entries they need,
+    allocating a buffer for that and storing it on the object. This
+    is inefficient and wastes memory, because the buffer is retained
+    after the GC run.
+    
+    This commit adds an API for a single global GC buffer, which can
+    be reused by get_gc implementations (as only one get_gc call is
+    ever active at the same time). The GC buffer will automatically
+    grow during the GC run and be discarded at the end.
+
+commit 318fe06042a2196e4f79a0141ab71b26a6a3a277
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Wed Feb 19 10:22:54 2020 +0100
+
+    Create memory stream in exif fuzzer
+    
+    At least one segfault observed because temp file creation failed.
+    Switch to using a memory stream, which should be more robust, and
+    more efficient for that matter.
+
+commit 7db3a51884b12175d6b12e9fd13665d18a064905
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Tue Jan 28 15:12:24 2020 +0100
+
+    Only fetch to_encoding once in mb_convert_encoding()
+    
+    Instead of doing it on every conversion. This is both more efficient
+    and avoids generating multiple warnings.
+
+commit 1146bdb9b21cdf725dd5ea8882221356779926b6
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Tue Jan 28 10:41:11 2020 +0100
+
+    Fixed bug #78989
+    
+    Always operate on copies of the functions, so we don't reference
+    temporary trait methods that have gone out of scope.
+    
+    This could be more efficient, but doing an allocated copy only when
+    strictly necessary turned out to be somewhat tricky.
+
+commit 7c787e56b02951aca09b65de81f0c194509e9b61
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Mon Dec 30 18:01:55 2019 +0100
+
+    Switch php_hash_fetch_ops() to use zend_string
+    
+    This has two advantages: If the string is already lowercase, we
+    do not need to copy it, and it will hopefully match the interned
+    string name of the hash, making the comparison more efficient.
+
+commit bb735c9e9e4a2ca2686a141ffe867f60ee0053c3
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Mon Nov 25 12:16:54 2019 +0100
+
+    Fix #78296: is_file fails to detect file
+    
+    If we're constructing extended-length paths (i.e. paths prefixed with
+    `\\?\`), we have to replace all forward slashes with backward slashes,
+    because the former are not supported by Windows for extended-length
+    paths.
+    
+    The more efficient and likely cleaner alternative solution would be to
+    cater to this in `php_win32_ioutil_normalize_path_w()` by always
+    replacing forward slashes, but that might break existing code.  It
+    might be sensible to change that for `master`, though.
+
+commit bd7b1afd6eb623a4905673dfc92bb0de62f23edd
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Fri Oct 25 10:27:45 2019 +0200
+
+    Check type is set when verifying variadic args
+    
+    Weird that there was no test for this...
+    
+    This code is somewhat inefficient, because it will be performed
+    for every arg, rather than only once.
+
+commit 9ad094e371961f8d291f95945a2a086db2e0378f
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Mon Jul 15 12:51:01 2019 +0200
+
+    Emit T_BAD_CHARACTER for unexpected characters
+    
+    Avoid having holes in the token stream which are annoying and
+    inefficient to reconstruct on the consumer side.
+
+commit 1de7c4b91941347d1a5fc4a9d2990601b6d33fe7
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Fri Jun 21 12:10:09 2019 +0200
+
+    Fix memory leaks in browscap parsing
+    
+    Also make the interning a bit more efficient, no need to check for
+    a "real" interned string every time, we can also store that in the
+    HT.
+
+commit 117c7b3f65c6e884f14e1e71cda340a3becbed48
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Thu Jun 20 09:57:55 2019 +0200
+
+    Avoid overflow in mul range calculation
+    
+    By using ZEND_SIGNED_MULTIPLY_LONG, which already implemented
+    efficient overflow checking logic.
+
+commit 7fea79675cfb064726f3fc7845e2c2bb1f247ea5
+Author: Nikita Popov <nikita.ppv@gmail.com>
+Date:   Sat Dec 9 21:09:27 2017 +0100
+
+    Add gmp_binomial()
+    
+    Adds PHP bindings for mpz_bin_ui and mpz_bin_uiui, for calculating
+    binomial coefficients.
+
+commit d1e82b39e2c87961565da9f5b869829dd0da0437
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Sat Sep 9 18:41:59 2017 +0200
+
+    Optimize truncation to zero scale in bc_raisemod()
+    
+    There's no need to use a division by one to truncate to zero scale;
+    instead we introduce and use `_bc_truncate()`, what is more efficient.
+
+commit 5fc9aa9a9509727a55ec5badae9df1a9617be6a1
+Author: Nikita Popov <nikic@php.net>
+Date:   Sun Dec 18 17:53:27 2016 +0100
+
+    Make printf_to_smart_str(ing) the primitive printf operation
+    
+    vs(tr)pprintf is now implemented in Zend on top of
+    printf_to_smart_str(int), which is provided as a utility function.
+    
+    This allows us to efficiently printf to the end of a smart string.
+
+commit e52d2b88e4871f2e82fc26986d97417e76af8127
+Author: Barbu Paul - Gheorghe <paullik.paul@gmail.com>
+Date:   Mon Dec 26 10:39:19 2016 -0800
+
+    Reduce redundant storage of required number of parameters to required flag
+    
+    The required field, until now, stored how many required parameters
+    the function, it belongs to, has. I think this is rather problematic
+    because it's a feature of the function to know how many required
+    parameters it has, not of the parameter itself. The parameter should
+    only say if it's required or optional (among other unrelated things).
+    
+    Also storing the function's number of required parameters in every
+    parameter was redundant since the _zend_function structure already
+    has that information. And storing the same value (number of required
+    parameters) across multiple variables is inefficient and could lead
+    to inconsistencies.
+
+commit 5c327d7f5c040ac3d3655b2adeab2fd6910a784d
+Author: Nikita Popov <nikic@php.net>
+Date:   Sat Jan 30 13:43:56 2016 +0100
+
+    Use handle as hash in SplObjectStorage
+    
+    For the default implementation, use a more efficient integer-based
+    hash. The getHash() interface still requires a string.
+
+commit 549e8c495947d92083bab8101cef777dc4d1cb6f
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Fri Jul 10 03:31:52 2015 +0300
+
+    Squashed commit of the following:
+    
+    commit 03cf871f1576f08b2348c141b209894a7bf17a86
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:31 2015 +0300
+    
+        Revert "Fixed bug #62210 (Exceptions can leak temporary variables. As a part of the fix serious refactoring was done. op_array->brk_cont_array was removed, and replaced with more general and speed efficient op_array->T_liveliness. ZEND_GOTO opcode is always replaced by ZEND_JMP at compile time). (Bob, Dmitry, Laruence)"
+    
+        This reverts commit 5ee841325901a4b040cfea56292a24702fe224d9.
+    
+    commit 285a68227ce3d380e821a24fa389aa5239bd3fe1
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:26 2015 +0300
+    
+        Revert "Tuned off dubugging of live ranges"
+    
+        This reverts commit 404dc93d35f7061fc4b1b41ad6cb0721b9b52bcc.
+    
+    commit 93d9d11157301ee2ec99afb6f5744b126d17f637
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:17 2015 +0300
+    
+        Revert "Remove loop_var_stack"
+    
+        This reverts commit b3a4c05071c3786e27e1326fa1b4d5acad62fccd.
+    
+    commit ede68ebbc284aec79e3f719f2c8dbf9da6907752
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:12 2015 +0300
+    
+        Revert "ZEND_SEPARATE reuses temporaries"
+    
+        This reverts commit 1852f538b9f8d5e7d67fe5a4f6080396d8b10034.
+    
+    commit 96d8995dc1f517fb01b481736273767509f76c47
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:10 2015 +0300
+    
+        Revert "Add assertion in liveliness computation"
+    
+        This reverts commit ed14019e8c0c852480eebc6fc552d8c3d939dce1.
+    
+    commit 0649d7bfef152e6cc8e67b922534e9946c634d9c
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:07 2015 +0300
+    
+        Revert "Fixed invalid live-range detection"
+    
+        This reverts commit 54f367ee2a2e4cb7c952b17915c226fdc56038ab.
+    
+    commit dfe8f3851f6b04595eb089323e3492115a59363e
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:04 2015 +0300
+    
+        Revert "Add test guaranteeing that loop vars are only freed after potential return type exceptions"
+    
+        This reverts commit f5db5a558d550bf441373febebbb02f3884209d1.
+    
+    commit 52a94aad6f48a199358cc07f7e4f56bb73050504
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:45:01 2015 +0300
+    
+        Revert "Fixed exception habdling on "return" statement."
+    
+        This reverts commit 17c5315bdf8f8087979aeb55f6d3a512ba197cf5.
+    
+    commit 6e90ad7331901711e89c2ceb2bcab5023e5cee60
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:44:58 2015 +0300
+    
+        Revert "Fix too early terminated temporary range with break/cont/goto"
+    
+        This reverts commit cc876c04b420589cb1f62b650d0c0e24975dd4af.
+    
+    commit 7b766e44b1970e4031f75109c302c07ead2c05cb
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 10 02:44:55 2015 +0300
+    
+        Revert "Fixed exception catching on break/continue"
+    
+        This reverts commit 8c3f701eebfa92d761bb368cfa8c2d1ccf821b9d.
+
+commit 5ee841325901a4b040cfea56292a24702fe224d9
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Tue Jul 7 15:41:12 2015 +0300
+
+    Fixed bug #62210 (Exceptions can leak temporary variables. As a part of the fix serious refactoring was done. op_array->brk_cont_array was removed, and replaced with more general and speed efficient op_array->T_liveliness. ZEND_GOTO opcode is always replaced by ZEND_JMP at compile time). (Bob, Dmitry, Laruence)
+    
+    Squashed commit of the following:
+    
+    commit 38e22106d4bdcc829dd2b64be1d3c6cdc089f3ed
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 15:12:19 2015 +0300
+    
+        Added NEWS entry
+    
+    commit 0a355935bfb10b5a4c893f4db9496ea8abbcf71b
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 15:06:32 2015 +0300
+    
+        Inline function, to eliminate repeatable checks
+    
+    commit d937584f3aef0baae6001377b61fd700b6f36e14
+    Merge: 0341626 32677f5
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 14:35:49 2015 +0300
+    
+        Merge branch 'master' into temporary_cleaning
+    
+        * master:
+          Fixed bug #70006 (cli - function with default arg = STDOUT crash output).
+          Fix x86 build
+          Fixed use after free on closure_call_leak_with_exception.phpt
+          Fixed test
+    
+    commit 0341626ea94a5e474c660732d33884460847d5e7
+    Merge: 74869fa dec35de
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 12:00:53 2015 +0300
+    
+        Merge branch 'temporary_cleaning' of https://github.com/laruence/php-src into temporary_cleaning
+    
+        * 'temporary_cleaning' of https://github.com/laruence/php-src:
+          Fixed checkpoint get
+          Fixed crash of invalid pointer derefer
+          cleanup
+    
+    commit 74869fa67375b8daf772ac30b6b936fd2a2132c6
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 11:45:34 2015 +0300
+    
+        Fixed wrong GOTO resolution
+    
+    commit dec35ded3294e3022e88a623188c3d1d71381675
+    Author: Xinchen Hui <laruence@gmail.com>
+    Date:   Tue Jul 7 15:58:49 2015 +0800
+    
+        Fixed checkpoint get
+    
+    commit b0f419540ad24c44810c9b05da046965618ffc65
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 10:47:11 2015 +0300
+    
+        Fixed crash of invalid pointer derefer (laruence)
+    
+    commit 7a428d98ca2899c5933914caa0cd17b4126e952c
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 10:35:47 2015 +0300
+    
+        Fixed identation
+    
+    commit 9c3a4dce9ce02034d19d28182aa9c1298d528daf
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 10:33:52 2015 +0300
+    
+        Fixed invalid size
+    
+    commit 653abc670b2a1f453b0fc3fc4a9eca919ee870cc
+    Author: Xinchen Hui <laruence@gmail.com>
+    Date:   Tue Jul 7 11:29:14 2015 +0800
+    
+        Fixed crash of invalid pointer derefer
+    
+    commit e04500ceda606ac4f364d03bcd562327bdc74eee
+    Author: Xinchen Hui <laruence@gmail.com>
+    Date:   Tue Jul 7 11:28:26 2015 +0800
+    
+        cleanup
+    
+    commit 34183e1687681038e77b650078927b35ee84e933
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 04:49:46 2015 +0300
+    
+        op_array->T_liveliness compression
+    
+    commit 2f6ad845795a08c3d7ac219e9c42950565b20394
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 04:44:44 2015 +0300
+    
+        White spaces
+    
+    commit be83f115a3f82a548c8d377c66574de5e5187410
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 04:42:26 2015 +0300
+    
+        Identation
+    
+    commit 1f5084b99038c374ac012b017c4d1652bb5d4222
+    Merge: 91b620d 1adf3df
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 04:41:54 2015 +0300
+    
+        Merge branch 'master' into temporary_cleaning
+    
+        * master:
+          Throw TypeError for invalid callback
+          Fix crash when exception occurs during nested rope
+          Fix crash when exception is thrown during ROPE_END
+          Small cleanup in ternary compilation
+          move the define to the right place
+          fix ext/ldap build
+          Rectify information about invalid shift warning being now ArithmeticError
+    
+    commit 91b620d684c5a2296774432d5d0ff8f5d14397d6
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 04:32:04 2015 +0300
+    
+        Replace GOTO by FREE/FE_FREE and JMP at compile time
+    
+    commit 7052e5697918fab83d2975977c3392f7188fbc87
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Tue Jul 7 02:25:08 2015 +0300
+    
+        Use zend_regenerate_var_liveliness_info() to regenerate information after pass two.
+    
+    commit ae72b0dc6797815a846b8f95abccb36367422d27
+    Merge: a81c4bb a919fe8
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 21:02:34 2015 +0300
+    
+        Merge branch 'master' into temporary_cleaning
+    
+        * master:
+          Do not display EXT_TYPE_UNUSED in phpdbg opcodes
+          Run debug build with opcache on travis
+    
+    commit a81c4bb8c6f1ba8124a5a7636694480ff0f1328c
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 20:59:34 2015 +0300
+    
+        Improved algorithm. It's actually the same algorithm with second loop removed and simpler temporary data structures. The only difference may be in "re-defined" vatriable handling. Now live-range in that case started from the seconnd definition (this must be more safe).
+    
+    commit 9a16810f7a7c10373603c5250d985616acf45e97
+    Merge: bbfbe47 001ecd3
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 17:57:45 2015 +0300
+    
+        Merge branch 'master' into temporary_cleaning
+    
+        * master:
+          Simplify TMP var number decoding (without HashTable)
+    
+    commit bbfbe470c865cb8b3cae8bf6518e6d06af525522
+    Merge: 0bda4ab 436b01e
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 17:02:01 2015 +0300
+    
+        Merge branch 'master' into temporary_cleaning
+    
+        * master:
+          Avoid dangerous optimization
+          Fixed JMPZNZ instruction printing
+          Attempt at falling back on ldap_find_control for Mac OS
+    
+    commit 0bda4abea7ba0a51c2ec125edb547645d0329792
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 16:05:33 2015 +0300
+    
+        Fixed live-range construction for OP_DATA opcode
+        Added comments about algorithm assumtions
+    
+    commit 521ad9df98fdf1dd8b7c212799ddeb1a84483e6f
+    Merge: 4398dab a09dcb0
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Mon Jul 6 14:54:15 2015 +0200
+    
+        Merge branch 'master' of https://github.com/php/php-src into temporary_cleaning
+    
+    commit 4398dab82f9a5ce64df55b24988ce7d31e24074f
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Mon Jul 6 13:51:27 2015 +0200
+    
+        Add a few phpt tests related to temporary cleaning
+    
+    commit 739656f83ff5b570bb311d2c7cb2d72380a3c759
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 14:28:49 2015 +0300
+    
+        Fixed Zend/tests/foreach_004.phpt failure (FE_FETCH shouldn't be included into TMP vatriablr live range)
+    
+    commit 3df462a2bcf5fa8f9244ea299178152a5d436277
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 13:41:02 2015 +0300
+    
+        Improve data layout (reduce the op_array structure size on 64-bit systems)
+    
+    commit 883b73c56e6dab6489ae4cda2c1331b53a995586
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Mon Jul 6 13:28:45 2015 +0300
+    
+        Removed op_array->brk_cont_array
+    
+    commit ae5e58b59843513505e84e396c1446ac35cb1b94
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Mon Jul 6 04:22:58 2015 +0200
+    
+        Fix bug with brk_cont variable free / free loop vars via temporary liveliness info
+    
+    commit b4223ca62771e1003c9ab778a09a177ad71e6d57
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Mon Jul 6 04:07:07 2015 +0200
+    
+        Fix bugs / cleanup fixes
+    
+    commit ea33189d220c7fc0884848571635abe3cddd2f4d
+    Author: Xinchen Hui <laruence@gmail.com>
+    Date:   Sun Jul 5 20:58:38 2015 +0800
+    
+        Removed useless TsTop
+    
+    commit 1dbb007e4addba9ac3bfc227db27a651cbcf5ede
+    Merge: 550bbf8 3a8af24
+    Author: Xinchen Hui <laruence@gmail.com>
+    Date:   Sat Jul 4 15:06:44 2015 +0800
+    
+        Merge branch 'temporary_cleaning' of https://github.com/dstogov/php-src into temporary_cleaning
+    
+    commit 3a8af245290ceb507108340831254672f24022fa
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 3 16:15:36 2015 +0300
+    
+        More exceptions from regular liveliness analyses (with explanation in comments).
+        Mark old "unexplained" exceptions with ???.
+    
+    commit ba721efa2cbd2136668fec956ef3b034ac1a29d6
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 3 14:16:09 2015 +0300
+    
+        Print list of live temp variables (at least for internal debugging)
+    
+    commit 8d1f88fe91e62b4333703c58b871d85b66fb7b70
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 3 13:31:56 2015 +0300
+    
+        Use op_array->T_liveliness to free incomplete ropes and restore error_reporting level on exception
+    
+    commit 80c1d0d779e6e9609a211907838f3727aa7b301a
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Fri Jul 3 11:05:39 2015 +0300
+    
+        Don't keep empty T_liveliness
+    
+    commit 501ae8aaac0a92368b50e9f342b04d7334d263f6
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Thu Jul 2 22:31:48 2015 +0300
+    
+        Reverted changes to Zend/zend_arena.h.
+        Reuse CG(arena) instead of creating a new one.
+    
+    commit a4fce36907147df5ac1af78b44135e3f07c1844c
+    Merge: 6ff7246 fd0fcce
+    Author: Dmitry Stogov <dmitry@zend.com>
+    Date:   Thu Jul 2 22:01:42 2015 +0300
+    
+        Merge branch 'temporary_cleaning' of github.com:bwoebi/php-src into temporary_cleaning
+    
+        * 'temporary_cleaning' of github.com:bwoebi/php-src:
+          Fix remaining issues with compacted temporaries
+          Fix regression from last commit (+1 ?!)
+          Fix off-by-one (opcache may remove last ZEND_RETURN)
+          Speed algorithm up, more fail safety when reusing temporaries
+          Dumb bug in opcode.c (forgot to update Ts[i])
+          Fix opcache support
+          Exempt ROPE temporaries from freeing
+          Hmm, we need temporary info for all the opcodes
+          Add opcache support for cleaning in optimization step (Opcache seems to have a few unrelated issues which blow up together with that patch)
+          Add proper temporary cleaning upon frame abortion
+          Fix arena on small sizes (size < sizeof(zend_arena))
+    
+    commit fd0fcce81177717f3a05ac87192b5ed05eead0a1
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Thu Jul 2 20:00:33 2015 +0200
+    
+        Fix remaining issues with compacted temporaries
+    
+    commit 427dc58bbb93022d1c2077f874afcdb9dd82d5c5
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Wed Jul 1 22:49:12 2015 +0200
+    
+        Fix regression from last commit (+1 ?!)
+    
+    commit 1adcf56a6e9f09e7ad06331d4d6280035b17a7d1
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Wed Jul 1 22:17:07 2015 +0200
+    
+        Fix off-by-one (opcache may remove last ZEND_RETURN)
+    
+    commit 25b231b7841fa4078c65976cabdd843845a6cbe6
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Wed Jul 1 20:59:24 2015 +0200
+    
+        Speed algorithm up, more fail safety when reusing temporaries
+    
+    commit 22d9d05350e35d180018d0bccbad6f173cb4797d
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Wed Jul 1 16:48:46 2015 +0200
+    
+        Dumb bug in opcode.c (forgot to update Ts[i])
+    
+    commit 6538269bfa5bcbad34fc2f051b0fd5e4ebf2ff00
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Wed Jul 1 13:05:52 2015 +0200
+    
+        Fix opcache support
+    
+    commit 333a7c4a8813a45dc79ce55b8e9c0a0b98671e13
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Sat Jun 27 22:40:21 2015 +0200
+    
+        Exempt ROPE temporaries from freeing
+    
+    commit 02585f77085427baea48448c134a96c542af3337
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Fri Jun 26 16:20:55 2015 +0200
+    
+        Hmm, we need temporary info for all the opcodes
+    
+    commit cbcaedbd78199897e5cacffd700b706f21590abf
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Fri Jun 26 01:04:09 2015 +0200
+    
+        Add opcache support for cleaning in optimization step
+        (Opcache seems to have a few unrelated issues which blow up together with that patch)
+    
+    commit fef649f4067823a1f96f85340cf715e5877310bc
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Fri Jun 26 01:02:27 2015 +0200
+    
+        Add proper temporary cleaning upon frame abortion
+    
+    commit 1cec2e7271b789b84601f8acf385950af1bb0c7c
+    Author: Bob Weinand <bobwei9@hotmail.com>
+    Date:   Thu Jun 25 23:33:21 2015 +0200
+    
+        Fix arena on small sizes (size < sizeof(zend_arena))
+
+commit b1d486c7d70afd345e6d3921fa3d1d816d371f18
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Tue May 5 16:20:29 2015 +0300
+
+    e more efficient zend_hash_*() functions
+
+commit 6718b56e4563b899ccc115f451f2d3623f528919
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Fri Apr 17 18:35:57 2015 +0300
+
+    Change the GC approach to inner-loops handling. Switch to less efficient but more robust algorithm. Destructors handling is still not completely accurate.
+
+commit dae53dfc69c574549c6e25c5786e215b991cdfef
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Fri Dec 19 05:06:54 2014 +0300
+
+    Improved array_diff() function (use simple and more efficient algorithm).
+
+commit 21eb6807c98756708c49cb5d571de030e41af218
+Author: Nikita Popov <nikic@php.net>
+Date:   Sun Jul 27 13:25:32 2014 +0200
+
+    Store lineno for zval ast nodes more efficiently
+
+commit d8099d0468426dbee59f540048376653535270ce
+Author: Dmitry Stogov <dmitry@zend.com>
+Date:   Wed Apr 2 14:34:44 2014 +0400
+
+    Changed data layout to allow more efficient operations
+
+commit 16bd11062ec87b1478321c964d5739a9887b8ae0
+Author: Klaus Silveira <contact@klaussilveira.com>
+Date:   Mon Apr 2 22:54:57 2012 -0300
+
+    Small performance improvement. The current code is correct, but if it is used inside a long loop or long strings, it's inefficient.
+
+commit 42d4cf65311ecc790c21a1693360a0e7ca1f423e
+Author: Rasmus Lerdorf <rasmus@php.net>
+Date:   Mon Mar 17 18:27:08 2008 +0000
+
+    Revert
+    
+    Never mind, it looks like ext/filter does an estrdup on everything it
+    gets which doesn't seem very efficient to me as most things it gets
+    passed will already be emalloc'ed.  My custom version of the filter
+    extension doesn't do this which led to the confusion.
+
+commit 6cdabede4c1ab363bb9dd3256e1ec9ce7fcfd84b
+Author: Greg Beaver <cellog@php.net>
+Date:   Mon Jan 28 08:52:08 2008 +0000
+
+    remove ext/zip dependency entirely, write better native zip support
+    re-organize, create util.c, move entry_info/archive_data/entry_data access methods to this file
+    refactor entry->fp, now this is abstracted with phar_get_efp() and phar_seek_efp(), fixes all weird dependency issues
+    permanently solve the "millions of file pointers" issue for read access.  All compressed files are read into a single
+    temporary stream, and their constraints are controlled by the entry->fp abstraction
+    
+    Improvements in this zip implementation over ext/zip:
+     * full read/write support for bzip2 compressed files
+     * much more efficient access for accessing only a few files within large zip files, as crc/header validation is
+       done just-in-time
+     * full stream support for opendir/rename/rmdir/mkdir as well as all of the other stream funcs
+     * full support for setting file perms via Phar::chmod(), stored as zip-standard extra field
+     * no problem with large zips and many open file pointers
+    
+    # TODO: add big-endian system support for tar/zip file format headers, otherwise the implementation is complete
+    # TODO: test on windows and fix any windows-specific issues
+    # TODO: verify zips created work with unzip/winzip/windows explorer and so on
+
+commit 29c5c804d0bfb87aae4401a908b36691ad0ee67d
+Author: Greg Beaver <cellog@php.net>
+Date:   Wed Jan 23 23:19:03 2008 +0000
+
+    initial work on more efficient zip implementation, read support working, write not implemented yet
+    This implementation will support read/write of extra field headers, both zlib/bzip2 compression read/write
+    it will also delay header comparison/crc32 check until file open, making opening a single file
+    within the zip much more efficient for large zip files
+    it also uses emalloc/php streams and is therefore less likely to leak.
+    this code is not yet built in config.m4/config.w32
+
+commit 7d44da10b6c962804bc7ee17c26e1c7fb27632d2
+Author: Wez Furlong <wez@php.net>
+Date:   Sun Aug 14 13:48:29 2005 +0000
+
+    tidy up implicit_mode handling; spotted by Nuno
+    There's probably a much more efficient way to do this than the current strchr stuff.
+
+commit 490e7fd6fd6ec7b6094d2441692c31af6c00ca50
+Author: Sara Golemon <pollita@php.net>
+Date:   Sat Sep 6 06:57:40 2003 +0000
+
+    Fix segfault on uninitialized zval, skip NULL/Resource types, fix integer value handling, and process doubles/bools more efficiently.
+
+commit 815ad75c490b4fd24112428fd504839a8cd51071
+Author: Marcus Boerger <helly@php.net>
+Date:   Sat May 3 12:51:13 2003 +0000
+
+    - Indendation fix
+    - Proto fix
+    - Add efficient single column access function: sqlite_column()
+
+commit 8ed14ff16f81dde37804e399aae523c3b1e8f4bd
+Author: Wez Furlong <wez@php.net>
+Date:   Fri Apr 18 12:22:43 2003 +0000
+
+    Implement sqlite_unbuffered_query(), which works similarly to the mysql
+    function with a similar name.
+    
+    Change sqlite_query() to use the same mechanism as the unbuffered query; this
+    moves the bulk of the memory allocations into the ZE memory manager, and will
+    hopefully be more efficient and less at risk of leaks.
+
+commit 0cb1ff3bdadd3f39f09b55b5a17c95f613b714e6
+Author: Sascha Schumann <sas@php.net>
+Date:   Wed Feb 12 19:38:10 2003 +0000
+
+        - trims +100 lines of code from spprintf.c
+        - introduces an overflow detection in STR_TO_DEC
+        - eliminates dead code (e.g. assert(foo); if (foo) {..})
+        - removes unused macros from the original code
+        - simplifies code (e.g. cc was completely dropped)
+        - improves run-time performance
+    
+          The max_len feature is never used in our code base.
+          Nevertheless, cpu cycles were spent on each string
+          operation to check the current length against max_len which
+          is quite inefficient.  Thus, I've moved the check to
+          vspprintf where it is applied only once per call.
+
+commit 37ff98978b1f930e3fdac1e4b04a337a0c1a2ad2
+Author: Sara Golemon <pollita@php.net>
+Date:   Thu Jan 30 05:00:41 2003 +0000
+
+    Feature Request # 5919 - Addition of str_ireplace()
+    Also removed deprecated BM str replace menthod
+    Also rewrote php_str_to_str to use more processor/memory efficient method (ilia)
+
+commit b01add793c6757d4546f4a4f3f4f9d25b58fc561
+Author: Wez Furlong <wez@php.net>
+Date:   Thu Nov 14 12:20:36 2002 +0000
+
+    Add this test to make sure that fopencookie is detected and working
+    correctly (or that the less efficient tmpfile casting is working).
+    More details in the test itself.
+
+commit c29f1aa468f661bc34174a7726abdf785fff36e4
+Author: Zak Greant <zak@php.net>
+Date:   Tue Nov 12 01:41:16 2002 +0000
+
+    Modified php_mysql_do_connect() as suggested by Nick Gaugler - using
+    mysql_ping() as a more efficient alternative to using mysql_stat() to
+    check if the server is alive and then calling mysql_(real_)?connect() to
+    reconnect.
+    
+    Simple tests of opening pconnects indicate that only about 10k of data per
+    ping needs to be returned to the client per connection check, rather than
+    about 110k per status check.
+
+commit 02ed7058187c8edf47adccfd0924bbd7400992c4
+Author: Yasuo Ohgaki <yohgaki@php.net>
+Date:   Sun Aug 11 01:11:11 2002 +0000
+
+    Generally speaking, sending packets less than 1KB is not efficient.
+    We're better to take some benchmarks see if removing extra buffer
+    is actually a good idea or not.
+
+commit 27a5b380cf8dd0f7f4f593f12831a83ffa7c3bcd
+Author: Aaron Bannert <aaron@php.net>
+Date:   Thu Apr 11 19:25:08 2002 +0000
+
+    PHP filters and Apache 2 aren't quite a perfect match yet, so we have
+    to do some trickery with the server_context to make sure it is always
+    valid within the current thread.
+    
+    This patch makes sure the server_context is created in apache's
+    post_read_request hook phase, and then registeres a cleanup that
+    will NULL out the server context when the request goes out of scope.
+    Then, inside the output filters, if the server_context is null we
+    throw an error. Finally, instead of saving the output filter in
+    the server_context, now we store the entire request_rec pointer
+    in there.
+    
+    POST bodies appear to be working now, although they are very inefficient.
+    The input filter is still just realloc()ing for whatever data comes
+    down the input pipe, and then sending this to PHP. This means that
+    we are doing some really nasty memory management on big POST bodies.
+    For now this it allows for unlimited input bodies, which means that
+    a big POST could potentially DoS a box by making it run out of memory.
+    We might want to put a limit on here just in case, at least until
+    we figure out how to consume input data more efficiently into php.
+
+commit 9981d06217bb56be26d92c4dc15fabf7ddedc36c
+Author: Yasuo Ohgaki <yohgaki@php.net>
+Date:   Sat Mar 2 07:04:59 2002 +0000
+
+    Improved iconv usage with libc's iconv. No overrun. More efficient memory
+    allocation.
+    Hopefully, all bugs reported for iconv will be resolved when users are using
+    libc iconv.
+    @Improved iconv with libc's iconv
+
+commit 755723bb3a3b779d80d6b74b810e6376567adf48
+Author: foobar <sniper@php.net>
+Date:   Mon Aug 6 16:36:31 2001 +0000
+
+    - This is not supposed to be used, from c-client docs (formats.txt):
+    
+    #"The following file/message formats are supported by c-client as of
+    # the time of this writing:
+    #
+    #. mx    This is an experimental format, and may be removed in a future
+    #        release.  An mx format mailbox has a .mxindex file which holds
+    #        the message status and unique identifiers.  Messages are
+    #        stored in Internet standard CF LF form, so the file size of
+    #        the message file equals the size of the message.
+    #
+    #        mx is somewhat inefficient; the entire directory must be read
+    #        and each file stat()'d.  We found it intolerable for a
+    #        moderate sized mailbox (2000 messages) and have more or less
+    #        abandoned it."
+
+commit c115a755441c392661c03b94f760d4d43dcd96c3
+Author: Jason Greene <jason@php.net>
+Date:   Fri May 11 19:55:44 2001 +0000
+
+    Rewrote stat() and fstat() to be memory efficient, due to a recent
+    thread on php-dev.
+    
+    Note: I added a macro that might have use in other instances, but for now
+    is included in php_filestat.h
+
+commit eea3a56973eb80db93edbf4784c8f6f54cc1bb07
+Author: Andi Gutmans <andi@php.net>
+Date:   Sun Aug 27 19:20:53 2000 +0000
+
+    - This should be more efficient.
+    - Post 4.0.2 it's time to move the whole opened_path and virtual stuff
+    - to emalloc() and friends including some alloca() improvements where
+    - possible but I don't want to break anything before
+
+commit ce1f3a7d83d398c4c073e610f9ead4aaff1ae66f
+Author: Andrei Zmievski <andrei@php.net>
+Date:   Fri Oct 15 20:36:10 1999 +0000
+
+    Make string copying a little more efficient.
+
+commit 4079f914bdad143193e05b2c93ffbbd9e75002ae
+Author: Andi Gutmans <andi@php.net>
+Date:   Sun May 9 18:40:59 1999 +0000
+
+    * Make read_post() read input by chunks instead of returning a single string.
+      This will allow us to efficiently support file upload through SAPI in the future.
+    * Fixes
+commit 20ef6689781ebaff648f2b6ec9d86d7221df482c
+Author: David CARLIER <devnexen@gmail.com>
+Date:   Mon May 31 08:16:46 2021 +0100
+
+    pcntl add darwin specific flags for who/which especially (#7075)
+    
+    PRIO_DARWIN_BG to be on part with pthread QOS class and
+     energy efficiency.
+
+diff --git a/ext/pcntl/pcntl.c b/ext/pcntl/pcntl.c
+index 8393ca907f..126dfd452d 100644
+--- a/ext/pcntl/pcntl.c
++++ b/ext/pcntl/pcntl.c
+@@ -167,6 +167,10 @@ void php_register_signal_constants(INIT_FUNC_ARGS)
+ 	REGISTER_LONG_CONSTANT("PRIO_PGRP", PRIO_PGRP, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_USER", PRIO_USER, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_PROCESS", PRIO_PROCESS, CONST_CS | CONST_PERSISTENT);
++#if defined(PRIO_DARWIN_BG)
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_BG", PRIO_DARWIN_BG, CONST_CS | CONST_PERSISTENT);
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_THREAD", PRIO_DARWIN_THREAD, CONST_CS | CONST_PERSISTENT);
++#endif
+ #endif
+ 
+ 	/* {{{ "how" argument for sigprocmask */
+
+commit b4f61d99cf90fab429a639a51790591ce296606f
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Sat Feb 8 10:58:15 2020 +0100
+
+    Fix #79247: Garbage collecting variant objects segfaults
+    
+    variant objects have no (declared) properties, so the `get_properties`
+    handlers returns a pointer to constant storage for efficiency reasons.
+    This pointer must not be returned from the `get_gc` handler, though;
+    instead we set up an own `get_gc` handler and return NULL from it, to
+    signal that there are no properties to collect.
+
+diff --git a/NEWS b/NEWS
+index 8dbff5e134..bbd7af4f69 100644
+--- a/NEWS
++++ b/NEWS
+@@ -8,6 +8,7 @@ PHP                                                                        NEWS
+     (cmb)
+   . Fixed bug #79242 (COM error constants don't match com_exception codes on
+     x86). (cmb)
++  . Fixed bug #79247 (Garbage collecting variant objects segfaults). (cmb)
+ 
+ - CURL:
+   . Fixed bug #79019 (Copied cURL handles upload empty file). (cmb)
+diff --git a/ext/com_dotnet/bug79247.phpt b/ext/com_dotnet/bug79247.phpt
+new file mode 100644
+index 0000000000..55e24b1796
+--- /dev/null
++++ b/ext/com_dotnet/bug79247.phpt
+@@ -0,0 +1,13 @@
++--TEST--
++Bug #79247 (Garbage collecting variant objects segfaults)
++--SKIPIF--
++<?php
++if (!extension_loaded('com_dotnet')) die('skip com_dotnet extension not available');
++?>
++--FILE--
++<?php
++$keep = new variant(null);
++var_dump(gc_collect_cycles());
++?>
++--EXPECT--
++int(0)
+diff --git a/ext/com_dotnet/com_handlers.c b/ext/com_dotnet/com_handlers.c
+index fe39e2f9e0..d42e7453f8 100644
+--- a/ext/com_dotnet/com_handlers.c
++++ b/ext/com_dotnet/com_handlers.c
+@@ -243,6 +243,13 @@ static HashTable *com_properties_get(zval *object)
+ 	return &zend_empty_array;
+ }
+ 
++static HashTable *com_get_gc(zval *object, zval **table, int *n)
++{
++	*table = NULL;
++	*n = 0;
++	return NULL;
++}
++
+ static void function_dtor(zval *zv)
+ {
+ 	zend_internal_function *f = (zend_internal_function*)Z_PTR_P(zv);
+@@ -573,7 +580,7 @@ zend_object_handlers php_com_object_handlers = {
+ 	com_object_count,
+ 	NULL,									/* get_debug_info */
+ 	NULL,									/* get_closure */
+-	zend_std_get_gc,						/* get_gc */
++	com_get_gc,								/* get_gc */
+ };
+ 
+ void php_com_object_enable_event_sink(php_com_dotnet_object *obj, int enable)
+
+commit 657695fe9777d0e91ee988afc8cb8a07120bdd2d
+Author: Christoph M. Becker <cmbecker69@gmx.de>
+Date:   Fri Sep 8 16:24:38 2017 +0200
+
+    Remove unused member
+    
+    The `n_next` member of struct `bc_struct` is unused; the only code that
+    would use this member has been disabled since libbcmath has been
+    bundled nearly 17 years ago.  Apparently, `n_next` has been designed to
+    build a linked list of free numbers, but it is doubtful whether that
+    would be an improvement over relying on the efficiency of the ZendMM,
+    so we remove the remaining support altogether.
+    
+    The ABI break probably affects nobody, but would be okay for a new
+    minor version according to our release process, anyway.
+
+diff --git a/ext/bcmath/libbcmath/src/bcmath.h b/ext/bcmath/libbcmath/src/bcmath.h
+index 28d275d32c..b83ba13558 100644
+--- a/ext/bcmath/libbcmath/src/bcmath.h
++++ b/ext/bcmath/libbcmath/src/bcmath.h
+@@ -42,7 +42,6 @@ typedef struct bc_struct
+       int   n_len;	/* The number of digits before the decimal point. */
+       int   n_scale;	/* The number of digits after the decimal point. */
+       int   n_refs;     /* The number of pointers to this number. */
+-      bc_num n_next;	/* Linked list for available list. */
+       char *n_ptr;	/* The pointer to the actual storage.
+ 			   If NULL, n_value points to the inside of
+ 			   another number (bc_multiply...) and should
+diff --git a/ext/bcmath/libbcmath/src/init.c b/ext/bcmath/libbcmath/src/init.c
+index 229ef05002..bd73da2a9d 100644
+--- a/ext/bcmath/libbcmath/src/init.c
++++ b/ext/bcmath/libbcmath/src/init.c
+@@ -51,14 +51,6 @@ _bc_new_num_ex (length, scale, persistent)
+   }
+   /* PHP Change:  malloc() -> pemalloc(), removed free_list code */
+   temp = (bc_num) safe_pemalloc (1, sizeof(bc_struct)+length, scale, persistent);
+-#if 0
+-  if (_bc_Free_list != NULL) {
+-    temp = _bc_Free_list;
+-    _bc_Free_list = temp->n_next;
+-  } else {
+-    temp = (bc_num) pemalloc (sizeof(bc_struct), persistent);
+-  }
+-#endif
+   temp->n_sign = PLUS;
+   temp->n_len = length;
+   temp->n_scale = scale;
+@@ -86,10 +78,6 @@ _bc_free_num_ex (num, persistent)
+ 		/* PHP Change:  free() -> pefree(), removed free_list code */
+       pefree ((*num)->n_ptr, persistent);
+ 	pefree(*num, persistent);
+-#if 0
+-    (*num)->n_next = _bc_Free_list;
+-    _bc_Free_list = *num;
+-#endif
+   }
+   *num = NULL;
+ }
+
+commit ccf15cf2dc92d11f92ee30c97e2d86b07f81e030
+Author: Gustavo Lopes <glopes@nebm.ist.utl.pt>
+Date:   Mon Jan 7 03:13:11 2013 +0100
+
+    Optimize strtr w/ 2nd arg array
+    
+    Fixes bug #63893: poor efficiency of strtr() using array with keys of
+    very different length.
+    
+    The implementation is basically all new, which carries some risk with
+    it.
+    
+    The algorithm is described in "A Fast Algorithm For Multi-Pattern
+    Searching" (1994) by Sun Wu and Udi Manber.
+
+diff --git a/ext/standard/string.c b/ext/standard/string.c
+index 29115fea7a..dc92e8e085 100644
+--- a/ext/standard/string.c
++++ b/ext/standard/string.c
+@@ -22,7 +22,9 @@
+ 
+ /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
+ 
++#define _GNU_SOURCE 1
+ #include <stdio.h>
++#include <stdint.h>
+ #include "php.h"
+ #include "php_rand.h"
+ #include "php_string.h"
+@@ -57,6 +59,7 @@
+ #include "php_globals.h"
+ #include "basic_functions.h"
+ #include "php_smart_str.h"
++#include <Zend/zend_exceptions.h>
+ #ifdef ZTS
+ #include "TSRM.h"
+ #endif
+@@ -2772,112 +2775,288 @@ PHPAPI char *php_strtr(char *str, int len, char *str_from, char *str_to, int trl
+ }
+ /* }}} */
+ 
+-/* {{{ php_strtr_array
+- */
+-static void php_strtr_array(zval *return_value, char *str, int slen, HashTable *hash)
++/* {{{ Definitions for php_strtr_array */
++typedef size_t STRLEN;	/* STRLEN should be unsigned */
++typedef uint16_t HASH;
++typedef struct {
++	HASH			table_mask;
++	STRLEN			entries[1];
++} SHIFT_TAB;
++typedef struct {
++	HASH			table_mask;
++	int				entries[1];
++} HASH_TAB;
++typedef struct {
++	const char	*s;
++	STRLEN		l;
++} STR;
++typedef struct _match_node MATCH_NODE;
++struct _match_node {
++	STRLEN		pos;
++	MATCH_NODE	*next;
++};
++typedef struct _pat_and_repl {
++	STR			pat;
++	STR			repl;
++} PATNREPL;
++
++#define S(a) ((a)->s)
++#define L(a) ((a)->l)
++
++#define SHIFT_TAB_BITS	13
++#define HASH_TAB_BITS	10 /* should be less than sizeof(HASH) * 8 */
++#define SHIFT_TAB_SIZE	(1U << SHIFT_TAB_BITS)
++#define HASH_TAB_SIZE	(1U << HASH_TAB_BITS)
++
++typedef struct {
++	int				B;			/* size of suffixes */
++	int				Bp;			/* size of prefixes */
++	STRLEN			m;			/* minimum pattern length */
++	int				patnum;		/* number of patterns */
++	SHIFT_TAB		*shift;		/* table mapping hash to allowed shift */
++	HASH_TAB		*hash;		/* table mapping hash to int (pair of pointers) */
++	HASH			*prefix;	/* array of hashes of prefixes by pattern suffix hash order */
++	PATNREPL		*patterns;	/* array of prefixes by pattern suffix hash order */
++} PPRES;
++/* }}} */
++
++/* {{{ php_strtr_hash */
++static inline HASH php_strtr_hash(const char *str, int len)
+ {
+-	zval **entry;
+-	char  *string_key;
+-	uint   string_key_len;
+-	zval **trans;
+-	zval   ctmp;
+-	ulong num_key;
+-	int minlen = 128*1024;
+-	int maxlen = 0, pos, len, found;
+-	char *key;
+-	HashPosition hpos;
+-	smart_str result = {0};
+-	HashTable tmp_hash;
+-
+-	zend_hash_init(&tmp_hash, zend_hash_num_elements(hash), NULL, NULL, 0);
+-	zend_hash_internal_pointer_reset_ex(hash, &hpos);
+-	while (zend_hash_get_current_data_ex(hash, (void **)&entry, &hpos) == SUCCESS) {
+-		switch (zend_hash_get_current_key_ex(hash, &string_key, &string_key_len, &num_key, 0, &hpos)) {
+-			case HASH_KEY_IS_STRING:
+-				len = string_key_len-1;
+-				if (len < 1) {
+-					zend_hash_destroy(&tmp_hash);
+-					RETURN_FALSE;
+-				}
+-				zend_hash_add(&tmp_hash, string_key, string_key_len, entry, sizeof(zval*), NULL);
+-				if (len > maxlen) {
+-					maxlen = len;
+-				}
+-				if (len < minlen) {
+-					minlen = len;
+-				}
+-				break;
++	HASH	res = 0;
++	int		i;
++	for (i = 0; i < len; i++) {
++		res = (res << 5) + res + (unsigned char)str[i];
++	}
+ 
+-			case HASH_KEY_IS_LONG:
+-				Z_TYPE(ctmp) = IS_LONG;
+-				Z_LVAL(ctmp) = num_key;
++	return res;
++}
++/* }}} */
++/* {{{ php_strtr_populate_shift */
++static inline void php_strtr_populate_shift(PATNREPL *patterns, int patnum, int B, STRLEN m, SHIFT_TAB *shift)
++{
++	int		i;
++	STRLEN	j,
++			max_shift;
++
++	max_shift = m - B + 1;
++	for (i = 0; i < SHIFT_TAB_SIZE; i++) {
++		shift->entries[i] = max_shift;
++	}
++	for (i = 0; i < patnum; i++) {
++		for (j = 0; j < m - B + 1; j++) {
++			HASH h = php_strtr_hash(&S(&patterns[i].pat)[j], B) & shift->table_mask;
++			assert((long long) m - (long long) j - B >= 0); 
++			shift->entries[h] = MIN(shift->entries[h], m - j - B);
++		}
++	}
++}
++/* }}} */
++/* {{{ php_strtr_compare_hash_suffix */
++static int php_strtr_compare_hash_suffix(const void *a, const void *b, void *ctx_g)
++{
++	const PPRES		*res = ctx_g;
++	const PATNREPL	*pnr_a = a,
++					*pnr_b = b;
++	HASH			hash_a = php_strtr_hash(&S(&pnr_a->pat)[res->m - res->B], res->B)
++								& res->hash->table_mask,
++					hash_b = php_strtr_hash(&S(&pnr_b->pat)[res->m - res->B], res->B)
++								& res->hash->table_mask;
++	/* TODO: don't recalculate the hashes all the time */
++	return hash_a - hash_b;
++}
++/* }}} */
+ 
+-				convert_to_string(&ctmp);
+-				len = Z_STRLEN(ctmp);
+-				zend_hash_add(&tmp_hash, Z_STRVAL(ctmp), len+1, entry, sizeof(zval*), NULL);
+-				zval_dtor(&ctmp);
++/* {{{ PPRES *php_strtr_array_prepare(STR *text, PATNREPL *patterns, int patnum, int B, int Bp) */
++static PPRES *php_strtr_array_prepare(STR *text, PATNREPL *patterns, int patnum, int B, int Bp)
++{
++	int		i;
++	PPRES	*res = emalloc(sizeof *res);
+ 
+-				if (len > maxlen) {
+-					maxlen = len;
+-				}
+-				if (len < minlen) {
+-					minlen = len;
+-				}
+-				break;
++	res->m = (STRLEN)-1;
++	for (i = 0; i < patnum; i++) {
++		if (L(&patterns[i].pat) < res->m) {
++			res->m = L(&patterns[i].pat);
+ 		}
+-		zend_hash_move_forward_ex(hash, &hpos);
+ 	}
++	assert(res->m > 0);
++	res->B	= B		= MIN(B, res->m);
++	res->Bp	= Bp	= MIN(Bp, res->m);
+ 
+-	key = emalloc(maxlen+1);
+-	pos = 0;
++	res->shift = safe_emalloc(SHIFT_TAB_SIZE, sizeof(*res->shift->entries), sizeof(*res->shift));
++	res->shift->table_mask = SHIFT_TAB_SIZE - 1;
++	php_strtr_populate_shift(patterns, patnum, B, res->m, res->shift);
+ 
+-	while (pos < slen) {
+-		if ((pos + maxlen) > slen) {
+-			maxlen = slen - pos;
+-		}
++	res->hash = safe_emalloc(HASH_TAB_SIZE, sizeof(*res->hash->entries), sizeof(*res->shift));
++	res->hash->table_mask = HASH_TAB_SIZE - 1;	
++
++	res->patterns = safe_emalloc(patnum, sizeof(*res->patterns), 0);
++	memcpy(res->patterns, patterns, sizeof(*patterns) * patnum);
++	qsort_r(res->patterns, patnum, sizeof(*res->patterns), php_strtr_compare_hash_suffix, res);
++
++	res->prefix = safe_emalloc(patnum, sizeof(*res->prefix), 0);
++	for (i = 0; i < patnum; i++) {
++		res->prefix[i] = php_strtr_hash(S(&res->patterns[i].pat), Bp);
++	}
+ 
+-		found = 0;
+-		memcpy(key, str+pos, maxlen);
++	/* Initialize the rest of ->hash */
++	for (i = 0; i < HASH_TAB_SIZE; i++) {
++		res->hash->entries[i] = -1;
++	}
++	{
++		HASH last_h = -1; /* assumes not all bits are used in res->hash */
++		/* res->patterns is already ordered by hash.
++		 * Make res->hash->entries[h] de index of the first pattern in
++		 * res->patterns that has hash h */
++		for (i = 0; i < patnum; i++) {
++			HASH h = php_strtr_hash(&S(&res->patterns[i].pat)[res->m - res->B], res->B)
++						& res->hash->table_mask;
++			if (h != last_h) {
++				res->hash->entries[h] = i;
++				last_h = h;
++			}
++		}
++	}
++	res->hash->entries[HASH_TAB_SIZE] = patnum;
++	for (i = HASH_TAB_SIZE - 1; i >= 0; i--) {
++		if (res->hash->entries[i] == -1) {
++			res->hash->entries[i] = res->hash->entries[i + 1];
++		}
++	}
+ 
+-		for (len = maxlen; len >= minlen; len--) {
+-			key[len] = 0;
++	res->patnum	= patnum;
+ 
+-			if (zend_hash_find(&tmp_hash, key, len+1, (void**)&trans) == SUCCESS) {
+-				char *tval;
+-				int tlen;
+-				zval tmp;
++	return res;
++}
++/* }}} */
++/* {{{ php_strtr_array_destroy_ppres(PPRES *d) */
++static void php_strtr_array_destroy_ppres(PPRES *d)
++{
++	efree(d->shift);
++	efree(d->hash);
++	efree(d->prefix);
++	efree(d->patterns);
++	efree(d);
++}
++/* }}} */
+ 
+-				if (Z_TYPE_PP(trans) != IS_STRING) {
+-					tmp = **trans;
+-					zval_copy_ctor(&tmp);
+-					convert_to_string(&tmp);
+-					tval = Z_STRVAL(tmp);
+-					tlen = Z_STRLEN(tmp);
+-				} else {
+-					tval = Z_STRVAL_PP(trans);
+-					tlen = Z_STRLEN_PP(trans);
+-				}
++/* {{{ php_strtr_array_do_repl(STR *text, PPRES *d, zval *return_value) */
++static void php_strtr_array_do_repl(STR *text, PPRES *d, zval *return_value)
++{
++	STRLEN		pos = 0,
++				lastpos	= L(text) - d->m;
++	smart_str	result = {0};
+ 
+-				smart_str_appendl(&result, tval, tlen);
+-				pos += len;
+-				found = 1;
++	while (pos <= lastpos) {
++		HASH	h		= php_strtr_hash(&S(text)[pos + d->m - d->B], d->B) & d->shift->table_mask;
++		STRLEN	shift	= d->shift->entries[h];
+ 
+-				if (Z_TYPE_PP(trans) != IS_STRING) {
+-					zval_dtor(&tmp);
+-				}
+-				break;
++		if (shift > 0) {
++			smart_str_appendl(&result, &S(text)[pos], shift);
++			pos += shift;
++		} else {
++			HASH	h2				= h & d->hash->table_mask,
++					prefix_h		= php_strtr_hash(&S(text)[pos], d->Bp);
++
++			int		offset_start	= d->hash->entries[h2],
++					offset_end		= d->hash->entries[h2 + 1], /* exclusive */
++					i				= 0;
++
++			for (i = offset_start; i < offset_end; i++) {
++				PATNREPL *pnr;
++				if (d->prefix[i] != prefix_h)
++					continue;
++
++				pnr = &d->patterns[i];
++				if (L(&pnr->pat) > L(text) - pos ||
++						memcmp(S(&pnr->pat), &S(text)[pos], L(&pnr->pat)) != 0)
++					continue;
++				
++				smart_str_appendl(&result, S(&pnr->repl), (int)L(&pnr->repl));
++				pos += L(&pnr->pat);
++				goto end_outer_loop;
+ 			}
++
++			smart_str_appendc(&result, S(text)[pos]);
++			pos++;
++end_outer_loop: ;
+ 		}
++	}
++
++	if (pos < L(text)) {
++		smart_str_appendl(&result, &S(text)[pos], (int)(L(text) - pos));
++	}
++
++	if (result.c != NULL) {
++		smart_str_0(&result);
++		RETVAL_STRINGL(result.c, result.len, 0);
++	} else {
++		RETURN_EMPTY_STRING();
++	}
++}
++/* }}} */
++
++/* {{{ php_strtr_array */
++static void php_strtr_array(zval *return_value, char *str, int slen, HashTable *pats)
++{	
++	PPRES			*data;
++	STR				text;
++	PATNREPL		*patterns;
++	HashPosition	hpos;
++	zval			**entry;
++	int				num_pats = zend_hash_num_elements(pats),
++					i;
++
++	S(&text) = str;
++	L(&text) = slen;
++	patterns = safe_emalloc(num_pats, sizeof(*patterns), 0);
++
++	for (i = 0, zend_hash_internal_pointer_reset_ex(pats, &hpos);
++			zend_hash_get_current_data_ex(pats, (void **)&entry, &hpos) == SUCCESS;
++			i++, zend_hash_move_forward_ex(pats, &hpos)) {
++		char	*string_key;
++		uint  	string_key_len;
++		ulong	num_key;
++		int		free_str = 0,
++				free_repl = 0;
++		zval	*tzv;
++
++		switch (zend_hash_get_current_key_ex(pats, &string_key, &string_key_len, &num_key, 0, &hpos)) {
++		case HASH_KEY_IS_LONG:
++			string_key_len = 1 + zend_spprintf(&string_key, 0, "%ld", (long)num_key);
++			free_str = 1;
++			/* break missing intentionally */
++
++		case HASH_KEY_IS_STRING:
++			string_key_len--; /* exclude final '\0' */
++			if (string_key_len == 0) { /* empty string given as pattern */
++				efree(patterns);
++				RETURN_FALSE;	
++			}
++			if (string_key_len > slen) { /* this pattern can never match */
++				continue;
++			}
++
++			if (Z_TYPE_PP(entry) != IS_STRING) {
++				tzv = *entry;
++				zval_addref_p(tzv);
++				SEPARATE_ZVAL(&tzv);
++				convert_to_string(tzv);
++				entry = &tzv;
++				free_repl = 1;
++			}
+ 
+-		if (! found) {
+-			smart_str_appendc(&result, str[pos++]);
++			S(&patterns[i].pat) = string_key;
++			L(&patterns[i].pat) = string_key_len;
++			S(&patterns[i].repl) = Z_STRVAL_PP(entry);
++			L(&patterns[i].repl) = Z_STRLEN_PP(entry);
+ 		}
+ 	}
+ 
+-	efree(key);
+-	zend_hash_destroy(&tmp_hash);
+-	smart_str_0(&result);
+-	RETVAL_STRINGL(result.c, result.len, 0);
++	data = php_strtr_array_prepare(&text, patterns, i, 2, 2);
++	efree(patterns);
++	php_strtr_array_do_repl(&text, data, return_value);
++	php_strtr_array_destroy_ppres(data);
+ }
+ /* }}} */
+ 
+
+commit 474343657614a2e6b2b036043fd122bbef768059
+Author: Rasmus Lerdorf <rasmus@php.net>
+Date:   Sun Jul 26 07:21:02 2009 +0000
+
+    Fix 2 broken json tests.
+    
+    json_decode() returns a binary string, not unicode for
+    efficiency, and if you are going to test invalid utf8
+    in a test, you have to stuff it into a binary string
+    or it will be valid unicode by definition.
+
+diff --git a/ext/json/tests/bug42785.phpt b/ext/json/tests/bug42785.phpt
+index b3df2fbb28..18646b8809 100644
+--- a/ext/json/tests/bug42785.phpt
++++ b/ext/json/tests/bug42785.phpt
+@@ -23,5 +23,5 @@ var_dump(json_encode($bar1));
+ ?>
+ --EXPECTF--
+ Deprecated: setlocale(): deprecated in Unicode mode, please use ICU locale functions in %s on line %d
+-unicode(13) "[100.1,"bar"]"
+-unicode(21) "{"a":100.1,"b":"foo"}"
++string(13) "[100.1,"bar"]"
++string(21) "{"a":100.1,"b":"foo"}"
+diff --git a/ext/json/tests/bug43941.phpt b/ext/json/tests/bug43941.phpt
+index 7cabdaf4a9..049c207654 100644
+--- a/ext/json/tests/bug43941.phpt
++++ b/ext/json/tests/bug43941.phpt
+@@ -5,10 +5,10 @@ Bug #43941 (json_encode() invalid UTF-8)
+ --FILE--
+ <?php
+ 
+-var_dump(json_encode("abc"));
+-var_dump(json_encode("ab\xE0"));
+-var_dump(json_encode("ab\xE0c"));
+-var_dump(json_encode(array("ab\xE0", "ab\xE0c", "abc")));
++var_dump(json_encode(b"abc"));
++var_dump(json_encode(b"ab\xE0"));
++var_dump(json_encode(b"ab\xE0c"));
++var_dump(json_encode(array(b"ab\xE0", b"ab\xE0c", b"abc")));
+ 
+ echo "Done\n";
+ ?>
+
+commit 4ccf0b846e93e927c440af28cddec4b9921c3adb
+Author: Greg Beaver <cellog@php.net>
+Date:   Sun May 11 21:30:05 2008 +0000
+
+    slightly increase efficiency of function interception, and ensure that nothing fails even if the archive is unlinked mid-process
+
+diff --git a/ext/phar/func_interceptors.c b/ext/phar/func_interceptors.c
+index 40a32fe59a..b92d61a422 100644
+--- a/ext/phar/func_interceptors.c
++++ b/ext/phar/func_interceptors.c
+@@ -29,6 +29,9 @@ PHAR_FUNC(phar_opendir) /* {{{ */
+ 	int filename_len;
+ 	zval *zcontext = NULL;
+ 
++	if (!zend_hash_num_elements(&(PHAR_GLOBALS->phar_fname_map))) {
++		goto skip_phar;
++	}
+ 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|z", &filename, &filename_len, &zcontext) == FAILURE) {
+ 		return;
+ 	}
+@@ -94,6 +97,9 @@ PHAR_FUNC(phar_file_get_contents) /* {{{ */
+ 	long maxlen = PHP_STREAM_COPY_ALL;
+ 	zval *zcontext = NULL;
+ 
++	if (!zend_hash_num_elements(&(PHAR_GLOBALS->phar_fname_map))) {
++		goto skip_phar;
++	}
+ 	/* Parse arguments */
+ 	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "s|br!ll", &filename, &filename_len, &use_include_path, &zcontext, &offset, &maxlen) == FAILURE) {
+ 		return;
+@@ -216,6 +222,9 @@ PHAR_FUNC(phar_readfile) /* {{{ */
+ 	zval *zcontext = NULL;
+ 	php_stream *stream;
+ 
++	if (!zend_hash_num_elements(&(PHAR_GLOBALS->phar_fname_map))) {
++		goto skip_phar;
++	}
+ 	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "s|br!", &filename, &filename_len, &use_include_path, &zcontext) == FAILURE) {
+ 		goto skip_phar;
+ 	}
+@@ -858,6 +867,9 @@ PHAR_FUNC(phar_is_file) /* {{{ */
+ 	char *filename;
+ 	int filename_len;
+ 
++	if (!zend_hash_num_elements(&(PHAR_GLOBALS->phar_fname_map))) {
++		goto skip_phar;
++	}
+ 	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filename_len) == FAILURE) {
+ 		goto skip_phar;
+ 	}
+@@ -915,6 +927,9 @@ PHAR_FUNC(phar_is_link) /* {{{ */
+ 	char *filename;
+ 	int filename_len;
+ 
++	if (!zend_hash_num_elements(&(PHAR_GLOBALS->phar_fname_map))) {
++		goto skip_phar;
++	}
+ 	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filename_len) == FAILURE) {
+ 		goto skip_phar;
+ 	}
+diff --git a/ext/phar/tests/phar_gobyebye.phpt b/ext/phar/tests/phar_gobyebye.phpt
+new file mode 100644
+index 0000000000..d55bef0c30
+--- /dev/null
++++ b/ext/phar/tests/phar_gobyebye.phpt
+@@ -0,0 +1,44 @@
++--TEST--
++Phar: test edge cases of intercepted functions when the underlying phar archive has been unlinkArchive()d
++--SKIPIF--
++<?php if (!extension_loaded("phar")) die("skip");?>
++--INI--
++phar.readonly=0
++--FILE--
++<?php
++Phar::interceptFileFuncs();
++$fname = dirname(__FILE__) . '/' . basename(__FILE__, '.php') . '.phar.php';
++$fname2 = dirname(__FILE__) . '/' . basename(__FILE__, '.php') . '.2.php';
++$pname = 'phar://' . $fname;
++file_put_contents($fname2, '<?php Phar::unlinkArchive("' . addslashes($fname) . '");');
++file_put_contents($pname . '/foo/hi', '<?php
++include "' . addslashes($fname2) . '";
++readfile("foo/hi");
++fopen("foo/hi", "r");
++echo file_get_contents("foo/hi");
++var_dump(is_file("foo/hi"),is_link("foo/hi"),is_dir("foo/hi"),file_exists("foo/hi"),stat("foo/hi"));
++opendir("foo/hi");
++?>
++');
++include $pname . '/foo/hi';
++?>
++===DONE===
++--CLEAN--
++<?php unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.php'); ?>
++<?php unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.2.php'); ?>
++--EXPECTF--
++Warning: readfile(foo/hi): failed to open stream: No such file or directory in phar://%sphar_gobyebye.phar.php/foo/hi on line %d
++
++Warning: fopen(foo/hi): failed to open stream: No such file or directory in phar://%sphar_gobyebye.phar.php/foo/hi on line %d
++
++Warning: file_get_contents(foo/hi): failed to open stream: No such file or directory in phar://%sphar_gobyebye.phar.php/foo/hi on line %d
++
++Warning: stat(): stat failed for foo/hi in phar://%sphar_gobyebye.phar.php/foo/hi on line %d
++bool(false)
++bool(false)
++bool(false)
++bool(false)
++bool(false)
++
++Warning: opendir(foo/hi): failed to open dir: No such file or directory in phar://%sphar_gobyebye.phar.php/foo/hi on line %d
++===DONE===
+\ No newline at end of file
+
+commit d3b653e97b5e226f1f3fad86bb5359557e06f875
+Author: Wez Furlong <wez@php.net>
+Date:   Sat Jul 9 03:52:41 2005 +0000
+
+    Added:
+    
+    proto bool PDOStatement::closeCursor()
+    Closes the cursor, leaving the statement ready for re-execution.
+    
+    The purpose of the function is to free up the connection to the server so that
+    other queries may be issued, but leaving the statement in a state that it can
+    be re-executed.
+    
+    This is implemented either as an optional driver specific method (allowing for
+    maximum efficiency), or as the generic PDO fallback if no driver specific
+    function is installed.
+    
+    The PDO generic fallback is semantically the same as writing the following code
+    in your PHP script:
+    
+    do {
+            while ($stmt->fetch())
+                    ;
+            if (!$stmt->nextRowset())
+                    break;
+    } while (true);
+
+diff --git a/ext/pdo/pdo_stmt.c b/ext/pdo/pdo_stmt.c
+index 51770d3130..c6e4b481a5 100755
+--- a/ext/pdo/pdo_stmt.c
++++ b/ext/pdo/pdo_stmt.c
+@@ -1681,17 +1681,13 @@ static PHP_METHOD(PDOStatement, setFetchMode)
+ 
+ /* {{{ proto bool PDOStatement::nextRowset()
+    Advances to the next rowset in a multi-rowset statement handle. Returns true if it succeded, false otherwise */
+-static PHP_METHOD(PDOStatement, nextRowset)
+-{
+-	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object(getThis() TSRMLS_CC);
+ 
+-	if (!stmt->methods->next_rowset) {
+-		pdo_raise_impl_error(stmt->dbh, stmt, "IM001", "driver does not support multiple rowsets" TSRMLS_CC);
+-		RETURN_FALSE;
++static int pdo_stmt_do_next_rowset(pdo_stmt_t *stmt TSRMLS_DC)
++{
++	if (!stmt->methods->next_rowset(stmt TSRMLS_CC)) {
++		return 0;
+ 	}
+ 
+-	PDO_STMT_CLEAR_ERR();
+-
+ 	/* un-describe */
+ 	if (stmt->columns) {
+ 		int i;
+@@ -1701,11 +1697,27 @@ static PHP_METHOD(PDOStatement, nextRowset)
+ 			efree(cols[i].name);
+ 		}
+ 		efree(stmt->columns);
++		stmt->columns = NULL;
++		stmt->column_count = 0;
+ 	}
+-	stmt->columns = NULL;
+ 
+-	if (!stmt->methods->next_rowset(stmt TSRMLS_CC)) {
+-		stmt->column_count = 0;
++	pdo_stmt_describe_columns(stmt TSRMLS_CC);
++
++	return 1;
++}
++
++static PHP_METHOD(PDOStatement, nextRowset)
++{
++	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object(getThis() TSRMLS_CC);
++
++	if (!stmt->methods->next_rowset) {
++		pdo_raise_impl_error(stmt->dbh, stmt, "IM001", "driver does not support multiple rowsets" TSRMLS_CC);
++		RETURN_FALSE;
++	}
++
++	PDO_STMT_CLEAR_ERR();
++	
++	if (!pdo_stmt_do_next_rowset(stmt TSRMLS_CC)) {
+ 		PDO_HANDLE_STMT_ERR();
+ 		RETURN_FALSE;
+ 	}
+@@ -1716,6 +1728,41 @@ static PHP_METHOD(PDOStatement, nextRowset)
+ }
+ /* }}} */
+ 
++/* {{{ proto bool PDOStatement::closeCursor()
++   Closes the cursor, leaving the statement ready for re-execution. */
++static PHP_METHOD(PDOStatement, closeCursor)
++{
++	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object(getThis() TSRMLS_CC);
++
++	if (!stmt->methods->cursor_closer) {
++		/* emulate it by fetching and discarding rows */
++		do {
++			while (stmt->methods->fetcher(stmt, PDO_FETCH_ORI_NEXT, 0 TSRMLS_CC))
++				;
++			if (!stmt->methods->next_rowset) {
++				break;
++			}
++
++			if (!pdo_stmt_do_next_rowset(stmt TSRMLS_CC)) {
++				break;
++			}
++				
++		} while (1);
++		RETURN_TRUE;
++	}
++
++	PDO_STMT_CLEAR_ERR();
++
++	if (!stmt->methods->cursor_closer(stmt TSRMLS_CC)) {
++		PDO_HANDLE_STMT_ERR();
++		RETURN_FALSE;
++	}
++
++	RETURN_TRUE;
++}
++/* }}} */
++
++
+ function_entry pdo_dbstmt_functions[] = {
+ 	PHP_ME(PDOStatement, execute,		NULL,					ZEND_ACC_PUBLIC)
+ 	PHP_ME(PDOStatement, fetch,			NULL,					ZEND_ACC_PUBLIC)
+@@ -1733,6 +1780,7 @@ function_entry pdo_dbstmt_functions[] = {
+ 	PHP_ME(PDOStatement, getColumnMeta,	NULL,					ZEND_ACC_PUBLIC)
+ 	PHP_ME(PDOStatement, setFetchMode,	NULL,					ZEND_ACC_PUBLIC)
+ 	PHP_ME(PDOStatement, nextRowset,	NULL,					ZEND_ACC_PUBLIC)
++	PHP_ME(PDOStatement, closeCursor,	NULL,					ZEND_ACC_PUBLIC)
+ 	{NULL, NULL, NULL}
+ };
+ 
+diff --git a/ext/pdo/php_pdo_driver.h b/ext/pdo/php_pdo_driver.h
+index d0259e5b30..0f0b115ac1 100755
+--- a/ext/pdo/php_pdo_driver.h
++++ b/ext/pdo/php_pdo_driver.h
+@@ -44,7 +44,7 @@ PDO_API char *php_pdo_int64_to_str(pdo_int64_t i64 TSRMLS_DC);
+ # define FALSE 0
+ #endif
+ 
+-#define PDO_DRIVER_API	20050708
++#define PDO_DRIVER_API	20050709
+ 
+ enum pdo_param_type {
+ 	PDO_PARAM_NULL,
+@@ -367,6 +367,12 @@ typedef int (*pdo_stmt_get_column_meta_func)(pdo_stmt_t *stmt, long colno, zval
+  * to the caller. */
+ typedef int (*pdo_stmt_next_rowset_func)(pdo_stmt_t *stmt TSRMLS_DC);
+ 
++/* closes the active cursor on a statement, leaving the prepared
++ * statement ready for re-execution.  Useful to explicitly state
++ * that you are done with a given rowset, without having to explicitly
++ * fetch all the rows. */
++typedef int (*pdo_stmt_cursor_closer_func)(pdo_stmt_t *stmt TSRMLS_DC);
++
+ struct pdo_stmt_methods {
+ 	pdo_stmt_dtor_func			dtor;
+ 	pdo_stmt_execute_func		executer;
+@@ -378,6 +384,7 @@ struct pdo_stmt_methods {
+ 	pdo_stmt_get_attr_func		get_attribute;
+ 	pdo_stmt_get_column_meta_func get_column_meta;
+ 	pdo_stmt_next_rowset_func		next_rowset;
++	pdo_stmt_cursor_closer_func 	cursor_closer;
+ };
+ 
+ /* }}} */
+diff --git a/ext/pdo/tests/pdo_016.phpt b/ext/pdo/tests/pdo_016.phpt
+index f6f7cea177..e2faf05c46 100644
+--- a/ext/pdo/tests/pdo_016.phpt
++++ b/ext/pdo/tests/pdo_016.phpt
+@@ -18,15 +18,12 @@ $db->exec('INSERT INTO test VALUES(0, \'String0\')');
+ $db->exec('INSERT INTO test VALUES(1, \'String1\')');
+ $db->exec('INSERT INTO test VALUES(2, \'String2\')');
+ 
+-if ($db->getAttribute(PDO_ATTR_DRIVER_NAME) == 'mysql') {
+-	$db->setAttribute(PDO_MYSQL_ATTR_USE_BUFFERED_QUERY, 1);
+-}
+-
+ $stmt1 = $db->prepare('SELECT COUNT(idx) FROM test');
+ $stmt2 = $db->prepare('SELECT idx, txt FROM test ORDER by idx');
+ 
+ $stmt1->execute();
+ var_dump($stmt1->fetchColumn());
++$stmt1 = null;
+ 
+ $stmt2->execute();
+ $cont = $stmt2->fetchAll(PDO_FETCH_COLUMN|PDO_FETCH_UNIQUE);
+@@ -61,6 +58,7 @@ foreach($cont as $idx => $txt)
+ 		$stmt3->bindColumn('txt', $col1);
+ 	}
+ 	var_dump($stmt3->fetch(PDO_FETCH_BOUND));
++	$stmt3->closeCursor();
+ 
+ 	var_dump($stmt4->execute());
+ 	if ($idx == 0) {
+@@ -69,6 +67,7 @@ foreach($cont as $idx => $txt)
+ 		$stmt4->bindColumn('idx', $col2);
+ 	}
+ 	var_dump($stmt4->fetch(PDO_FETCH_BOUND));
++	$stmt4->closeCursor();
+ 	var_dump(array($col2=>$col1));
+ }
+ 
+@@ -81,9 +80,11 @@ foreach($cont as $idx => $txt)
+ 	var_dump(array($idx=>$txt));
+ 	var_dump($stmt3->execute());
+ 	var_dump($stmt3->fetch(PDO_FETCH_BOUND));
++	$stmt3->closeCursor();
+ 	var_dump($col1);
+ 	var_dump($stmt4->execute());
+ 	var_dump($stmt4->fetch(PDO_FETCH_BOUND));
++	$stmt4->closeCursor();
+ 	var_dump($col1);
+ }
+ 
+diff --git a/ext/pdo/tests/pdo_018.phpt b/ext/pdo/tests/pdo_018.phpt
+index b0fc07e5b5..6c45869bd8 100644
+--- a/ext/pdo/tests/pdo_018.phpt
++++ b/ext/pdo/tests/pdo_018.phpt
+@@ -77,10 +77,6 @@ $db->setAttribute(PDO_ATTR_ERRMODE, PDO_ERRMODE_EXCEPTION);
+ var_dump($db->query('SELECT COUNT(*) FROM classtypes')->fetchColumn());
+ var_dump($db->query('SELECT id, name FROM classtypes ORDER by id')->fetchAll(PDO_FETCH_COLUMN|PDO_FETCH_UNIQUE));
+ 
+-if ($db->getAttribute(PDO_ATTR_DRIVER_NAME) == 'mysql') {
+-	$db->setAttribute(PDO_MYSQL_ATTR_USE_BUFFERED_QUERY, 1);
+-}
+-
+ $objs = array();
+ $objs[0] = new stdClass;
+ $objs[1] = new TestBase;
+diff --git a/ext/pdo/tests/pdo_021.phpt b/ext/pdo/tests/pdo_021.phpt
+index c2ac95dbe7..c1688c092b 100644
+--- a/ext/pdo/tests/pdo_021.phpt
++++ b/ext/pdo/tests/pdo_021.phpt
+@@ -36,7 +36,7 @@ $select->execute();
+ $num = $select->fetchColumn();
+ echo 'There are ' . $num . " rows in the table.\n";
+ 
+-unset($stmt);
++$select->closeCursor();
+ 
+ // Insert using named parameters
+ $stmt2 = $db->prepare("INSERT INTO test VALUES(:first, :second, :third)");
+commit 20ef6689781ebaff648f2b6ec9d86d7221df482c
+Author: David CARLIER <devnexen@gmail.com>
+Date:   Mon May 31 08:16:46 2021 +0100
+
+    pcntl add darwin specific flags for who/which especially (#7075)
+    
+    PRIO_DARWIN_BG to be on part with pthread QOS class and
+     energy efficiency.
+
+diff --git a/ext/pcntl/pcntl.c b/ext/pcntl/pcntl.c
+index 8393ca907f..126dfd452d 100644
+--- a/ext/pcntl/pcntl.c
++++ b/ext/pcntl/pcntl.c
+@@ -167,6 +167,10 @@ void php_register_signal_constants(INIT_FUNC_ARGS)
+ 	REGISTER_LONG_CONSTANT("PRIO_PGRP", PRIO_PGRP, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_USER", PRIO_USER, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_PROCESS", PRIO_PROCESS, CONST_CS | CONST_PERSISTENT);
++#if defined(PRIO_DARWIN_BG)
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_BG", PRIO_DARWIN_BG, CONST_CS | CONST_PERSISTENT);
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_THREAD", PRIO_DARWIN_THREAD, CONST_CS | CONST_PERSISTENT);
++#endif
+ #endif
+ 
+ 	/* {{{ "how" argument for sigprocmask */
+commit 20ef6689781ebaff648f2b6ec9d86d7221df482c
+Author: David CARLIER <devnexen@gmail.com>
+Date:   Mon May 31 08:16:46 2021 +0100
+
+    pcntl add darwin specific flags for who/which especially (#7075)
+    
+    PRIO_DARWIN_BG to be on part with pthread QOS class and
+     energy efficiency.
+
+diff --git a/ext/pcntl/pcntl.c b/ext/pcntl/pcntl.c
+index 8393ca907f..126dfd452d 100644
+--- a/ext/pcntl/pcntl.c
++++ b/ext/pcntl/pcntl.c
+@@ -167,6 +167,10 @@ void php_register_signal_constants(INIT_FUNC_ARGS)
+ 	REGISTER_LONG_CONSTANT("PRIO_PGRP", PRIO_PGRP, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_USER", PRIO_USER, CONST_CS | CONST_PERSISTENT);
+ 	REGISTER_LONG_CONSTANT("PRIO_PROCESS", PRIO_PROCESS, CONST_CS | CONST_PERSISTENT);
++#if defined(PRIO_DARWIN_BG)
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_BG", PRIO_DARWIN_BG, CONST_CS | CONST_PERSISTENT);
++	REGISTER_LONG_CONSTANT("PRIO_DARWIN_THREAD", PRIO_DARWIN_THREAD, CONST_CS | CONST_PERSISTENT);
++#endif
+ #endif
+ 
+ 	/* {{{ "how" argument for sigprocmask */

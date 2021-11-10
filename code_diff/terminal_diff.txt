@@ -1,0 +1,2835 @@
+commit 0d9a357373cf50aa6bdfa3beb697431bd99c19d8
+Author: Leonard Hecker <lhecker@microsoft.com>
+Date:   Tue Jun 22 22:16:31 2021 +0200
+
+    Introduce til/latch.h, til/mutex.h and til/throttled_func.h (#10403)
+    
+    This commit introduce three new `til` features:
+    * "til/latch.h": A std::latch clone, until we're on C++20.
+    * "til/mutex.h": A safe mutex wrapper, which only allows you access to the protected data after locking it. No more forgetting to lock mutexes!
+    * "til/throttled_func.h": Function invocation throttling used to be available as the `ThrottledFunc` class already. But this class is vastly more efficient and doesn't rely on any WinRT types.
+    
+    This PR also adds a `til::ends_with` string helper which is `til::starts_with` counterpart.
+    
+    ## Validation Steps Performed
+    
+    * Scrollbar throttling still works as it used to ✔️
+    * No performance regressions when printing big.txt ✔️
+    
+    Closes #10393
+
+commit a8e4bedae31d6170c14ac9fc4fcf366f94d8a0ed
+Author: Leonard Hecker <lhecker@microsoft.com>
+Date:   Thu May 20 19:27:50 2021 +0200
+
+    Introduce til::rle - a run length encoded vector (#10099)
+    
+    ## Summary of the Pull Request
+    
+    Introduces `til::rle`, a vector-like container which stores elements of
+    type T in a run length encoded format. This allows efficient compaction
+    of repeated elements within the vector.
+    
+    ## References
+    
+    * #8000 - Supports buffer rewrite work. A re-use of `til::rle` will be
+      useful as a column counter as we pursue NxM storage and presentation.
+    * #3075 - The new iterators allow skipping forward by multiple units,
+      which wasn't possible under `TextBuffer-/OutputCellIterator`.
+      Additionally it also allows a bulk insertions.
+    * #8787 and #410 - High probability this should be `pmr`-ified
+      like `bitmap` for things like `chafa` and `cacafire`
+      which are changing the run length frequently.
+    
+    ## PR Checklist
+    
+    * [x] Closes #8741
+    * [x] I work here.
+    * [x] Tests added.
+    * [x] Tests passed.
+    
+    ## Validation Steps Performed
+    
+    * [x] Ran `cacafire` in `OpenConsole.exe` and it looked beautiful
+    * [x] Ran new suite of `RunLengthEncodingTests.cpp`
+    
+    Co-authored-by: Michael Niksa <miniksa@microsoft.com>
+
+commit cb55cec27547e08d12eb14816e5a7cecb510db29
+Author: Don-Vito <khvitaly@gmail.com>
+Date:   Wed May 5 02:31:15 2021 +0300
+
+    Teach CmdPal search to use user locale (#9943)
+    
+    ## PR Checklist
+    * [x] Closes https://github.com/microsoft/terminal/issues/9941
+    * [x] CLA signed.
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    The bug is due to us using std::tolower, while the default locale is not user's locale.
+    The fix here is to use the same approach as upon sorting: lstrcmpi.
+    While there are additional methods to do locale aware comparison,
+    here we convert chars to string and call lstrcmpi.
+    While this approach seems somewhat inefficient it ensures consistency
+    (with the order of locales that lstrcmi tries to apply internally).
+
+commit 539a5dc0af26f072f6eac450d07d2d1243a34432
+Author: Austin Lamb <austin.lamb@microsoft.com>
+Date:   Wed Dec 16 10:40:30 2020 -0800
+
+    Greatly reduce allocations in the conhost/OpenConsole startup path (#8489)
+    
+    I was looking at conhost/OpenConsole and noticed it was being pretty
+    inefficient with allocations due to some usages of std::deque and
+    std::vector that didn't need to be done quite that way.
+    
+    So this uses std::vector for the TextBuffer's storage of ROW objects,
+    which allows one allocation to contiguously reserve space for all the
+    ROWs - on Desktop this is 9001 ROW objects which means it saves 9000
+    allocations that the std::deque would have done.  Plus it has the
+    benefit of increasing locality of the ROW objects since deque is going
+    to chase pointers more often with its data structure.
+    
+    Then, within each ROW there are CharRow and ATTR_ROW objects that use
+    std::vector today.  This changes them to use Boost's small_vector, which
+    is a variation of vector that allows for the so-called "small string
+    optimization."  Since we know the typical size of these vectors, we can
+    pre-reserve the right number of elements directly in the
+    CharRow/ATTR_ROW instances, avoiding any heap allocations at all for
+    constructing these objects.
+    
+    There are a ton of variations on this "small_vector" concept out there
+    in the world - this one in Boost, LLVM has one called SmallVector,
+    Electronic Arts' STL has a small_vector, Facebook's folly library has
+    one...there are a silly number of these out there.  But Boost seems like
+    it's by far the easiest to consume in terms of integration into this
+    repo, the CI/CD pipeline, licensing, and stuff like that, so I went with
+    the boost version.
+    
+    In terms of numbers, I measured the startup path of OpenConsole.exe on
+    my dev box for Release x64 configuration.  My box is an i7-6700k @ 4
+    Ghz, with 32 GB RAM, not that I think machine config matters much here:
+    
+    |        | Allocation count    | Allocated bytes    | CPU usage (ms) |
+    | ------ | ------------------- | ------------------ | -------------- |
+    | Before | 29,461              | 4,984,640          | 103            |
+    | After  | 2,459 (-91%)        | 4,853,931 (-2.6%)  | 96 (-7%)       |
+    
+    Along the way, I also fixed a dynamic initializer I happened to spot in
+    the registry code, and updated some docs.
+    
+    ## Validation Steps Performed
+    - Ran "runut", "runft" and "runuia" locally and confirmed results are
+      the same as the main branch
+    - Profiled the before/after numbers in the Visual Studio profiler, for
+      the numbers shown in the table
+    
+    Co-authored-by: Austin Lamb <austinl@microsoft.com>
+
+commit 7fcff4d33ad5595192a57b92c5506e6b745071b7
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Tue Aug 18 19:57:52 2020 +0100
+
+    Refactor VT control sequence identification (#7304)
+    
+    This PR changes the way VT control sequences are identified and
+    dispatched, to be more efficient and easier to extend. Instead of
+    parsing the intermediate characters into a vector, and then having to
+    identify a sequence using both that vector and the final char, we now
+    use just a single `uint64_t` value as the identifier.
+    
+    The way the identifier is constructed is by taking the private parameter
+    prefix, each of the intermediate characters, and then the final
+    character, and shifting them into a 64-bit integer one byte at a time,
+    in reverse order. For example, the `DECTLTC` control has a private
+    parameter prefix of `?`, one intermediate of `'`, and a final character
+    of `s`. The ASCII values of those characters are `0x3F`, `0x27`, and
+    `0x73` respectively, and reversing them gets you 0x73273F, so that would
+    then be the identifier for the control.
+    
+    The reason for storing them in reverse order, is because sometimes we
+    need to look at the first intermediate to determine the operation, and
+    treat the rest of the sequence as a kind of sub-identifier (the
+    character set designation sequences are one example of this). When in
+    reverse order, this can easily be achieved by masking off the low byte
+    to get the first intermediate, and then shifting the value right by 8
+    bits to get a new identifier with the rest of the sequence.
+    
+    With 64 bits we have enough space for a private prefix, six
+    intermediates, and the final char, which is way more than we should ever
+    need (the _DEC STD 070_ specification recommends supporting at least
+    three intermediates, but in practice we're unlikely to see more than
+    two).
+    
+    With this new way of identifying controls, it should now be possible for
+    every action code to be unique (for the most part). So I've also used
+    this PR to clean up the action codes a bit, splitting the codes for the
+    escape sequences from the control sequences, and sorting them into
+    alphabetical order (which also does a reasonable job of clustering
+    associated controls).
+    
+    ## Validation Steps Performed
+    
+    I think the existing unit tests should be good enough to confirm that
+    all sequences are still being dispatched correctly. However, I've also
+    manually tested a number of sequences to make sure they were still
+    working as expected, in particular those that used intermediates, since
+    they were the most affected by the dispatch code refactoring.
+    
+    Since these changes also affected the input state machine, I've done
+    some manual testing of the conpty keyboard handling (both with and
+    without the new Win32 input mode enabled) to make sure the keyboard VT
+    sequences were processed correctly. I've also manually tested the
+    various VT mouse modes in Vttest to confirm that they were still working
+    correctly too.
+    
+    Closes #7276
+
+commit b62f5ea85051fbe38d467cccca4d4de42d29ae8c
+Author: Leonard Hecker <leonard@hecker.io>
+Date:   Thu Jul 16 22:49:06 2020 +0200
+
+    Added til::spsc, a lock-free, single-producer/-consumer FIFO queue (#6751)
+    
+    ## Summary of the Pull Request
+    
+    This PR adds the `til::spsc` namespace, which implements a lock-free, single-producer, single-consumer FIFO queue ("channel"). The queue efficiently blocks the caller using Futexes if no data can be written to / read from the queue (e.g. using `WaitOnAddress` on Windows). Furthermore it allows batching of data and contains logic to signal the caller if the other side has been dropped/destructed.
+    
+    ## PR Checklist
+    * [ ] Closes #xxx
+    * [x] CLA signed. If not, go over [here](https://cla.opensource.microsoft.com/microsoft/Terminal) and sign the CLA
+    * [x] Tests added/passed
+    * [ ] Documentation updated. If checked, please file a pull request on [our docs repo](https://github.com/MicrosoftDocs/terminal) and link it here: #xxx
+    * [ ] Schema updated.
+    * [x] I've discussed this with core contributors already. If not checked, I'm ready to accept this work might be rejected in favor of a different grand plan. Issue number where discussion took place: #xxx
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    
+    `til::spsc::details::arc<T>` contains most of the queue's logic and as such has the relevant documentation for its design.
+    
+    ## Validation Steps Performed
+    
+    The queue was tested on Windows, Linux and macOS using MSVC, gcc and llvm and each of their available runtime introspection utilities in order to ensure no race conditions or memory leaks occur.
+
+commit 3388a486dce5a75ec9900b968d6b245be14b1f11
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Fri Jul 10 23:26:34 2020 +0100
+
+    Refactor the renderer color calculations (#6853)
+    
+    This is a refactoring of the renderer color calculations to simplify the
+    implementation, and to make it easier to support additional
+    color-altering rendition attributes in the future (e.g. _faint_ and
+    _conceal_).
+    
+    ## References
+    
+    * This is a followup to PRs #3817 and #6809, which introduced additional
+      complexity in the color calculations, and which suggested the need for
+      refactoring.
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    
+    When we added support for `DECSCNM`, that required the foreground and
+    background color lookup methods to be able to return the opposite of
+    what was requested when the reversed mode was set. That made those
+    methods unnecessarily complicated, and I thought we could simplify them
+    considerably just by combining the calculations into a single method
+    that derived both colors at the same time.
+    
+    And since both conhost and Windows Terminal needed to perform the same
+    calculations, it also made sense to move that functionality into the
+    `TextAttribute` class, where it could easily be shared.
+    
+    In general this way of doing things is a bit more efficient. However, it
+    does result in some unnecessary work when only one of the colors is
+    required, as is the case for the gridline painter. So to make that less
+    of an issue, I've reordered the gridline code a bit so it at least
+    avoids looking up the colors when no gridlines are needed.
+    
+    ## Validation Steps Performed
+    
+    Because of the API changes, quite a lot of the unit tests had to be
+    updated. For example instead of verifying colors with two separate calls
+    to `LookupForegroundColor` and `LookupBackgroundColor`, that's now
+    achieved with a single `LookupAttributeColors` call, comparing against a
+    pair of values. The specifics of the tests haven't changed though, and
+    they're all still working as expected.
+    
+    I've also manually confirmed that the various color sequences and
+    rendition attributes are rendering correctly with the new refactoring.
+commit ddbe370d222a8b9f363eedc36d2d4e279613ebfd
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Wed Jul 1 19:10:36 2020 +0100
+
+    Improve the propagation of color attributes over ConPTY (#6506)
+    
+    This PR reimplements the VT rendering engines to do a better job of
+    preserving the original color types when propagating attributes over
+    ConPTY. For the 16-color renderers it provides better support for
+    default colors and improves the efficiency of the color narrowing
+    conversions. It also fixes problems with the ordering of character
+    renditions that could result in attributes being dropped.
+    
+    Originally the base renderer would calculate the RGB color values and
+    legacy/extended attributes up front, passing that data on to the active
+    engine's `UpdateDrawingBrushes` method. With this new implementation,
+    the renderer now just passes through the original `TextAttribute` along
+    with an `IRenderData` interface, and leaves it to the engines to extract
+    the information they need.
+    
+    The GDI and DirectX engines now have to lookup the RGB colors themselves
+    (via simple `IRenderData` calls), but have no need for the other
+    attributes. The VT engines extract the information that they need from
+    the `TextAttribute`, instead of having to reverse engineer it from
+    `COLORREF`s.
+    
+    The process for the 256-color Xterm engine starts with a check for
+    default colors. If both foreground and background are default, it
+    outputs a SGR 0 reset, and clears the `_lastTextAttribute` completely to
+    make sure any reset state is reapplied. With that out the way, the
+    foreground and background are updated (if changed) in one of 4 ways.
+    They can either be a default value (SGR 39 and 49), a 16-color index
+    (using ANSI or AIX sequences), a 256-color index, or a 24-bit RGB value
+    (both using SGR 38 and 48 sequences).
+    
+    Then once the colors are accounted for, there is a separate step that
+    handles the character rendition attributes (bold, italics, underline,
+    etc.) This step must come _after_ the color sequences, in case a SGR
+    reset is required, which would otherwise have cleared any character
+    rendition attributes if it came last (which is what happened in the
+    original implementation).
+    
+    The process for the 16-color engines is a little different. The target
+    client in this case (Windows telnet) is incapable of setting default
+    colors individually, so we need to output an SGR 0 reset if _either_
+    color has changed to default. With that out the way, we use the
+    `TextColor::GetLegacyIndex` method to obtain an approximate 16-color
+    index for each color, and apply the bold attribute by brightening the
+    foreground index (setting bit 8) if the color type permits that.
+    
+    However, since Windows telnet only supports the 8 basic ANSI colors, the
+    best we can do for bright colors is to output an SGR 1 attribute to get
+    a bright foreground. There is nothing we can do about a bright
+    background, so after that we just have to drop the high bit from the
+    colors. If the resulting index values have changed from what they were
+    before, we then output ANSI 8-color SGR sequences to update them.
+    
+    As with the 256-color engine, there is also a final step to handle the
+    character rendition attributes. But in this case, the only supported
+    attributes are underline and reversed video.
+    
+    Since the VT engines no longer depend on the active color table and
+    default color values, there was quite a lot of code that could now be
+    removed. This included the `IDefaultColorProvider` interface and
+    implementations, the `Find(Nearest)TableIndex` functions, and also the
+    associated HLS conversion and difference calculations.
+    
+    VALIDATION
+    
+    Other than simple API parameter changes, the majority of updates
+    required in the unit tests were to correct assumptions about the way the
+    colors should be rendered, which were the source of the narrowing bugs
+    this PR was trying to fix. Like passing white on black to the
+    `UpdateDrawingBrushes` API, and expecting it to output the default `SGR
+    0` sequence, or passing an RGB color and expecting an indexed SGR
+    sequence.
+    
+    In addition to that, I've added some VT renderer tests to make sure the
+    rendition attributes (bold, underline, etc) are correctly retained when
+    a default color update causes an `SGR 0` sequence to be generated (the
+    source of bug #3076). And I've extended the VT renderer color tests
+    (both 256-color and 16-color) to make sure we're covering all of the
+    different color types (default, RGB, and both forms of indexed colors).
+    
+    I've also tried to manually verify that all of the test cases in the
+    linked bug reports (and their associated duplicates) are now fixed when
+    this PR is applied.
+    
+    Closes #2661
+    Closes #3076
+    Closes #3717
+    Closes #5384
+    Closes #5864
+    
+    This is only a partial fix for #293, but I suspect the remaining cases
+    are unfixable.
+
+diff --git a/src/buffer/out/TextAttribute.cpp b/src/buffer/out/TextAttribute.cpp
+index 0fc8c281..f9e1426d 100644
+--- a/src/buffer/out/TextAttribute.cpp
++++ b/src/buffer/out/TextAttribute.cpp
+@@ -31,7 +31,7 @@ WORD TextAttribute::GetLegacyAttributes() const noexcept
+     const BYTE fgIndex = _foreground.GetLegacyIndex(s_legacyDefaultForeground);
+     const BYTE bgIndex = _background.GetLegacyIndex(s_legacyDefaultBackground);
+     const WORD metaAttrs = _wAttrLegacy & META_ATTRS;
+-    const bool brighten = _foreground.IsIndex16() && IsBold();
++    const bool brighten = IsBold() && _foreground.CanBeBrightened();
+     return fgIndex | (bgIndex << 4) | metaAttrs | (brighten ? FOREGROUND_INTENSITY : 0);
+ }
+ 
+@@ -90,6 +90,26 @@ COLORREF TextAttribute::_GetRgbBackground(std::basic_string_view<COLORREF> color
+     return _background.GetColor(colorTable, defaultColor, false);
+ }
+ 
++TextColor TextAttribute::GetForeground() const noexcept
++{
++    return _foreground;
++}
++
++TextColor TextAttribute::GetBackground() const noexcept
++{
++    return _background;
++}
++
++void TextAttribute::SetForeground(const TextColor foreground) noexcept
++{
++    _foreground = foreground;
++}
++
++void TextAttribute::SetBackground(const TextColor background) noexcept
++{
++    _background = background;
++}
++
+ void TextAttribute::SetForeground(const COLORREF rgbForeground) noexcept
+ {
+     _foreground = TextColor(rgbForeground);
+diff --git a/src/buffer/out/TextAttribute.hpp b/src/buffer/out/TextAttribute.hpp
+index 24478aad..24f0d85d 100644
+--- a/src/buffer/out/TextAttribute.hpp
++++ b/src/buffer/out/TextAttribute.hpp
+@@ -107,6 +107,10 @@ public:
+ 
+     ExtendedAttributes GetExtendedAttributes() const noexcept;
+ 
++    TextColor GetForeground() const noexcept;
++    TextColor GetBackground() const noexcept;
++    void SetForeground(const TextColor foreground) noexcept;
++    void SetBackground(const TextColor background) noexcept;
+     void SetForeground(const COLORREF rgbForeground) noexcept;
+     void SetBackground(const COLORREF rgbBackground) noexcept;
+     void SetIndexedForeground(const BYTE fgIndex) noexcept;
+diff --git a/src/buffer/out/TextColor.cpp b/src/buffer/out/TextColor.cpp
+index 4e40d42d..3a664dff 100644
+--- a/src/buffer/out/TextColor.cpp
++++ b/src/buffer/out/TextColor.cpp
+@@ -50,6 +50,11 @@ constexpr std::array<BYTE, 256> Index256ToIndex16 = {
+ 
+ // clang-format on
+ 
++bool TextColor::CanBeBrightened() const noexcept
++{
++    return IsIndex16() || IsDefault();
++}
++
+ bool TextColor::IsLegacy() const noexcept
+ {
+     return IsIndex16() || (IsIndex256() && _index < 16);
+@@ -164,7 +169,7 @@ COLORREF TextColor::GetColor(std::basic_string_view<COLORREF> colorTable,
+     }
+     else if (IsRgb())
+     {
+-        return _GetRGB();
++        return GetRGB();
+     }
+     else if (IsIndex16() && brighten)
+     {
+@@ -214,7 +219,7 @@ BYTE TextColor::GetLegacyIndex(const BYTE defaultIndex) const noexcept
+ // - <none>
+ // Return Value:
+ // - a COLORREF containing our stored value
+-COLORREF TextColor::_GetRGB() const noexcept
++COLORREF TextColor::GetRGB() const noexcept
+ {
+     return RGB(_red, _green, _blue);
+ }
+diff --git a/src/buffer/out/TextColor.h b/src/buffer/out/TextColor.h
+index 51788982..16698fbd 100644
+--- a/src/buffer/out/TextColor.h
++++ b/src/buffer/out/TextColor.h
+@@ -77,6 +77,7 @@ public:
+     friend constexpr bool operator==(const TextColor& a, const TextColor& b) noexcept;
+     friend constexpr bool operator!=(const TextColor& a, const TextColor& b) noexcept;
+ 
++    bool CanBeBrightened() const noexcept;
+     bool IsLegacy() const noexcept;
+     bool IsIndex16() const noexcept;
+     bool IsIndex256() const noexcept;
+@@ -98,6 +99,8 @@ public:
+         return _index;
+     }
+ 
++    COLORREF GetRGB() const noexcept;
++
+ private:
+     ColorType _meta : 2;
+     union
+@@ -107,8 +110,6 @@ private:
+     BYTE _green;
+     BYTE _blue;
+ 
+-    COLORREF _GetRGB() const noexcept;
+-
+ #ifdef UNIT_TESTING
+     friend class TextBufferTests;
+     template<typename TextColor>
+@@ -149,7 +150,7 @@ namespace WEX
+                 }
+                 else if (color.IsRgb())
+                 {
+-                    return WEX::Common::NoThrowString().Format(L"{RGB:0x%06x}", color._GetRGB());
++                    return WEX::Common::NoThrowString().Format(L"{RGB:0x%06x}", color.GetRGB());
+                 }
+                 else
+                 {
+diff --git a/src/cascadia/UnitTests_TerminalCore/ConptyRoundtripTests.cpp b/src/cascadia/UnitTests_TerminalCore/ConptyRoundtripTests.cpp
+index 215d48ac..f4cc7a24 100644
+--- a/src/cascadia/UnitTests_TerminalCore/ConptyRoundtripTests.cpp
++++ b/src/cascadia/UnitTests_TerminalCore/ConptyRoundtripTests.cpp
+@@ -116,9 +116,7 @@ class TerminalCoreUnitTests::ConptyRoundtripTests final
+         Viewport initialViewport = currentBuffer.GetViewport();
+ 
+         auto vtRenderEngine = std::make_unique<Xterm256Engine>(std::move(hFile),
+-                                                               gci,
+-                                                               initialViewport,
+-                                                               gci.Get16ColorTable());
++                                                               initialViewport);
+         auto pfn = std::bind(&ConptyRoundtripTests::_writeCallback, this, std::placeholders::_1, std::placeholders::_2);
+         vtRenderEngine->SetTestCallback(pfn);
+ 
+diff --git a/src/host/VtIo.cpp b/src/host/VtIo.cpp
+index abbdf001..17789de0 100644
+--- a/src/host/VtIo.cpp
++++ b/src/host/VtIo.cpp
+@@ -155,22 +155,16 @@ VtIo::VtIo() :
+             {
+             case VtIoMode::XTERM_256:
+                 _pVtRenderEngine = std::make_unique<Xterm256Engine>(std::move(_hOutput),
+-                                                                    gci,
+-                                                                    initialViewport,
+-                                                                    gci.Get16ColorTable());
++                                                                    initialViewport);
+                 break;
+             case VtIoMode::XTERM:
+                 _pVtRenderEngine = std::make_unique<XtermEngine>(std::move(_hOutput),
+-                                                                 gci,
+                                                                  initialViewport,
+-                                                                 gci.Get16ColorTable(),
+                                                                  false);
+                 break;
+             case VtIoMode::XTERM_ASCII:
+                 _pVtRenderEngine = std::make_unique<XtermEngine>(std::move(_hOutput),
+-                                                                 gci,
+                                                                  initialViewport,
+-                                                                 gci.Get16ColorTable(),
+                                                                  true);
+                 break;
+             default:
+diff --git a/src/host/conattrs.cpp b/src/host/conattrs.cpp
+index 5705f3a3..60cef227 100644
+--- a/src/host/conattrs.cpp
++++ b/src/host/conattrs.cpp
+@@ -17,100 +17,6 @@ Author(s):
+ #include "..\inc\conattrs.hpp"
+ #include <cmath>
+ 
+-struct _HSL
+-{
+-    double h, s, l;
+-
+-    // constructs an HSL color from a RGB Color.
+-    explicit _HSL(const COLORREF rgb)
+-    {
+-        const double r = (double)GetRValue(rgb);
+-        const double g = (double)GetGValue(rgb);
+-        const double b = (double)GetBValue(rgb);
+-
+-        const auto [min, max] = std::minmax({ r, g, b });
+-
+-        const auto diff = max - min;
+-        const auto sum = max + min;
+-        // Luminance
+-        l = max / 255.0;
+-
+-        // Saturation
+-        s = (max == 0) ? 0 : diff / max;
+-
+-        //Hue
+-        double q = (diff == 0) ? 0 : 60.0 / diff;
+-        if (max == r)
+-        {
+-            h = (g < b) ? ((360.0 + q * (g - b)) / 360.0) : ((q * (g - b)) / 360.0);
+-        }
+-        else if (max == g)
+-        {
+-            h = (120.0 + q * (b - r)) / 360.0;
+-        }
+-        else if (max == b)
+-        {
+-            h = (240.0 + q * (r - g)) / 360.0;
+-        }
+-        else
+-        {
+-            h = 0;
+-        }
+-    }
+-};
+-
+-//Routine Description:
+-// Finds the "distance" between a given HSL color and an RGB color, using the HSL color space.
+-//   This function is designed such that the caller would convert one RGB color to HSL ahead of time,
+-//   then compare many RGB colors to that first color.
+-//Arguments:
+-// - phslColorA - a pointer to the first color, as a HSL color.
+-// - rgbColorB - The second color to compare, in RGB color.
+-// Return value:
+-// The "distance" between the two.
+-static double _FindDifference(const _HSL* const phslColorA, const COLORREF rgbColorB)
+-{
+-    const _HSL hslColorB = _HSL(rgbColorB);
+-    return sqrt(pow((hslColorB.h - phslColorA->h), 2) +
+-                pow((hslColorB.s - phslColorA->s), 2) +
+-                pow((hslColorB.l - phslColorA->l), 2));
+-}
+-
+-//Routine Description:
+-// For a given RGB color Color, finds the nearest color from the array ColorTable, and returns the index of that match.
+-//Arguments:
+-// - Color - The RGB color to fine the nearest color to.
+-// - ColorTable - The array of colors to find a nearest color from.
+-// Return value:
+-// The index in ColorTable of the nearest match to Color.
+-WORD FindNearestTableIndex(const COLORREF Color, const std::basic_string_view<COLORREF> ColorTable)
+-{
+-    // Quick check for an exact match in the color table:
+-    for (WORD i = 0; i < ColorTable.size(); i++)
+-    {
+-        if (Color == ColorTable[i])
+-        {
+-            return i;
+-        }
+-    }
+-
+-    // Did not find an exact match - do an expensive comparison to the elements
+-    //      of the table to find the nearest color.
+-    const _HSL hslColor = _HSL(Color);
+-    WORD closest = 0;
+-    double minDiff = _FindDifference(&hslColor, ColorTable[0]);
+-    for (WORD i = 1; i < ColorTable.size(); i++)
+-    {
+-        double diff = _FindDifference(&hslColor, ColorTable[i]);
+-        if (diff < minDiff)
+-        {
+-            minDiff = diff;
+-            closest = i;
+-        }
+-    }
+-    return closest;
+-}
+-
+ // Function Description:
+ // - Converts the value of a xterm color table index to the windows color table equivalent.
+ // Arguments:
+@@ -144,26 +50,3 @@ WORD Xterm256ToWindowsIndex(const size_t xtermTableEntry) noexcept
+     return xtermTableEntry < 16 ? XtermToWindowsIndex(xtermTableEntry) :
+                                   static_cast<WORD>(xtermTableEntry);
+ }
+-
+-//Routine Description:
+-// Returns the exact entry from the color table, if it's in there.
+-//Arguments:
+-// - Color - The RGB color to fine the nearest color to.
+-// - ColorTable - The array of colors to find a nearest color from.
+-// Return value:
+-// The index in ColorTable of the nearest match to Color.
+-bool FindTableIndex(const COLORREF Color,
+-                    const std::basic_string_view<COLORREF> ColorTable,
+-                    _Out_ WORD* const pFoundIndex)
+-{
+-    *pFoundIndex = 0;
+-    for (WORD i = 0; i < ColorTable.size(); i++)
+-    {
+-        if (ColorTable[i] == Color)
+-        {
+-            *pFoundIndex = i;
+-            return true;
+-        }
+-    }
+-    return false;
+-}
+diff --git a/src/host/server.h b/src/host/server.h
+index 9dcb035c..df96e102 100644
+--- a/src/host/server.h
++++ b/src/host/server.h
+@@ -29,8 +29,6 @@ Revision History:
+ 
+ #include "..\host\RenderData.hpp"
+ 
+-#include "..\inc\IDefaultColorProvider.hpp"
+-
+ // clang-format off
+ // Flags flags
+ #define CONSOLE_IS_ICONIC               0x00000001
+@@ -75,8 +73,7 @@ class CommandHistory;
+ 
+ class CONSOLE_INFORMATION :
+     public Settings,
+-    public Microsoft::Console::IIoProvider,
+-    public Microsoft::Console::IDefaultColorProvider
++    public Microsoft::Console::IIoProvider
+ {
+ public:
+     CONSOLE_INFORMATION();
+diff --git a/src/host/ut_host/ConptyOutputTests.cpp b/src/host/ut_host/ConptyOutputTests.cpp
+index 6b0e4adb..a76d5c4f 100644
+--- a/src/host/ut_host/ConptyOutputTests.cpp
++++ b/src/host/ut_host/ConptyOutputTests.cpp
+@@ -85,9 +85,7 @@ class ConptyOutputTests
+         Viewport initialViewport = currentBuffer.GetViewport();
+ 
+         auto vtRenderEngine = std::make_unique<Xterm256Engine>(std::move(hFile),
+-                                                               gci,
+-                                                               initialViewport,
+-                                                               gci.Get16ColorTable());
++                                                               initialViewport);
+         auto pfn = std::bind(&ConptyOutputTests::_writeCallback, this, std::placeholders::_1, std::placeholders::_2);
+         vtRenderEngine->SetTestCallback(pfn);
+ 
+diff --git a/src/host/ut_host/VtIoTests.cpp b/src/host/ut_host/VtIoTests.cpp
+index d8ea0e43..6ef1113b 100644
+--- a/src/host/ut_host/VtIoTests.cpp
++++ b/src/host/ut_host/VtIoTests.cpp
+@@ -45,20 +45,6 @@ class Microsoft::Console::VirtualTerminal::VtIoTests
+     TEST_METHOD(BasicAnonymousPipeOpeningWithSignalChannelTest);
+ };
+ 
+-class VtIoTestColorProvider : public Microsoft::Console::IDefaultColorProvider
+-{
+-public:
+-    virtual ~VtIoTestColorProvider() = default;
+-    COLORREF GetDefaultForeground() const
+-    {
+-        return RGB(0xff, 0xff, 0xff);
+-    }
+-    COLORREF GetDefaultBackground() const
+-    {
+-        return RGB(0, 0, 0);
+-    }
+-};
+-
+ using namespace Microsoft::Console;
+ using namespace Microsoft::Console::VirtualTerminal;
+ using namespace Microsoft::Console::Render;
+@@ -110,10 +96,6 @@ void VtIoTests::DtorTestJustEngine()
+         L"It's here because of the strange nature of VtEngine having members\n"
+         L"that are only defined in UNIT_TESTING"));
+ 
+-    const WORD colorTableSize = 16;
+-    COLORREF colorTable[colorTableSize];
+-    VtIoTestColorProvider p;
+-
+     Log::Comment(NoThrowString().Format(
+         L"New some engines and delete them"));
+     for (int i = 0; i < 25; ++i)
+@@ -123,21 +105,21 @@ void VtIoTests::DtorTestJustEngine()
+ 
+         wil::unique_hfile hOutputFile;
+         hOutputFile.reset(INVALID_HANDLE_VALUE);
+-        auto pRenderer256 = new Xterm256Engine(std::move(hOutputFile), p, SetUpViewport(), colorTable);
++        auto pRenderer256 = new Xterm256Engine(std::move(hOutputFile), SetUpViewport());
+         Log::Comment(NoThrowString().Format(L"Made Xterm256Engine"));
+         delete pRenderer256;
+         Log::Comment(NoThrowString().Format(L"Deleted."));
+ 
+         hOutputFile.reset(INVALID_HANDLE_VALUE);
+ 
+-        auto pRenderEngineXterm = new XtermEngine(std::move(hOutputFile), p, SetUpViewport(), colorTable, false);
++        auto pRenderEngineXterm = new XtermEngine(std::move(hOutputFile), SetUpViewport(), false);
+         Log::Comment(NoThrowString().Format(L"Made XtermEngine"));
+         delete pRenderEngineXterm;
+         Log::Comment(NoThrowString().Format(L"Deleted."));
+ 
+         hOutputFile.reset(INVALID_HANDLE_VALUE);
+ 
+-        auto pRenderEngineXtermAscii = new XtermEngine(std::move(hOutputFile), p, SetUpViewport(), colorTable, true);
++        auto pRenderEngineXtermAscii = new XtermEngine(std::move(hOutputFile), SetUpViewport(), true);
+         Log::Comment(NoThrowString().Format(L"Made XtermEngine"));
+         delete pRenderEngineXtermAscii;
+         Log::Comment(NoThrowString().Format(L"Deleted."));
+@@ -152,10 +134,6 @@ void VtIoTests::DtorTestDeleteVtio()
+         L"It's here because of the strange nature of VtEngine having members\n"
+         L"that are only defined in UNIT_TESTING"));
+ 
+-    const WORD colorTableSize = 16;
+-    COLORREF colorTable[colorTableSize];
+-    VtIoTestColorProvider p;
+-
+     Log::Comment(NoThrowString().Format(
+         L"New some engines and delete them"));
+     for (int i = 0; i < 25; ++i)
+@@ -170,9 +148,7 @@ void VtIoTests::DtorTestDeleteVtio()
+         VtIo* vtio = new VtIo();
+         Log::Comment(NoThrowString().Format(L"Made VtIo"));
+         vtio->_pVtRenderEngine = std::make_unique<Xterm256Engine>(std::move(hOutputFile),
+-                                                                  p,
+-                                                                  SetUpViewport(),
+-                                                                  colorTable);
++                                                                  SetUpViewport());
+         Log::Comment(NoThrowString().Format(L"Made Xterm256Engine"));
+         delete vtio;
+         Log::Comment(NoThrowString().Format(L"Deleted."));
+@@ -181,9 +157,7 @@ void VtIoTests::DtorTestDeleteVtio()
+         vtio = new VtIo();
+         Log::Comment(NoThrowString().Format(L"Made VtIo"));
+         vtio->_pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                               p,
+                                                                SetUpViewport(),
+-                                                               colorTable,
+                                                                false);
+         Log::Comment(NoThrowString().Format(L"Made XtermEngine"));
+         delete vtio;
+@@ -193,9 +167,7 @@ void VtIoTests::DtorTestDeleteVtio()
+         vtio = new VtIo();
+         Log::Comment(NoThrowString().Format(L"Made VtIo"));
+         vtio->_pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                               p,
+                                                                SetUpViewport(),
+-                                                               colorTable,
+                                                                true);
+         Log::Comment(NoThrowString().Format(L"Made XtermEngine"));
+         delete vtio;
+@@ -211,10 +183,6 @@ void VtIoTests::DtorTestStackAlloc()
+         L"It's here because of the strange nature of VtEngine having members\n"
+         L"that are only defined in UNIT_TESTING"));
+ 
+-    const WORD colorTableSize = 16;
+-    COLORREF colorTable[colorTableSize];
+-    VtIoTestColorProvider p;
+-
+     Log::Comment(NoThrowString().Format(
+         L"make some engines and let them fall out of scope"));
+     for (int i = 0; i < 25; ++i)
+@@ -228,18 +196,14 @@ void VtIoTests::DtorTestStackAlloc()
+         {
+             VtIo vtio;
+             vtio._pVtRenderEngine = std::make_unique<Xterm256Engine>(std::move(hOutputFile),
+-                                                                     p,
+-                                                                     SetUpViewport(),
+-                                                                     colorTable);
++                                                                     SetUpViewport());
+         }
+ 
+         hOutputFile.reset(INVALID_HANDLE_VALUE);
+         {
+             VtIo vtio;
+             vtio._pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                                  p,
+                                                                   SetUpViewport(),
+-                                                                  colorTable,
+                                                                   false);
+         }
+ 
+@@ -247,9 +211,7 @@ void VtIoTests::DtorTestStackAlloc()
+         {
+             VtIo vtio;
+             vtio._pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                                  p,
+                                                                   SetUpViewport(),
+-                                                                  colorTable,
+                                                                   true);
+         }
+     }
+@@ -263,10 +225,6 @@ void VtIoTests::DtorTestStackAllocMany()
+         L"It's here because of the strange nature of VtEngine having members\n"
+         L"that are only defined in UNIT_TESTING"));
+ 
+-    const WORD colorTableSize = 16;
+-    COLORREF colorTable[colorTableSize];
+-    VtIoTestColorProvider p;
+-
+     Log::Comment(NoThrowString().Format(
+         L"Try an make a whole bunch all at once, and have them all fall out of scope at once."));
+     for (int i = 0; i < 25; ++i)
+@@ -279,24 +237,18 @@ void VtIoTests::DtorTestStackAllocMany()
+             hOutputFile.reset(INVALID_HANDLE_VALUE);
+             VtIo vtio1;
+             vtio1._pVtRenderEngine = std::make_unique<Xterm256Engine>(std::move(hOutputFile),
+-                                                                      p,
+-                                                                      SetUpViewport(),
+-                                                                      colorTable);
++                                                                      SetUpViewport());
+ 
+             hOutputFile.reset(INVALID_HANDLE_VALUE);
+             VtIo vtio2;
+             vtio2._pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                                   p,
+                                                                    SetUpViewport(),
+-                                                                   colorTable,
+                                                                    false);
+ 
+             hOutputFile.reset(INVALID_HANDLE_VALUE);
+             VtIo vtio3;
+             vtio3._pVtRenderEngine = std::make_unique<XtermEngine>(std::move(hOutputFile),
+-                                                                   p,
+                                                                    SetUpViewport(),
+-                                                                   colorTable,
+                                                                    true);
+         }
+     }
+diff --git a/src/host/ut_host/VtRendererTests.cpp b/src/host/ut_host/VtRendererTests.cpp
+index 8d5a092b..1bf0cb3e 100644
+--- a/src/host/ut_host/VtRendererTests.cpp
++++ b/src/host/ut_host/VtRendererTests.cpp
+@@ -27,8 +27,8 @@ namespace Microsoft
+ using namespace Microsoft::Console;
+ using namespace Microsoft::Console::Render;
+ using namespace Microsoft::Console::Types;
++using namespace Microsoft::Console::VirtualTerminal::DispatchTypes;
+ 
+-COLORREF g_ColorTable[COLOR_TABLE_SIZE];
+ static const std::string CLEAR_SCREEN = "\x1b[2J";
+ static const std::string CURSOR_HOME = "\x1b[H";
+ // Sometimes when we're expecting the renderengine to not write anything,
+@@ -37,47 +37,12 @@ static const std::string CURSOR_HOME = "\x1b[H";
+ // We don't use null because that will confuse the VERIFY macros re: string length.
+ const char* const EMPTY_CALLBACK_SENTINEL = "\xff";
+ 
+-class VtRenderTestColorProvider : public Microsoft::Console::IDefaultColorProvider
+-{
+-public:
+-    virtual ~VtRenderTestColorProvider() = default;
+-
+-    COLORREF GetDefaultForeground() const
+-    {
+-        return g_ColorTable[15];
+-    }
+-    COLORREF GetDefaultBackground() const
+-    {
+-        return g_ColorTable[0];
+-    }
+-};
+-
+-VtRenderTestColorProvider p;
+-
+ class Microsoft::Console::Render::VtRendererTest
+ {
+     TEST_CLASS(VtRendererTest);
+ 
+     TEST_CLASS_SETUP(ClassSetup)
+     {
+-        // clang-format off
+-        g_ColorTable[0] =  RGB( 12,  12,  12); // Black
+-        g_ColorTable[1] =  RGB( 0,   55, 218); // Dark Blue
+-        g_ColorTable[2] =  RGB( 19, 161,  14); // Dark Green
+-        g_ColorTable[3] =  RGB( 58, 150, 221); // Dark Cyan
+-        g_ColorTable[4] =  RGB(197,  15,  31); // Dark Red
+-        g_ColorTable[5] =  RGB(136,  23, 152); // Dark Magenta
+-        g_ColorTable[6] =  RGB(193, 156,   0); // Dark Yellow
+-        g_ColorTable[7] =  RGB(204, 204, 204); // Dark White
+-        g_ColorTable[8] =  RGB(118, 118, 118); // Bright Black
+-        g_ColorTable[9] =  RGB( 59, 120, 255); // Bright Blue
+-        g_ColorTable[10] = RGB( 22, 198,  12); // Bright Green
+-        g_ColorTable[11] = RGB( 97, 214, 214); // Bright Cyan
+-        g_ColorTable[12] = RGB(231,  72,  86); // Bright Red
+-        g_ColorTable[13] = RGB(180,   0, 158); // Bright Magenta
+-        g_ColorTable[14] = RGB(249, 241, 165); // Bright Yellow
+-        g_ColorTable[15] = RGB(242, 242, 242); // White
+-        // clang-format on
+         return true;
+     }
+ 
+@@ -103,10 +68,12 @@ class Microsoft::Console::Render::VtRendererTest
+     TEST_METHOD(Xterm256TestColors);
+     TEST_METHOD(Xterm256TestCursor);
+     TEST_METHOD(Xterm256TestExtendedAttributes);
++    TEST_METHOD(Xterm256TestAttributesAcrossReset);
+ 
+     TEST_METHOD(XtermTestInvalidate);
+     TEST_METHOD(XtermTestColors);
+     TEST_METHOD(XtermTestCursor);
++    TEST_METHOD(XtermTestAttributesAcrossReset);
+ 
+     TEST_METHOD(FormattedString);
+ 
+@@ -184,7 +151,7 @@ void VtRendererTest::TestPaint(VtEngine& engine, std::function<void()> pfn)
+ void VtRendererTest::VtSequenceHelperTests()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+ 
+     engine->SetTestCallback(pfn);
+@@ -241,7 +208,7 @@ void VtRendererTest::VtSequenceHelperTests()
+ void VtRendererTest::Xterm256TestInvalidate()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -429,9 +396,10 @@ void VtRendererTest::Xterm256TestInvalidate()
+ void VtRendererTest::Xterm256TestColors()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
++    RenderData renderData;
+ 
+     // Verify the first paint emits a clear and go home
+     qExpectedInput.push_back("\x1b[2J");
+@@ -450,29 +418,23 @@ void VtRendererTest::Xterm256TestColors()
+         L"These values were picked for ease of formatting raw COLORREF values."));
+     qExpectedInput.push_back("\x1b[38;2;1;2;3m");
+     qExpectedInput.push_back("\x1b[48;2;5;6;7m");
+-    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(0x00030201,
+-                                                  0x00070605,
+-                                                  0,
+-                                                  ExtendedAttributes::Normal,
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({ 0x00030201, 0x00070605 },
++                                                  &renderData,
+                                                   false));
+ 
+     TestPaint(*engine, [&]() {
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the BG----"));
+         qExpectedInput.push_back("\x1b[48;2;7;8;9m");
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(0x00030201,
+-                                                      0x00090807,
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({ 0x00030201, 0x00090807 },
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the FG----"));
+         qExpectedInput.push_back("\x1b[38;2;10;11;12m");
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(0x000c0b0a,
+-                                                      0x00090807,
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({ 0x000c0b0a, 0x00090807 },
++                                                      &renderData,
+                                                       false));
+     });
+ 
+@@ -480,73 +442,97 @@ void VtRendererTest::Xterm256TestColors()
+         Log::Comment(NoThrowString().Format(
+             L"Make sure that color setting persists across EndPaint/StartPaint"));
+         qExpectedInput.push_back(EMPTY_CALLBACK_SENTINEL);
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(0x000c0b0a,
+-                                                      0x00090807,
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({ 0x000c0b0a, 0x00090807 },
++                                                      &renderData,
+                                                       false));
+         WriteCallback(EMPTY_CALLBACK_SENTINEL, 1); // This will make sure nothing was written to the callback
+     });
+ 
+     // Now also do the body of the 16color test as well.
+-    // The only change is that the "Change only the BG to something not in the table"
+-    // test actually uses an RGB value instead of the closest match.
++    // However, instead of using a closest match ANSI color, we can reproduce
++    // the exact RGB or 256-color index value stored in the TextAttribute.
+ 
+     Log::Comment(NoThrowString().Format(
+-        L"Begin by setting the default colors - FG,BG = BRIGHT_WHITE,DARK_BLACK"));
++        L"Begin by setting the default colors"));
+ 
+     qExpectedInput.push_back("\x1b[m");
+-    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                  g_ColorTable[0],
+-                                                  0,
+-                                                  ExtendedAttributes::Normal,
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({},
++                                                  &renderData,
+                                                   false));
+ 
+     TestPaint(*engine, [&]() {
++        TextAttribute textAttributes;
++
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the BG----"));
++        textAttributes.SetIndexedBackground(FOREGROUND_RED);
+         qExpectedInput.push_back("\x1b[41m"); // Background DARK_RED
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[4],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the FG----"));
++        textAttributes.SetIndexedForeground(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+         qExpectedInput.push_back("\x1b[37m"); // Foreground DARK_WHITE
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7],
+-                                                      g_ColorTable[4],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+-            L"----Change only the BG to something not in the table----"));
+-        qExpectedInput.push_back("\x1b[48;2;1;1;1m"); // Background DARK_BLACK
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7],
+-                                                      0x010101,
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++            L"----Change only the BG to an RGB value----"));
++        textAttributes.SetBackground(RGB(19, 161, 14));
++        qExpectedInput.push_back("\x1b[48;2;19;161;14m"); // Background RGB(19,161,14)
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the FG to an RGB value----"));
++        textAttributes.SetForeground(RGB(193, 156, 0));
++        qExpectedInput.push_back("\x1b[38;2;193;156;0m"); // Foreground RGB(193,156,0)
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the BG to the 'Default' background----"));
+-        qExpectedInput.push_back("\x1b[49m"); // Background DARK_BLACK
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        textAttributes.SetDefaultBackground();
++        qExpectedInput.push_back("\x1b[49m"); // Background default
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+-            L"----Back to defaults----"));
++            L"----Change only the FG to a 256-color index----"));
++        textAttributes.SetIndexedForeground256(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
++        qExpectedInput.push_back("\x1b[38;5;7m"); // Foreground DARK_WHITE (256-Color Index)
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the BG to a 256-color index----"));
++        textAttributes.SetIndexedBackground256(FOREGROUND_RED);
++        qExpectedInput.push_back("\x1b[48;5;1m"); // Background DARK_RED (256-Color Index)
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
+ 
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the FG to the 'Default' foreground----"));
++        textAttributes.SetDefaultForeground();
++        qExpectedInput.push_back("\x1b[39m"); // Background default
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Back to defaults----"));
++        textAttributes = {};
+         qExpectedInput.push_back("\x1b[m");
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+     });
+ 
+@@ -554,10 +540,8 @@ void VtRendererTest::Xterm256TestColors()
+         Log::Comment(NoThrowString().Format(
+             L"Make sure that color setting persists across EndPaint/StartPaint"));
+         qExpectedInput.push_back(EMPTY_CALLBACK_SENTINEL);
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({},
++                                                      &renderData,
+                                                       false));
+         WriteCallback(EMPTY_CALLBACK_SENTINEL, 1); // This will make sure nothing was written to the callback
+     });
+@@ -566,7 +550,7 @@ void VtRendererTest::Xterm256TestColors()
+ void VtRendererTest::Xterm256TestCursor()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -688,37 +672,37 @@ void VtRendererTest::Xterm256TestExtendedAttributes()
+     VERIFY_SUCCEEDED(TestData::TryGetValue(L"invisible", invisible));
+     VERIFY_SUCCEEDED(TestData::TryGetValue(L"crossedOut", crossedOut));
+ 
+-    ExtendedAttributes desiredAttrs{ ExtendedAttributes::Normal };
++    TextAttribute desiredAttrs;
+     std::vector<std::string> onSequences, offSequences;
+ 
+     // Collect up a VT sequence to set the state given the method properties
+     if (italics)
+     {
+-        WI_SetFlag(desiredAttrs, ExtendedAttributes::Italics);
++        desiredAttrs.SetItalics(true);
+         onSequences.push_back("\x1b[3m");
+         offSequences.push_back("\x1b[23m");
+     }
+     if (blink)
+     {
+-        WI_SetFlag(desiredAttrs, ExtendedAttributes::Blinking);
++        desiredAttrs.SetBlinking(true);
+         onSequences.push_back("\x1b[5m");
+         offSequences.push_back("\x1b[25m");
+     }
+     if (invisible)
+     {
+-        WI_SetFlag(desiredAttrs, ExtendedAttributes::Invisible);
++        desiredAttrs.SetInvisible(true);
+         onSequences.push_back("\x1b[8m");
+         offSequences.push_back("\x1b[28m");
+     }
+     if (crossedOut)
+     {
+-        WI_SetFlag(desiredAttrs, ExtendedAttributes::CrossedOut);
++        desiredAttrs.SetCrossedOut(true);
+         onSequences.push_back("\x1b[9m");
+         offSequences.push_back("\x1b[29m");
+     }
+ 
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -746,7 +730,7 @@ void VtRendererTest::Xterm256TestExtendedAttributes()
+         L"----Turn the extended attributes off----"));
+     TestPaint(*engine, [&]() {
+         std::copy(offSequences.cbegin(), offSequences.cend(), std::back_inserter(qExpectedInput));
+-        VERIFY_SUCCEEDED(engine->_UpdateExtendedAttrs(ExtendedAttributes::Normal));
++        VERIFY_SUCCEEDED(engine->_UpdateExtendedAttrs({}));
+     });
+ 
+     Log::Comment(NoThrowString().Format(
+@@ -759,10 +743,94 @@ void VtRendererTest::Xterm256TestExtendedAttributes()
+     VerifyExpectedInputsDrained();
+ }
+ 
++void VtRendererTest::Xterm256TestAttributesAcrossReset()
++{
++    BEGIN_TEST_METHOD_PROPERTIES()
++        TEST_METHOD_PROPERTY(L"Data:renditionAttribute", L"{1, 3, 4, 5, 7, 8, 9}")
++    END_TEST_METHOD_PROPERTIES()
++
++    int renditionAttribute;
++    VERIFY_SUCCEEDED(TestData::TryGetValue(L"renditionAttribute", renditionAttribute));
++
++    std::stringstream renditionSequence;
++    renditionSequence << "\x1b[" << renditionAttribute << "m";
++
++    wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
++    auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
++    engine->SetTestCallback(pfn);
++    RenderData renderData;
++
++    Log::Comment(L"Make sure rendition attributes are retained when colors are reset");
++
++    Log::Comment(L"----Start With All Attributes Reset----");
++    TextAttribute textAttributes = {};
++    qExpectedInput.push_back("\x1b[m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    switch (renditionAttribute)
++    {
++    case GraphicsOptions::BoldBright:
++        Log::Comment(L"----Set Bold Attribute----");
++        textAttributes.SetBold(true);
++        break;
++    case GraphicsOptions::Italics:
++        Log::Comment(L"----Set Italics Attribute----");
++        textAttributes.SetItalics(true);
++        break;
++    case GraphicsOptions::Underline:
++        Log::Comment(L"----Set Underline Attribute----");
++        textAttributes.SetUnderline(true);
++        break;
++    case GraphicsOptions::BlinkOrXterm256Index:
++        Log::Comment(L"----Set Blink Attribute----");
++        textAttributes.SetBlinking(true);
++        break;
++    case GraphicsOptions::Negative:
++        Log::Comment(L"----Set Negative Attribute----");
++        textAttributes.SetReverseVideo(true);
++        break;
++    case GraphicsOptions::Invisible:
++        Log::Comment(L"----Set Invisible Attribute----");
++        textAttributes.SetInvisible(true);
++        break;
++    case GraphicsOptions::CrossedOut:
++        Log::Comment(L"----Set Crossed Out Attribute----");
++        textAttributes.SetCrossedOut(true);
++        break;
++    }
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Set Green Foreground----");
++    textAttributes.SetIndexedForeground(FOREGROUND_GREEN);
++    qExpectedInput.push_back("\x1b[32m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Reset Default Foreground and Retain Rendition----");
++    textAttributes.SetDefaultForeground();
++    qExpectedInput.push_back("\x1b[m");
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Set Green Background----");
++    textAttributes.SetIndexedBackground(FOREGROUND_GREEN);
++    qExpectedInput.push_back("\x1b[42m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Reset Default Background and Retain Rendition----");
++    textAttributes.SetDefaultBackground();
++    qExpectedInput.push_back("\x1b[m");
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    VerifyExpectedInputsDrained();
++}
++
+ void VtRendererTest::XtermTestInvalidate()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), p, SetUpViewport(), g_ColorTable, false);
++    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), SetUpViewport(), false);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -949,9 +1017,10 @@ void VtRendererTest::XtermTestInvalidate()
+ void VtRendererTest::XtermTestColors()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), p, SetUpViewport(), g_ColorTable, false);
++    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), SetUpViewport(), false);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
++    RenderData renderData;
+ 
+     // Verify the first paint emits a clear and go home
+     qExpectedInput.push_back("\x1b[2J");
+@@ -966,56 +1035,88 @@ void VtRendererTest::XtermTestColors()
+         L"Test changing the text attributes"));
+ 
+     Log::Comment(NoThrowString().Format(
+-        L"Begin by setting the default colors - FG,BG = BRIGHT_WHITE,DARK_BLACK"));
++        L"Begin by setting the default colors"));
+ 
+     qExpectedInput.push_back("\x1b[m");
+-    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                  g_ColorTable[0],
+-                                                  0,
+-                                                  ExtendedAttributes::Normal,
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({},
++                                                  &renderData,
+                                                   false));
+ 
+     TestPaint(*engine, [&]() {
++        TextAttribute textAttributes;
++
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the BG----"));
++        textAttributes.SetIndexedBackground(FOREGROUND_RED);
+         qExpectedInput.push_back("\x1b[41m"); // Background DARK_RED
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[4],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the FG----"));
++        textAttributes.SetIndexedForeground(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+         qExpectedInput.push_back("\x1b[37m"); // Foreground DARK_WHITE
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7],
+-                                                      g_ColorTable[4],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the BG to an RGB value----"));
++        textAttributes.SetBackground(RGB(19, 161, 14));
++        qExpectedInput.push_back("\x1b[42m"); // Background DARK_GREEN
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+-            L"----Change only the BG to something not in the table----"));
+-        qExpectedInput.push_back("\x1b[40m"); // Background DARK_BLACK
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7], 0x010101, 0, ExtendedAttributes::Normal, false));
++            L"----Change only the FG to an RGB value----"));
++        textAttributes.SetForeground(RGB(193, 156, 0));
++        qExpectedInput.push_back("\x1b[33m"); // Foreground DARK_YELLOW
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
+ 
+         Log::Comment(NoThrowString().Format(
+             L"----Change only the BG to the 'Default' background----"));
+-        qExpectedInput.push_back("\x1b[40m"); // Background DARK_BLACK
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[7],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        textAttributes.SetDefaultBackground();
++        qExpectedInput.push_back("\x1b[m"); // Both foreground and background default
++        qExpectedInput.push_back("\x1b[33m"); // Reapply foreground DARK_YELLOW
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+ 
+         Log::Comment(NoThrowString().Format(
+-            L"----Back to defaults----"));
++            L"----Change only the FG to a 256-color index----"));
++        textAttributes.SetIndexedForeground256(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
++        qExpectedInput.push_back("\x1b[37m"); // Foreground DARK_WHITE
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
+ 
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the BG to a 256-color index----"));
++        textAttributes.SetIndexedBackground256(FOREGROUND_RED);
++        qExpectedInput.push_back("\x1b[41m"); // Background DARK_RED
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Change only the FG to the 'Default' foreground----"));
++        textAttributes.SetDefaultForeground();
++        qExpectedInput.push_back("\x1b[m"); // Both foreground and background default
++        qExpectedInput.push_back("\x1b[41m"); // Reapply background DARK_RED
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
++                                                      false));
++
++        Log::Comment(NoThrowString().Format(
++            L"----Back to defaults----"));
++        textAttributes = {};
+         qExpectedInput.push_back("\x1b[m");
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes,
++                                                      &renderData,
+                                                       false));
+     });
+ 
+@@ -1023,10 +1124,8 @@ void VtRendererTest::XtermTestColors()
+         Log::Comment(NoThrowString().Format(
+             L"Make sure that color setting persists across EndPaint/StartPaint"));
+         qExpectedInput.push_back(EMPTY_CALLBACK_SENTINEL);
+-        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(g_ColorTable[15],
+-                                                      g_ColorTable[0],
+-                                                      0,
+-                                                      ExtendedAttributes::Normal,
++        VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes({},
++                                                      &renderData,
+                                                       false));
+         WriteCallback(EMPTY_CALLBACK_SENTINEL, 1); // This will make sure nothing was written to the callback
+     });
+@@ -1035,7 +1134,7 @@ void VtRendererTest::XtermTestColors()
+ void VtRendererTest::XtermTestCursor()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), p, SetUpViewport(), g_ColorTable, false);
++    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), SetUpViewport(), false);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -1141,10 +1240,78 @@ void VtRendererTest::XtermTestCursor()
+     });
+ }
+ 
++void VtRendererTest::XtermTestAttributesAcrossReset()
++{
++    BEGIN_TEST_METHOD_PROPERTIES()
++        TEST_METHOD_PROPERTY(L"Data:renditionAttribute", L"{1, 4, 7}")
++    END_TEST_METHOD_PROPERTIES()
++
++    int renditionAttribute;
++    VERIFY_SUCCEEDED(TestData::TryGetValue(L"renditionAttribute", renditionAttribute));
++
++    std::stringstream renditionSequence;
++    renditionSequence << "\x1b[" << renditionAttribute << "m";
++
++    wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
++    std::unique_ptr<XtermEngine> engine = std::make_unique<XtermEngine>(std::move(hFile), SetUpViewport(), false);
++    auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
++    engine->SetTestCallback(pfn);
++    RenderData renderData;
++
++    Log::Comment(L"Make sure rendition attributes are retained when colors are reset");
++
++    Log::Comment(L"----Start With All Attributes Reset----");
++    TextAttribute textAttributes = {};
++    qExpectedInput.push_back("\x1b[m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    switch (renditionAttribute)
++    {
++    case GraphicsOptions::BoldBright:
++        Log::Comment(L"----Set Bold Attribute----");
++        textAttributes.SetBold(true);
++        break;
++    case GraphicsOptions::Underline:
++        Log::Comment(L"----Set Underline Attribute----");
++        textAttributes.SetUnderline(true);
++        break;
++    case GraphicsOptions::Negative:
++        Log::Comment(L"----Set Negative Attribute----");
++        textAttributes.SetReverseVideo(true);
++        break;
++    }
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Set Green Foreground----");
++    textAttributes.SetIndexedForeground(FOREGROUND_GREEN);
++    qExpectedInput.push_back("\x1b[32m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Reset Default Foreground and Retain Rendition----");
++    textAttributes.SetDefaultForeground();
++    qExpectedInput.push_back("\x1b[m");
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Set Green Background----");
++    textAttributes.SetIndexedBackground(FOREGROUND_GREEN);
++    qExpectedInput.push_back("\x1b[42m");
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    Log::Comment(L"----Reset Default Background and Retain Rendition----");
++    textAttributes.SetDefaultBackground();
++    qExpectedInput.push_back("\x1b[m");
++    qExpectedInput.push_back(renditionSequence.str());
++    VERIFY_SUCCEEDED(engine->UpdateDrawingBrushes(textAttributes, &renderData, false));
++
++    VerifyExpectedInputsDrained();
++}
++
+ void VtRendererTest::TestWrapping()
+ {
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, SetUpViewport(), g_ColorTable);
++    std::unique_ptr<Xterm256Engine> engine = std::make_unique<Xterm256Engine>(std::move(hFile), SetUpViewport());
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -1197,7 +1364,7 @@ void VtRendererTest::TestResize()
+ {
+     Viewport view = SetUpViewport();
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, view, g_ColorTable);
++    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), view);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -1234,7 +1401,7 @@ void VtRendererTest::TestCursorVisibility()
+ {
+     Viewport view = SetUpViewport();
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, view, g_ColorTable);
++    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), view);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+@@ -1359,7 +1526,7 @@ void VtRendererTest::FormattedString()
+ 
+     Viewport view = SetUpViewport();
+     wil::unique_hfile hFile = wil::unique_hfile(INVALID_HANDLE_VALUE);
+-    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), p, view, g_ColorTable);
++    auto engine = std::make_unique<Xterm256Engine>(std::move(hFile), view);
+     auto pfn = std::bind(&VtRendererTest::WriteCallback, this, std::placeholders::_1, std::placeholders::_2);
+     engine->SetTestCallback(pfn);
+ 
+diff --git a/src/inc/IDefaultColorProvider.hpp b/src/inc/IDefaultColorProvider.hpp
+deleted file mode 100644
+index df99f5c0..00000000
+--- a/src/inc/IDefaultColorProvider.hpp
++++ /dev/null
+@@ -1,28 +0,0 @@
+-/*++
+-Copyright (c) Microsoft Corporation.
+-Licensed under the MIT license.
+-
+-Module Name:
+-- IDefaultColorProvider.hpp
+-
+-Abstract:
+-- Provides an abstraction for acquiring the default colors of a console object.
+-
+-Author(s):
+-- Mike Griese (migrie) 11 Oct 2017
+---*/
+-
+-#pragma once
+-
+-namespace Microsoft::Console
+-{
+-    class IDefaultColorProvider
+-    {
+-    public:
+-        virtual ~IDefaultColorProvider() = 0;
+-        virtual COLORREF GetDefaultForeground() const = 0;
+-        virtual COLORREF GetDefaultBackground() const = 0;
+-    };
+-
+-    inline Microsoft::Console::IDefaultColorProvider::~IDefaultColorProvider() {}
+-}
+diff --git a/src/inc/conattrs.hpp b/src/inc/conattrs.hpp
+index a33deaf4..4c4ad36f 100644
+--- a/src/inc/conattrs.hpp
++++ b/src/inc/conattrs.hpp
+@@ -23,13 +23,6 @@ enum class ExtendedAttributes : BYTE
+ };
+ DEFINE_ENUM_FLAG_OPERATORS(ExtendedAttributes);
+ 
+-WORD FindNearestTableIndex(const COLORREF Color,
+-                           const std::basic_string_view<COLORREF> ColorTable);
+-
+-bool FindTableIndex(const COLORREF Color,
+-                    const std::basic_string_view<COLORREF> ColorTable,
+-                    _Out_ WORD* const pFoundIndex);
+-
+ WORD XtermToWindowsIndex(const size_t index) noexcept;
+ WORD Xterm256ToWindowsIndex(const size_t index) noexcept;
+ WORD XtermToLegacy(const size_t xtermForeground, const size_t xtermBackground);
+diff --git a/src/interactivity/onecore/BgfxEngine.cpp b/src/interactivity/onecore/BgfxEngine.cpp
+index 715ebd31..8480540a 100644
+--- a/src/interactivity/onecore/BgfxEngine.cpp
++++ b/src/interactivity/onecore/BgfxEngine.cpp
+@@ -194,13 +194,11 @@ BgfxEngine::BgfxEngine(PVOID SharedViewBase, LONG DisplayHeight, LONG DisplayWid
+     return HRESULT_FROM_NT(Status);
+ }
+ 
+-[[nodiscard]] HRESULT BgfxEngine::UpdateDrawingBrushes(COLORREF const /*colorForeground*/,
+-                                                       COLORREF const /*colorBackground*/,
+-                                                       const WORD legacyColorAttribute,
+-                                                       const ExtendedAttributes /*extendedAttrs*/,
++[[nodiscard]] HRESULT BgfxEngine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                       const gsl::not_null<IRenderData*> /*pData*/,
+                                                        bool const /*isSettingDefaultBrushes*/) noexcept
+ {
+-    _currentLegacyColorAttribute = legacyColorAttribute;
++    _currentLegacyColorAttribute = textAttributes.GetLegacyAttributes();
+ 
+     return S_OK;
+ }
+diff --git a/src/interactivity/onecore/BgfxEngine.hpp b/src/interactivity/onecore/BgfxEngine.hpp
+index d2fc5488..d68be914 100644
+--- a/src/interactivity/onecore/BgfxEngine.hpp
++++ b/src/interactivity/onecore/BgfxEngine.hpp
+@@ -58,10 +58,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(COLORREF const colorForeground,
+-                                                   COLORREF const colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
+                                                    bool const isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& fiFontInfoDesired, FontInfo& fiFontInfo) noexcept override;
+         [[nodiscard]] HRESULT UpdateDpi(int const iDpi) noexcept override;
+diff --git a/src/interactivity/win32/menu.cpp b/src/interactivity/win32/menu.cpp
+index 76b3252e..44c7e1d6 100644
+--- a/src/interactivity/win32/menu.cpp
++++ b/src/interactivity/win32/menu.cpp
+@@ -375,8 +375,7 @@ void Menu::s_ShowPropertiesDialog(HWND const hwnd, BOOL const Defaults)
+ 
+     pStateInfo->InterceptCopyPaste = gci.GetInterceptCopyPaste();
+ 
+-    // Get the properties from the settings - CONSOLE_INFORMATION overloads
+-    //  these methods to implement IDefaultColorProvider
++    // Get the properties from the settings
+     pStateInfo->DefaultForeground = gci.GetDefaultForegroundColor();
+     pStateInfo->DefaultBackground = gci.GetDefaultBackgroundColor();
+ 
+diff --git a/src/renderer/base/renderer.cpp b/src/renderer/base/renderer.cpp
+index 8ec560a3..74e6df2b 100644
+--- a/src/renderer/base/renderer.cpp
++++ b/src/renderer/base/renderer.cpp
+@@ -1088,16 +1088,9 @@ void Renderer::_PaintSelection(_In_ IRenderEngine* const pEngine)
+ // - <none>
+ [[nodiscard]] HRESULT Renderer::_UpdateDrawingBrushes(_In_ IRenderEngine* const pEngine, const TextAttribute textAttributes, const bool isSettingDefaultBrushes)
+ {
+-    const COLORREF rgbForeground = _pData->GetForegroundColor(textAttributes);
+-    const COLORREF rgbBackground = _pData->GetBackgroundColor(textAttributes);
+-    const WORD legacyAttributes = textAttributes.GetLegacyAttributes();
+-    const auto extendedAttrs = textAttributes.GetExtendedAttributes();
+-
+     // The last color needs to be each engine's responsibility. If it's local to this function,
+     //      then on the next engine we might not update the color.
+-    RETURN_IF_FAILED(pEngine->UpdateDrawingBrushes(rgbForeground, rgbBackground, legacyAttributes, extendedAttrs, isSettingDefaultBrushes));
+-
+-    return S_OK;
++    return pEngine->UpdateDrawingBrushes(textAttributes, _pData, isSettingDefaultBrushes);
+ }
+ 
+ // Routine Description:
+diff --git a/src/renderer/dx/DxRenderer.cpp b/src/renderer/dx/DxRenderer.cpp
+index 2401d6ec..5fe7cd1f 100644
+--- a/src/renderer/dx/DxRenderer.cpp
++++ b/src/renderer/dx/DxRenderer.cpp
+@@ -1606,18 +1606,14 @@ CATCH_RETURN()
+ // Routine Description:
+ // - Updates the default brush colors used for drawing
+ // Arguments:
+-// - colorForeground - Foreground brush color
+-// - colorBackground - Background brush color
+-// - legacyColorAttribute - <unused>
+-// - extendedAttrs - <unused>
++// - textAttributes - Text attributes to use for the brush color
++// - pData - The interface to console data structures required for rendering
+ // - isSettingDefaultBrushes - Lets us know that these are the default brushes to paint the swapchain background or selection
+ // Return Value:
+ // - S_OK or relevant DirectX error.
+-[[nodiscard]] HRESULT DxEngine::UpdateDrawingBrushes(COLORREF const colorForeground,
+-                                                     COLORREF const colorBackground,
+-                                                     const WORD /*legacyColorAttribute*/,
+-                                                     const ExtendedAttributes /*extendedAttrs*/,
+-                                                     bool const isSettingDefaultBrushes) noexcept
++[[nodiscard]] HRESULT DxEngine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                     const gsl::not_null<IRenderData*> pData,
++                                                     const bool isSettingDefaultBrushes) noexcept
+ {
+     // GH#5098: If we're rendering with cleartype text, we need to always render
+     // onto an opaque background. If our background's opacity is 1.0f, that's
+@@ -1630,6 +1626,9 @@ CATCH_RETURN()
+     const bool usingTransparency = _defaultTextBackgroundOpacity != 1.0f;
+     const bool forceOpaqueBG = usingCleartype && !usingTransparency;
+ 
++    const COLORREF colorForeground = pData->GetForegroundColor(textAttributes);
++    const COLORREF colorBackground = pData->GetBackgroundColor(textAttributes);
++
+     _foregroundColor = _ColorFFromColorRef(OPACITY_OPAQUE | colorForeground);
+     _backgroundColor = _ColorFFromColorRef((forceOpaqueBG ? OPACITY_OPAQUE : 0) | colorBackground);
+ 
+diff --git a/src/renderer/dx/DxRenderer.hpp b/src/renderer/dx/DxRenderer.hpp
+index 9535df40..b4998383 100644
+--- a/src/renderer/dx/DxRenderer.hpp
++++ b/src/renderer/dx/DxRenderer.hpp
+@@ -95,11 +95,9 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(COLORREF const colorForeground,
+-                                                   COLORREF const colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
+-                                                   bool const isSettingDefaultBrushes) noexcept override;
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
++                                                   const bool isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& fiFontInfoDesired, FontInfo& fiFontInfo) noexcept override;
+         [[nodiscard]] HRESULT UpdateDpi(int const iDpi) noexcept override;
+         [[nodiscard]] HRESULT UpdateViewport(const SMALL_RECT srNewViewport) noexcept override;
+diff --git a/src/renderer/gdi/gdirenderer.hpp b/src/renderer/gdi/gdirenderer.hpp
+index 50f2d543..bae4ea2e 100644
+--- a/src/renderer/gdi/gdirenderer.hpp
++++ b/src/renderer/gdi/gdirenderer.hpp
+@@ -54,10 +54,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                   const COLORREF colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
+                                                    const bool isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& FontInfoDesired,
+                                          _Out_ FontInfo& FontInfo) noexcept override;
+diff --git a/src/renderer/gdi/state.cpp b/src/renderer/gdi/state.cpp
+index 1053bea5..10be2c6a 100644
+--- a/src/renderer/gdi/state.cpp
++++ b/src/renderer/gdi/state.cpp
+@@ -173,18 +173,14 @@ GdiEngine::~GdiEngine()
+ // Routine Description:
+ // - This method will set the GDI brushes in the drawing context (and update the hung-window background color)
+ // Arguments:
+-// - colorForeground - Foreground Color
+-// - colorBackground - Background colo
+-// - legacyColorAttribute - <unused>
+-// - extendedAttrs - <unused>
++// - textAttributes - Text attributes to use for the brush color
++// - pData - The interface to console data structures required for rendering
+ // - isSettingDefaultBrushes - Lets us know that the default brushes are being set so we can update the DC background
+ //                             and the hung app background painting color
+ // Return Value:
+ // - S_OK if set successfully or relevant GDI error via HRESULT.
+-[[nodiscard]] HRESULT GdiEngine::UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                      const COLORREF colorBackground,
+-                                                      const WORD /*legacyColorAttribute*/,
+-                                                      const ExtendedAttributes /*extendedAttrs*/,
++[[nodiscard]] HRESULT GdiEngine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                      const gsl::not_null<IRenderData*> pData,
+                                                       const bool isSettingDefaultBrushes) noexcept
+ {
+     RETURN_IF_FAILED(_FlushBufferLines());
+@@ -192,6 +188,9 @@ GdiEngine::~GdiEngine()
+     RETURN_HR_IF_NULL(HRESULT_FROM_WIN32(ERROR_INVALID_STATE), _hdcMemoryContext);
+ 
+     // Set the colors for painting text
++    const COLORREF colorForeground = pData->GetForegroundColor(textAttributes);
++    const COLORREF colorBackground = pData->GetBackgroundColor(textAttributes);
++
+     if (colorForeground != _lastFg)
+     {
+         RETURN_HR_IF(E_FAIL, CLR_INVALID == SetTextColor(_hdcMemoryContext, colorForeground));
+diff --git a/src/renderer/inc/IRenderEngine.hpp b/src/renderer/inc/IRenderEngine.hpp
+index 96929dd8..8df30a60 100644
+--- a/src/renderer/inc/IRenderEngine.hpp
++++ b/src/renderer/inc/IRenderEngine.hpp
+@@ -17,6 +17,7 @@ Author(s):
+ #include "CursorOptions.h"
+ #include "Cluster.hpp"
+ #include "FontInfoDesired.hpp"
++#include "IRenderData.hpp"
+ 
+ namespace Microsoft::Console::Render
+ {
+@@ -82,10 +83,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] virtual HRESULT PaintCursor(const CursorOptions& options) noexcept = 0;
+ 
+-        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                           const COLORREF colorBackground,
+-                                                           const WORD legacyColorAttribute,
+-                                                           const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                           const gsl::not_null<IRenderData*> pData,
+                                                            const bool isSettingDefaultBrushes) noexcept = 0;
+         [[nodiscard]] virtual HRESULT UpdateFont(const FontInfoDesired& FontInfoDesired,
+                                                  _Out_ FontInfo& FontInfo) noexcept = 0;
+diff --git a/src/renderer/uia/UiaRenderer.cpp b/src/renderer/uia/UiaRenderer.cpp
+index 0d04bc9f..e6bdbe19 100644
+--- a/src/renderer/uia/UiaRenderer.cpp
++++ b/src/renderer/uia/UiaRenderer.cpp
+@@ -361,17 +361,13 @@ CATCH_RETURN();
+ // - Updates the default brush colors used for drawing
+ //  For UIA, this doesn't mean anything. So do nothing.
+ // Arguments:
+-// - colorForeground - <unused>
+-// - colorBackground - <unused>
+-// - legacyColorAttribute - <unused>
+-// - isBold - <unused>
++// - textAttributes - <unused>
++// - pData - <unused>
+ // - isSettingDefaultBrushes - <unused>
+ // Return Value:
+ // - S_FALSE since we do nothing
+-[[nodiscard]] HRESULT UiaEngine::UpdateDrawingBrushes(const COLORREF /*colorForeground*/,
+-                                                      const COLORREF /*colorBackground*/,
+-                                                      const WORD /*legacyColorAttribute*/,
+-                                                      const ExtendedAttributes /*extendedAttrs*/,
++[[nodiscard]] HRESULT UiaEngine::UpdateDrawingBrushes(const TextAttribute& /*textAttributes*/,
++                                                      const gsl::not_null<IRenderData*> /*pData*/,
+                                                       const bool /*isSettingDefaultBrushes*/) noexcept
+ {
+     return S_FALSE;
+diff --git a/src/renderer/uia/UiaRenderer.hpp b/src/renderer/uia/UiaRenderer.hpp
+index f4a011a5..1bc59551 100644
+--- a/src/renderer/uia/UiaRenderer.hpp
++++ b/src/renderer/uia/UiaRenderer.hpp
+@@ -60,10 +60,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                   const COLORREF colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
+                                                    const bool isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& fiFontInfoDesired, FontInfo& fiFontInfo) noexcept override;
+         [[nodiscard]] HRESULT UpdateDpi(int const iDpi) noexcept override;
+diff --git a/src/renderer/vt/VtSequences.cpp b/src/renderer/vt/VtSequences.cpp
+index 013a16da..32d80c31 100644
+--- a/src/renderer/vt/VtSequences.cpp
++++ b/src/renderer/vt/VtSequences.cpp
+@@ -192,18 +192,6 @@ using namespace Microsoft::Console::Render;
+     return _Write("\x1b[H");
+ }
+ 
+-// Method Description:
+-// - Formats and writes a sequence change the boldness of the following text.
+-// Arguments:
+-// - isBold: If true, we'll embolden the text. Otherwise we'll debolden the text.
+-// Return Value:
+-// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_SetGraphicsBoldness(const bool isBold) noexcept
+-{
+-    const std::string_view fmt = isBold ? "\x1b[1m" : "\x1b[22m";
+-    return _Write(fmt);
+-}
+-
+ // Method Description:
+ // - Formats and writes a sequence to change the current text attributes to the default.
+ // Arguments:
+@@ -249,6 +237,24 @@ using namespace Microsoft::Console::Render;
+     return _WriteFormattedString(&fmt, vtIndex);
+ }
+ 
++// Method Description:
++// - Formats and writes a sequence to change the current text attributes to an
++//      indexed color from the 256-color table.
++// Arguments:
++// - wAttr: Windows color table index to emit as a VT sequence
++// - fIsForeground: true if we should emit the foreground sequence, false for background
++// Return Value:
++// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
++[[nodiscard]] HRESULT VtEngine::_SetGraphicsRendition256Color(const WORD index,
++                                                              const bool fIsForeground) noexcept
++{
++    const std::string fmt = fIsForeground ?
++                                "\x1b[38;5;%dm" :
++                                "\x1b[48;5;%dm";
++
++    return _WriteFormattedString(&fmt, ::Xterm256ToWindowsIndex(index));
++}
++
+ // Method Description:
+ // - Formats and writes a sequence to change the current text attributes to an
+ //      RGB color.
+@@ -328,113 +334,80 @@ using namespace Microsoft::Console::Render;
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to start underlining text
+-// Arguments:
+-// - <none>
+-// Return Value:
+-// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_BeginUnderline() noexcept
+-{
+-    return _Write("\x1b[4m");
+-}
+-
+-// Method Description:
+-// - Writes a sequence to tell the terminal to stop underlining text
+-// Arguments:
+-// - <none>
+-// Return Value:
+-// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_EndUnderline() noexcept
+-{
+-    return _Write("\x1b[24m");
+-}
+-
+-// Method Description:
+-// - Writes a sequence to tell the terminal to start italicizing text
++// - Formats and writes a sequence to change the boldness of the following text.
+ // Arguments:
+-// - <none>
+-// Return Value:
+-// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_BeginItalics() noexcept
+-{
+-    return _Write("\x1b[3m");
+-}
+-
+-// Method Description:
+-// - Writes a sequence to tell the terminal to stop italicizing text
+-// Arguments:
+-// - <none>
++// - isBold: If true, we'll embolden the text. Otherwise we'll debolden the text.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_EndItalics() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetBold(const bool isBold) noexcept
+ {
+-    return _Write("\x1b[23m");
++    return _Write(isBold ? "\x1b[1m" : "\x1b[22m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to start blinking text
++// - Formats and writes a sequence to change the underline of the following text.
+ // Arguments:
+-// - <none>
++// - isUnderlined: If true, we'll underline the text. Otherwise we'll remove the underline.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_BeginBlink() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetUnderline(const bool isUnderlined) noexcept
+ {
+-    return _Write("\x1b[5m");
++    return _Write(isUnderlined ? "\x1b[4m" : "\x1b[24m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to stop blinking text
++// - Formats and writes a sequence to change the italics of the following text.
+ // Arguments:
+-// - <none>
++// - isItalic: If true, we'll italicize the text. Otherwise we'll remove the italics.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_EndBlink() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetItalics(const bool isItalic) noexcept
+ {
+-    return _Write("\x1b[25m");
++    return _Write(isItalic ? "\x1b[3m" : "\x1b[23m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to start marking text as invisible
++// - Formats and writes a sequence to change the blinking of the following text.
+ // Arguments:
+-// - <none>
++// - isBlinking: If true, we'll start the text blinking. Otherwise we'll stop the blinking.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_BeginInvisible() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetBlinking(const bool isBlinking) noexcept
+ {
+-    return _Write("\x1b[8m");
++    return _Write(isBlinking ? "\x1b[5m" : "\x1b[25m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to stop marking text as invisible
++// - Formats and writes a sequence to change the visibility of the following text.
+ // Arguments:
+-// - <none>
++// - isInvisible: If true, we'll make the text invisible. Otherwise we'll make it visible.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_EndInvisible() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetInvisible(const bool isInvisible) noexcept
+ {
+-    return _Write("\x1b[28m");
++    return _Write(isInvisible ? "\x1b[8m" : "\x1b[28m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to start crossing-out text
++// - Formats and writes a sequence to change the crossed out state of the following text.
+ // Arguments:
+-// - <none>
++// - isCrossedOut: If true, we'll cross out the text. Otherwise we'll stop crossing out.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_BeginCrossedOut() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetCrossedOut(const bool isCrossedOut) noexcept
+ {
+-    return _Write("\x1b[9m");
++    return _Write(isCrossedOut ? "\x1b[9m" : "\x1b[29m");
+ }
+ 
+ // Method Description:
+-// - Writes a sequence to tell the terminal to stop crossing-out text
++// - Formats and writes a sequence to change the reversed state of the following text.
+ // Arguments:
+-// - <none>
++// - isReversed: If true, we'll reverse the text. Otherwise we'll remove the reversed state.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_EndCrossedOut() noexcept
++[[nodiscard]] HRESULT VtEngine::_SetReverseVideo(const bool isReversed) noexcept
+ {
+-    return _Write("\x1b[29m");
++    return _Write(isReversed ? "\x1b[7m" : "\x1b[27m");
+ }
+ 
+ // Method Description:
+diff --git a/src/renderer/vt/Xterm256Engine.cpp b/src/renderer/vt/Xterm256Engine.cpp
+index 2fed81c2..a449d912 100644
+--- a/src/renderer/vt/Xterm256Engine.cpp
++++ b/src/renderer/vt/Xterm256Engine.cpp
+@@ -9,11 +9,8 @@ using namespace Microsoft::Console::Render;
+ using namespace Microsoft::Console::Types;
+ 
+ Xterm256Engine::Xterm256Engine(_In_ wil::unique_hfile hPipe,
+-                               const IDefaultColorProvider& colorProvider,
+-                               const Viewport initialViewport,
+-                               const std::basic_string_view<COLORREF> colorTable) :
+-    XtermEngine(std::move(hPipe), colorProvider, initialViewport, colorTable, false),
+-    _lastExtendedAttrsState{ ExtendedAttributes::Normal }
++                               const Viewport initialViewport) :
++    XtermEngine(std::move(hPipe), initialViewport, false)
+ {
+ }
+ 
+@@ -21,90 +18,70 @@ Xterm256Engine::Xterm256Engine(_In_ wil::unique_hfile hPipe,
+ // - Write a VT sequence to change the current colors of text. Writes true RGB
+ //      color sequences.
+ // Arguments:
+-// - colorForeground: The RGB Color to use to paint the foreground text.
+-// - colorBackground: The RGB Color to use to paint the background of the text.
+-// - legacyColorAttribute: A console attributes bit field specifying the brush
+-//      colors we should use.
+-// - extendedAttrs - extended text attributes (italic, underline, etc.) to use.
++// - textAttributes - Text attributes to use for the colors and character rendition
++// - pData - The interface to console data structures required for rendering
+ // - isSettingDefaultBrushes: indicates if we should change the background color of
+ //      the window. Unused for VT
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT Xterm256Engine::UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                           const COLORREF colorBackground,
+-                                                           const WORD legacyColorAttribute,
+-                                                           const ExtendedAttributes extendedAttrs,
++[[nodiscard]] HRESULT Xterm256Engine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                           const gsl::not_null<IRenderData*> /*pData*/,
+                                                            const bool /*isSettingDefaultBrushes*/) noexcept
+ {
+-    //When we update the brushes, check the wAttrs to see if the LVB_UNDERSCORE
+-    //      flag is there. If the state of that flag is different then our
+-    //      current state, change the underlining state.
+-    // We have to do this here, instead of in PaintBufferGridLines, because
+-    //      we'll have already painted the text by the time PaintBufferGridLines
+-    //      is called.
+-    // TODO:GH#2915 Treat underline separately from LVB_UNDERSCORE
+-    RETURN_IF_FAILED(_UpdateUnderline(legacyColorAttribute));
+-
++    RETURN_IF_FAILED(VtEngine::_RgbUpdateDrawingBrushes(textAttributes));
+     // Only do extended attributes in xterm-256color, as to not break telnet.exe.
+-    RETURN_IF_FAILED(_UpdateExtendedAttrs(extendedAttrs));
+-
+-    return VtEngine::_RgbUpdateDrawingBrushes(colorForeground,
+-                                              colorBackground,
+-                                              WI_IsFlagSet(extendedAttrs, ExtendedAttributes::Bold),
+-                                              _colorTable);
++    return _UpdateExtendedAttrs(textAttributes);
+ }
+ 
+ // Routine Description:
+-// - Write a VT sequence to either start or stop underlining text.
++// - Write a VT sequence to update the character rendition attributes.
+ // Arguments:
+-// - legacyColorAttribute: A console attributes bit field containing information
+-//      about the underlining state of the text.
++// - textAttributes - text attributes (bold, italic, underline, etc.) to use.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT Xterm256Engine::_UpdateExtendedAttrs(const ExtendedAttributes extendedAttrs) noexcept
++[[nodiscard]] HRESULT Xterm256Engine::_UpdateExtendedAttrs(const TextAttribute& textAttributes) noexcept
+ {
+-    // Helper lambda to check if a state (attr) has changed since it's last
+-    // value (lastState), and appropriately start/end that state with the given
+-    // begin/end functions.
+-    auto updateFlagAndState = [extendedAttrs, this](const ExtendedAttributes attr,
+-                                                    std::function<HRESULT(Xterm256Engine*)> beginFn,
+-                                                    std::function<HRESULT(Xterm256Engine*)> endFn) -> HRESULT {
+-        const bool flagSet = WI_AreAllFlagsSet(extendedAttrs, attr);
+-        const bool lastState = WI_AreAllFlagsSet(_lastExtendedAttrsState, attr);
+-        if (flagSet != lastState)
+-        {
+-            if (flagSet)
+-            {
+-                RETURN_IF_FAILED(beginFn(this));
+-            }
+-            else
+-            {
+-                RETURN_IF_FAILED(endFn(this));
+-            }
+-            WI_ToggleAllFlags(_lastExtendedAttrsState, attr);
+-        }
+-        return S_OK;
+-    };
++    if (textAttributes.IsBold() != _lastTextAttributes.IsBold())
++    {
++        RETURN_IF_FAILED(_SetBold(textAttributes.IsBold()));
++        _lastTextAttributes.SetBold(textAttributes.IsBold());
++    }
++
++    if (textAttributes.IsUnderlined() != _lastTextAttributes.IsUnderlined())
++    {
++        RETURN_IF_FAILED(_SetUnderline(textAttributes.IsUnderlined()));
++        _lastTextAttributes.SetUnderline(textAttributes.IsUnderlined());
++    }
++
++    if (textAttributes.IsItalic() != _lastTextAttributes.IsItalic())
++    {
++        RETURN_IF_FAILED(_SetItalics(textAttributes.IsItalic()));
++        _lastTextAttributes.SetItalics(textAttributes.IsItalic());
++    }
+ 
+-    auto hr = updateFlagAndState(ExtendedAttributes::Italics,
+-                                 &Xterm256Engine::_BeginItalics,
+-                                 &Xterm256Engine::_EndItalics);
+-    RETURN_IF_FAILED(hr);
++    if (textAttributes.IsBlinking() != _lastTextAttributes.IsBlinking())
++    {
++        RETURN_IF_FAILED(_SetBlinking(textAttributes.IsBlinking()));
++        _lastTextAttributes.SetBlinking(textAttributes.IsBlinking());
++    }
+ 
+-    hr = updateFlagAndState(ExtendedAttributes::Blinking,
+-                            &Xterm256Engine::_BeginBlink,
+-                            &Xterm256Engine::_EndBlink);
+-    RETURN_IF_FAILED(hr);
++    if (textAttributes.IsInvisible() != _lastTextAttributes.IsInvisible())
++    {
++        RETURN_IF_FAILED(_SetInvisible(textAttributes.IsInvisible()));
++        _lastTextAttributes.SetInvisible(textAttributes.IsInvisible());
++    }
+ 
+-    hr = updateFlagAndState(ExtendedAttributes::Invisible,
+-                            &Xterm256Engine::_BeginInvisible,
+-                            &Xterm256Engine::_EndInvisible);
+-    RETURN_IF_FAILED(hr);
++    if (textAttributes.IsCrossedOut() != _lastTextAttributes.IsCrossedOut())
++    {
++        RETURN_IF_FAILED(_SetCrossedOut(textAttributes.IsCrossedOut()));
++        _lastTextAttributes.SetCrossedOut(textAttributes.IsCrossedOut());
++    }
+ 
+-    hr = updateFlagAndState(ExtendedAttributes::CrossedOut,
+-                            &Xterm256Engine::_BeginCrossedOut,
+-                            &Xterm256Engine::_EndCrossedOut);
+-    RETURN_IF_FAILED(hr);
++    if (textAttributes.IsReverseVideo() != _lastTextAttributes.IsReverseVideo())
++    {
++        RETURN_IF_FAILED(_SetReverseVideo(textAttributes.IsReverseVideo()));
++        _lastTextAttributes.SetReverseVideo(textAttributes.IsReverseVideo());
++    }
+ 
+     return S_OK;
+ }
+diff --git a/src/renderer/vt/Xterm256Engine.hpp b/src/renderer/vt/Xterm256Engine.hpp
+index e4e5562f..fe07065e 100644
+--- a/src/renderer/vt/Xterm256Engine.hpp
++++ b/src/renderer/vt/Xterm256Engine.hpp
+@@ -24,26 +24,18 @@ namespace Microsoft::Console::Render
+     {
+     public:
+         Xterm256Engine(_In_ wil::unique_hfile hPipe,
+-                       const Microsoft::Console::IDefaultColorProvider& colorProvider,
+-                       const Microsoft::Console::Types::Viewport initialViewport,
+-                       const std::basic_string_view<COLORREF> colorTable);
++                       const Microsoft::Console::Types::Viewport initialViewport);
+ 
+         virtual ~Xterm256Engine() override = default;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                   const COLORREF colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
+                                                    const bool isSettingDefaultBrushes) noexcept override;
+ 
+         [[nodiscard]] HRESULT ManuallyClearScrollback() noexcept override;
+ 
+     private:
+-        [[nodiscard]] HRESULT _UpdateExtendedAttrs(const ExtendedAttributes extendedAttrs) noexcept;
+-
+-        // We're only using Italics, Blinking, Invisible and Crossed Out for now
+-        // See GH#2916 for adding a more complete implementation.
+-        ExtendedAttributes _lastExtendedAttrsState;
++        [[nodiscard]] HRESULT _UpdateExtendedAttrs(const TextAttribute& textAttributes) noexcept;
+ 
+ #ifdef UNIT_TESTING
+         friend class VtRendererTest;
+diff --git a/src/renderer/vt/XtermEngine.cpp b/src/renderer/vt/XtermEngine.cpp
+index 20d87284..a67568a4 100644
+--- a/src/renderer/vt/XtermEngine.cpp
++++ b/src/renderer/vt/XtermEngine.cpp
+@@ -10,14 +10,10 @@ using namespace Microsoft::Console::Render;
+ using namespace Microsoft::Console::Types;
+ 
+ XtermEngine::XtermEngine(_In_ wil::unique_hfile hPipe,
+-                         const IDefaultColorProvider& colorProvider,
+                          const Viewport initialViewport,
+-                         const std::basic_string_view<COLORREF> colorTable,
+                          const bool fUseAsciiOnly) :
+-    VtEngine(std::move(hPipe), colorProvider, initialViewport),
+-    _colorTable(colorTable),
++    VtEngine(std::move(hPipe), initialViewport),
+     _fUseAsciiOnly(fUseAsciiOnly),
+-    _usingUnderLine(false),
+     _needToDisableCursor(false),
+     _lastCursorIsVisible(false),
+     _nextCursorIsVisible(true)
+@@ -134,63 +130,36 @@ XtermEngine::XtermEngine(_In_ wil::unique_hfile hPipe,
+     return S_OK;
+ }
+ 
+-// Routine Description:
+-// - Write a VT sequence to either start or stop underlining text.
+-// Arguments:
+-// - legacyColorAttribute: A console attributes bit field containing information
+-//      about the underlining state of the text.
+-// Return Value:
+-// - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT XtermEngine::_UpdateUnderline(const WORD legacyColorAttribute) noexcept
+-{
+-    bool textUnderlined = WI_IsFlagSet(legacyColorAttribute, COMMON_LVB_UNDERSCORE);
+-    if (textUnderlined != _usingUnderLine)
+-    {
+-        if (textUnderlined)
+-        {
+-            RETURN_IF_FAILED(_BeginUnderline());
+-        }
+-        else
+-        {
+-            RETURN_IF_FAILED(_EndUnderline());
+-        }
+-        _usingUnderLine = textUnderlined;
+-    }
+-    return S_OK;
+-}
+-
+ // Routine Description:
+ // - Write a VT sequence to change the current colors of text. Only writes
+ //      16-color attributes.
+ // Arguments:
+-// - colorForeground: The RGB Color to use to paint the foreground text.
+-// - colorBackground: The RGB Color to use to paint the background of the text.
+-// - legacyColorAttribute: A console attributes bit field specifying the brush
+-//      colors we should use.
+-// - extendedAttrs - extended text attributes (italic, underline, etc.) to use.
++// - textAttributes - Text attributes to use for the colors and character rendition
++// - pData - The interface to console data structures required for rendering
+ // - isSettingDefaultBrushes: indicates if we should change the background color of
+ //      the window. Unused for VT
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT XtermEngine::UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                        const COLORREF colorBackground,
+-                                                        const WORD legacyColorAttribute,
+-                                                        const ExtendedAttributes extendedAttrs,
++[[nodiscard]] HRESULT XtermEngine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                        const gsl::not_null<IRenderData*> /*pData*/,
+                                                         const bool /*isSettingDefaultBrushes*/) noexcept
+ {
+-    //When we update the brushes, check the wAttrs to see if the LVB_UNDERSCORE
+-    //      flag is there. If the state of that flag is different then our
+-    //      current state, change the underlining state.
+-    // We have to do this here, instead of in PaintBufferGridLines, because
+-    //      we'll have already painted the text by the time PaintBufferGridLines
+-    //      is called.
+-    // TODO:GH#2915 Treat underline separately from LVB_UNDERSCORE
+-    RETURN_IF_FAILED(_UpdateUnderline(legacyColorAttribute));
+     // The base xterm mode only knows about 16 colors
+-    return VtEngine::_16ColorUpdateDrawingBrushes(colorForeground,
+-                                                  colorBackground,
+-                                                  WI_IsFlagSet(extendedAttrs, ExtendedAttributes::Bold),
+-                                                  _colorTable);
++    RETURN_IF_FAILED(VtEngine::_16ColorUpdateDrawingBrushes(textAttributes));
++
++    // And the only supported meta attributes are reverse video and underline
++    if (textAttributes.IsReverseVideo() != _lastTextAttributes.IsReverseVideo())
++    {
++        RETURN_IF_FAILED(_SetReverseVideo(textAttributes.IsReverseVideo()));
++        _lastTextAttributes.SetReverseVideo(textAttributes.IsReverseVideo());
++    }
++    if (textAttributes.IsUnderlined() != _lastTextAttributes.IsUnderlined())
++    {
++        RETURN_IF_FAILED(_SetUnderline(textAttributes.IsUnderlined()));
++        _lastTextAttributes.SetUnderline(textAttributes.IsUnderlined());
++    }
++
++    return S_OK;
+ }
+ 
+ // Routine Description:
+@@ -479,7 +448,7 @@ try
+     // important information to send to the connected Terminal.
+     if (_newBottomLine)
+     {
+-        _newBottomLineBG = _LastBG;
++        _newBottomLineBG = _lastTextAttributes.GetBackground();
+     }
+ 
+     return S_OK;
+diff --git a/src/renderer/vt/XtermEngine.hpp b/src/renderer/vt/XtermEngine.hpp
+index cf5249ab..cfcbbaef 100644
+--- a/src/renderer/vt/XtermEngine.hpp
++++ b/src/renderer/vt/XtermEngine.hpp
+@@ -28,9 +28,7 @@ namespace Microsoft::Console::Render
+     {
+     public:
+         XtermEngine(_In_ wil::unique_hfile hPipe,
+-                    const Microsoft::Console::IDefaultColorProvider& colorProvider,
+                     const Microsoft::Console::Types::Viewport initialViewport,
+-                    const std::basic_string_view<COLORREF> colorTable,
+                     const bool fUseAsciiOnly);
+ 
+         virtual ~XtermEngine() override = default;
+@@ -40,10 +38,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                           const COLORREF colorBackground,
+-                                                           const WORD legacyColorAttribute,
+-                                                           const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                           const gsl::not_null<IRenderData*> pData,
+                                                            const bool isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT PaintBufferLine(std::basic_string_view<Cluster> const clusters,
+                                               const COORD coord,
+@@ -56,17 +52,13 @@ namespace Microsoft::Console::Render
+         [[nodiscard]] HRESULT WriteTerminalW(const std::wstring_view str) noexcept override;
+ 
+     protected:
+-        const std::basic_string_view<COLORREF> _colorTable;
+         const bool _fUseAsciiOnly;
+-        bool _usingUnderLine;
+         bool _needToDisableCursor;
+         bool _lastCursorIsVisible;
+         bool _nextCursorIsVisible;
+ 
+         [[nodiscard]] HRESULT _MoveCursor(const COORD coord) noexcept override;
+ 
+-        [[nodiscard]] HRESULT _UpdateUnderline(const WORD wLegacyAttrs) noexcept;
+-
+         [[nodiscard]] HRESULT _DoUpdateTitle(const std::wstring& newTitle) noexcept override;
+ 
+ #ifdef UNIT_TESTING
+diff --git a/src/renderer/vt/paint.cpp b/src/renderer/vt/paint.cpp
+index b4abab75..0a4fa558 100644
+--- a/src/renderer/vt/paint.cpp
++++ b/src/renderer/vt/paint.cpp
+@@ -185,79 +185,66 @@ using namespace Microsoft::Console::Types;
+ // - Write a VT sequence to change the current colors of text. Writes true RGB
+ //      color sequences.
+ // Arguments:
+-// - colorForeground: The RGB Color to use to paint the foreground text.
+-// - colorBackground: The RGB Color to use to paint the background of the text.
++// - textAttributes: Text attributes to use for the colors.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_RgbUpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                         const COLORREF colorBackground,
+-                                                         const bool isBold,
+-                                                         const std::basic_string_view<COLORREF> colorTable) noexcept
++[[nodiscard]] HRESULT VtEngine::_RgbUpdateDrawingBrushes(const TextAttribute& textAttributes) noexcept
+ {
+-    const bool fgChanged = colorForeground != _LastFG;
+-    const bool bgChanged = colorBackground != _LastBG;
+-    const bool fgIsDefault = colorForeground == _colorProvider.GetDefaultForeground();
+-    const bool bgIsDefault = colorBackground == _colorProvider.GetDefaultBackground();
++    const auto fg = textAttributes.GetForeground();
++    const auto bg = textAttributes.GetBackground();
++    auto lastFg = _lastTextAttributes.GetForeground();
++    auto lastBg = _lastTextAttributes.GetBackground();
+ 
+     // If both the FG and BG should be the defaults, emit a SGR reset.
+-    if ((fgChanged || bgChanged) && fgIsDefault && bgIsDefault)
++    if (fg.IsDefault() && bg.IsDefault() && !(lastFg.IsDefault() && lastBg.IsDefault()))
+     {
+-        // SGR Reset will also clear out the boldness of the text.
++        // SGR Reset will clear all attributes.
+         RETURN_IF_FAILED(_SetGraphicsDefault());
+-        _LastFG = colorForeground;
+-        _LastBG = colorBackground;
+-        _lastWasBold = false;
++        _lastTextAttributes = {};
++        lastFg = {};
++        lastBg = {};
++    }
+ 
+-        // I'm not sure this is possible currently, but if the text is bold, but
+-        //      default colors, make sure we bold it.
+-        if (isBold)
++    if (fg != lastFg)
++    {
++        if (fg.IsDefault())
++        {
++            RETURN_IF_FAILED(_SetGraphicsRenditionDefaultColor(true));
++        }
++        else if (fg.IsIndex16())
++        {
++            RETURN_IF_FAILED(_SetGraphicsRendition16Color(fg.GetIndex(), true));
++        }
++        else if (fg.IsIndex256())
++        {
++            RETURN_IF_FAILED(_SetGraphicsRendition256Color(fg.GetIndex(), true));
++        }
++        else if (fg.IsRgb())
+         {
+-            RETURN_IF_FAILED(_SetGraphicsBoldness(isBold));
+-            _lastWasBold = isBold;
++            RETURN_IF_FAILED(_SetGraphicsRenditionRGBColor(fg.GetRGB(), true));
+         }
++        _lastTextAttributes.SetForeground(fg);
+     }
+-    else
++
++    if (bg != lastBg)
+     {
+-        if (_lastWasBold != isBold)
++        if (bg.IsDefault())
+         {
+-            RETURN_IF_FAILED(_SetGraphicsBoldness(isBold));
+-            _lastWasBold = isBold;
++            RETURN_IF_FAILED(_SetGraphicsRenditionDefaultColor(false));
+         }
+-
+-        WORD wFoundColor = 0;
+-        if (fgChanged)
++        else if (bg.IsIndex16())
+         {
+-            if (fgIsDefault)
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRenditionDefaultColor(true));
+-            }
+-            else if (::FindTableIndex(colorForeground, colorTable, &wFoundColor))
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRendition16Color(wFoundColor, true));
+-            }
+-            else
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRenditionRGBColor(colorForeground, true));
+-            }
+-            _LastFG = colorForeground;
++            RETURN_IF_FAILED(_SetGraphicsRendition16Color(bg.GetIndex(), false));
+         }
+-
+-        if (bgChanged)
++        else if (bg.IsIndex256())
+         {
+-            if (bgIsDefault)
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRenditionDefaultColor(false));
+-            }
+-            else if (::FindTableIndex(colorBackground, colorTable, &wFoundColor))
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRendition16Color(wFoundColor, false));
+-            }
+-            else
+-            {
+-                RETURN_IF_FAILED(_SetGraphicsRenditionRGBColor(colorBackground, false));
+-            }
+-            _LastBG = colorBackground;
++            RETURN_IF_FAILED(_SetGraphicsRendition256Color(bg.GetIndex(), false));
+         }
++        else if (bg.IsRgb())
++        {
++            RETURN_IF_FAILED(_SetGraphicsRenditionRGBColor(bg.GetRGB(), false));
++        }
++        _lastTextAttributes.SetBackground(bg);
+     }
+ 
+     return S_OK;
+@@ -265,64 +252,62 @@ using namespace Microsoft::Console::Types;
+ 
+ // Routine Description:
+ // - Write a VT sequence to change the current colors of text. It will try to
+-//      find the colors in the color table that are nearest to the input colors,
+-//       and write those indices to the pipe.
++//      find ANSI colors that are nearest to the input colors, and write those
++//      indices to the pipe.
+ // Arguments:
+-// - colorForeground: The RGB Color to use to paint the foreground text.
+-// - colorBackground: The RGB Color to use to paint the background of the text.
+-// - ColorTable: An array of colors to find the closest match to.
+-// - cColorTable: size of the color table.
++// - textAttributes: Text attributes to use for the colors.
+ // Return Value:
+ // - S_OK if we succeeded, else an appropriate HRESULT for failing to allocate or write.
+-[[nodiscard]] HRESULT VtEngine::_16ColorUpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                             const COLORREF colorBackground,
+-                                                             const bool isBold,
+-                                                             const std::basic_string_view<COLORREF> colorTable) noexcept
++[[nodiscard]] HRESULT VtEngine::_16ColorUpdateDrawingBrushes(const TextAttribute& textAttributes) noexcept
+ {
+-    const bool fgChanged = colorForeground != _LastFG;
+-    const bool bgChanged = colorBackground != _LastBG;
+-    const bool fgIsDefault = colorForeground == _colorProvider.GetDefaultForeground();
+-    const bool bgIsDefault = colorBackground == _colorProvider.GetDefaultBackground();
+-
+-    // If both the FG and BG should be the defaults, emit a SGR reset.
+-    if ((fgChanged || bgChanged) && fgIsDefault && bgIsDefault)
++    const auto fg = textAttributes.GetForeground();
++    const auto bg = textAttributes.GetBackground();
++    auto lastFg = _lastTextAttributes.GetForeground();
++    auto lastBg = _lastTextAttributes.GetBackground();
++
++    // If either FG or BG have changed to default, emit a SGR reset.
++    // We can't reset FG and BG to default individually.
++    if ((fg.IsDefault() && !lastFg.IsDefault()) || (bg.IsDefault() && !lastBg.IsDefault()))
+     {
+-        // SGR Reset will also clear out the boldness of the text.
++        // SGR Reset will clear all attributes.
+         RETURN_IF_FAILED(_SetGraphicsDefault());
+-        _LastFG = colorForeground;
+-        _LastBG = colorBackground;
+-        _lastWasBold = false;
+-        // I'm not sure this is possible currently, but if the text is bold, but
+-        //      default colors, make sure we bold it.
+-        if (isBold)
+-        {
+-            RETURN_IF_FAILED(_SetGraphicsBoldness(isBold));
+-            _lastWasBold = isBold;
+-        }
++        _lastTextAttributes = {};
++        lastFg = {};
++        lastBg = {};
+     }
+-    else
++
++    // We use the legacy color calculations to generate an approximation of the
++    // colors in the 16-color table.
++    auto fgIndex = fg.GetLegacyIndex(0);
++    auto bgIndex = bg.GetLegacyIndex(0);
++
++    // If the bold attribute is set, and the foreground can be brightened, then do so.
++    const bool brighten = textAttributes.IsBold() && fg.CanBeBrightened();
++    fgIndex |= (brighten ? FOREGROUND_INTENSITY : 0);
++
++    // To actually render bright colors, though, we need to use SGR bold.
++    const auto needBold = fgIndex > 7;
++    if (needBold != _lastTextAttributes.IsBold())
+     {
+-        if (_lastWasBold != isBold)
+-        {
+-            RETURN_IF_FAILED(_SetGraphicsBoldness(isBold));
+-            _lastWasBold = isBold;
+-        }
++        RETURN_IF_FAILED(_SetBold(needBold));
++        _lastTextAttributes.SetBold(needBold);
++    }
+ 
+-        if (fgChanged)
+-        {
+-            const WORD wNearestFg = ::FindNearestTableIndex(colorForeground, colorTable);
+-            RETURN_IF_FAILED(_SetGraphicsRendition16Color(wNearestFg, true));
++    // After which we drop the high bits, since only colors 0 to 7 are supported.
+ 
+-            _LastFG = colorForeground;
+-        }
++    fgIndex &= 7;
++    bgIndex &= 7;
+ 
+-        if (bgChanged)
+-        {
+-            const WORD wNearestBg = ::FindNearestTableIndex(colorBackground, colorTable);
+-            RETURN_IF_FAILED(_SetGraphicsRendition16Color(wNearestBg, false));
++    if (!fg.IsDefault() && (lastFg.IsDefault() || fgIndex != lastFg.GetIndex()))
++    {
++        RETURN_IF_FAILED(_SetGraphicsRendition16Color(fgIndex, true));
++        _lastTextAttributes.SetIndexedForeground(fgIndex);
++    }
+ 
+-            _LastBG = colorBackground;
+-        }
++    if (!bg.IsDefault() && (lastBg.IsDefault() || bgIndex != lastBg.GetIndex()))
++    {
++        RETURN_IF_FAILED(_SetGraphicsRendition16Color(bgIndex, false));
++        _lastTextAttributes.SetIndexedBackground(bgIndex);
+     }
+ 
+     return S_OK;
+@@ -447,7 +432,7 @@ using namespace Microsoft::Console::Types;
+     // than when we emitted the line, we can't optimize out the spaces from it.
+     // We'll still need to emit those spaces, so that the connected terminal
+     // will have the same background color on those blank cells.
+-    const bool bgMatched = _newBottomLineBG.has_value() ? (_newBottomLineBG.value() == _LastBG) : true;
++    const bool bgMatched = _newBottomLineBG.has_value() ? (_newBottomLineBG.value() == _lastTextAttributes.GetBackground()) : true;
+ 
+     // If we're not using erase char, but we did erase all at the start of the
+     // frame, don't add spaces at the end.
+diff --git a/src/renderer/vt/state.cpp b/src/renderer/vt/state.cpp
+index a950bf99..432779c0 100644
+--- a/src/renderer/vt/state.cpp
++++ b/src/renderer/vt/state.cpp
+@@ -26,14 +26,10 @@ const COORD VtEngine::INVALID_COORDS = { -1, -1 };
+ // Return Value:
+ // - An instance of a Renderer.
+ VtEngine::VtEngine(_In_ wil::unique_hfile pipe,
+-                   const IDefaultColorProvider& colorProvider,
+                    const Viewport initialViewport) :
+     RenderEngineBase(),
+     _hFile(std::move(pipe)),
+-    _colorProvider(colorProvider),
+-    _LastFG(INVALID_COLOR),
+-    _LastBG(INVALID_COLOR),
+-    _lastWasBold(false),
++    _lastTextAttributes(INVALID_COLOR, INVALID_COLOR),
+     _lastViewport(initialViewport),
+     _invalidMap(initialViewport.Dimensions()),
+     _lastText({ 0 }),
+diff --git a/src/renderer/vt/vtrenderer.hpp b/src/renderer/vt/vtrenderer.hpp
+index 613c2048..0e7db13f 100644
+--- a/src/renderer/vt/vtrenderer.hpp
++++ b/src/renderer/vt/vtrenderer.hpp
+@@ -16,7 +16,6 @@ Author(s):
+ #pragma once
+ 
+ #include "../inc/RenderEngineBase.hpp"
+-#include "../../inc/IDefaultColorProvider.hpp"
+ #include "../../inc/ITerminalOutputConnection.hpp"
+ #include "../../inc/ITerminalOwner.hpp"
+ #include "../../types/inc/Viewport.hpp"
+@@ -42,7 +41,6 @@ namespace Microsoft::Console::Render
+         static const COORD INVALID_COORDS;
+ 
+         VtEngine(_In_ wil::unique_hfile hPipe,
+-                 const Microsoft::Console::IDefaultColorProvider& colorProvider,
+                  const Microsoft::Console::Types::Viewport initialViewport);
+ 
+         virtual ~VtEngine() override = default;
+@@ -75,10 +73,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] virtual HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                           const COLORREF colorBackground,
+-                                                           const WORD legacyColorAttribute,
+-                                                           const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                           const gsl::not_null<IRenderData*> pData,
+                                                            const bool isSettingDefaultBrushes) noexcept = 0;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& pfiFontInfoDesired,
+                                          _Out_ FontInfo& pfiFontInfo) noexcept override;
+@@ -118,11 +114,7 @@ namespace Microsoft::Console::Render
+ 
+         std::string _formatBuffer;
+ 
+-        const Microsoft::Console::IDefaultColorProvider& _colorProvider;
+-
+-        COLORREF _LastFG;
+-        COLORREF _LastBG;
+-        bool _lastWasBold;
++        TextAttribute _lastTextAttributes;
+ 
+         Microsoft::Console::Types::Viewport _lastViewport;
+ 
+@@ -157,7 +149,7 @@ namespace Microsoft::Console::Render
+         bool _delayedEolWrap{ false };
+ 
+         bool _resizeQuirk{ false };
+-        std::optional<COLORREF> _newBottomLineBG{ std::nullopt };
++        std::optional<TextColor> _newBottomLineBG{ std::nullopt };
+ 
+         [[nodiscard]] HRESULT _Write(std::string_view const str) noexcept;
+         [[nodiscard]] HRESULT _WriteFormattedString(const std::string* const pFormat, ...) noexcept;
+@@ -183,44 +175,31 @@ namespace Microsoft::Console::Render
+         [[nodiscard]] HRESULT _ChangeTitle(const std::string& title) noexcept;
+         [[nodiscard]] HRESULT _SetGraphicsRendition16Color(const WORD wAttr,
+                                                            const bool fIsForeground) noexcept;
++        [[nodiscard]] HRESULT _SetGraphicsRendition256Color(const WORD index,
++                                                            const bool fIsForeground) noexcept;
+         [[nodiscard]] HRESULT _SetGraphicsRenditionRGBColor(const COLORREF color,
+                                                             const bool fIsForeground) noexcept;
+         [[nodiscard]] HRESULT _SetGraphicsRenditionDefaultColor(const bool fIsForeground) noexcept;
+ 
+-        [[nodiscard]] HRESULT _SetGraphicsBoldness(const bool isBold) noexcept;
+-
+         [[nodiscard]] HRESULT _SetGraphicsDefault() noexcept;
+ 
+         [[nodiscard]] HRESULT _ResizeWindow(const short sWidth, const short sHeight) noexcept;
+ 
+-        [[nodiscard]] HRESULT _BeginUnderline() noexcept;
+-        [[nodiscard]] HRESULT _EndUnderline() noexcept;
+-
+-        [[nodiscard]] HRESULT _BeginItalics() noexcept;
+-        [[nodiscard]] HRESULT _EndItalics() noexcept;
+-
+-        [[nodiscard]] HRESULT _BeginBlink() noexcept;
+-        [[nodiscard]] HRESULT _EndBlink() noexcept;
+-
+-        [[nodiscard]] HRESULT _BeginInvisible() noexcept;
+-        [[nodiscard]] HRESULT _EndInvisible() noexcept;
+-
+-        [[nodiscard]] HRESULT _BeginCrossedOut() noexcept;
+-        [[nodiscard]] HRESULT _EndCrossedOut() noexcept;
++        [[nodiscard]] HRESULT _SetBold(const bool isBold) noexcept;
++        [[nodiscard]] HRESULT _SetUnderline(const bool isUnderlined) noexcept;
++        [[nodiscard]] HRESULT _SetItalics(const bool isItalic) noexcept;
++        [[nodiscard]] HRESULT _SetBlinking(const bool isBlinking) noexcept;
++        [[nodiscard]] HRESULT _SetInvisible(const bool isInvisible) noexcept;
++        [[nodiscard]] HRESULT _SetCrossedOut(const bool isCrossedOut) noexcept;
++        [[nodiscard]] HRESULT _SetReverseVideo(const bool isReversed) noexcept;
+ 
+         [[nodiscard]] HRESULT _RequestCursor() noexcept;
+ 
+         [[nodiscard]] HRESULT _RequestWin32Input() noexcept;
+ 
+         [[nodiscard]] virtual HRESULT _MoveCursor(const COORD coord) noexcept = 0;
+-        [[nodiscard]] HRESULT _RgbUpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                       const COLORREF colorBackground,
+-                                                       const bool isBold,
+-                                                       const std::basic_string_view<COLORREF> colorTable) noexcept;
+-        [[nodiscard]] HRESULT _16ColorUpdateDrawingBrushes(const COLORREF colorForeground,
+-                                                           const COLORREF colorBackground,
+-                                                           const bool isBold,
+-                                                           const std::basic_string_view<COLORREF> colorTable) noexcept;
++        [[nodiscard]] HRESULT _RgbUpdateDrawingBrushes(const TextAttribute& textAttributes) noexcept;
++        [[nodiscard]] HRESULT _16ColorUpdateDrawingBrushes(const TextAttribute& textAttributes) noexcept;
+ 
+         bool _WillWriteSingleChar() const;
+ 
+diff --git a/src/renderer/wddmcon/WddmConRenderer.cpp b/src/renderer/wddmcon/WddmConRenderer.cpp
+index d2d18905..77409bb6 100644
+--- a/src/renderer/wddmcon/WddmConRenderer.cpp
++++ b/src/renderer/wddmcon/WddmConRenderer.cpp
+@@ -305,13 +305,11 @@ bool WddmConEngine::IsInitialized()
+     return S_OK;
+ }
+ 
+-[[nodiscard]] HRESULT WddmConEngine::UpdateDrawingBrushes(COLORREF const /*colorForeground*/,
+-                                                          COLORREF const /*colorBackground*/,
+-                                                          const WORD legacyColorAttribute,
+-                                                          const ExtendedAttributes /*extendedAttrs*/,
++[[nodiscard]] HRESULT WddmConEngine::UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                          const gsl::not_null<IRenderData*> /*pData*/,
+                                                           bool const /*isSettingDefaultBrushes*/) noexcept
+ {
+-    _currentLegacyColorAttribute = legacyColorAttribute;
++    _currentLegacyColorAttribute = textAttributes.GetLegacyAttributes();
+ 
+     return S_OK;
+ }
+diff --git a/src/renderer/wddmcon/WddmConRenderer.hpp b/src/renderer/wddmcon/WddmConRenderer.hpp
+index ad137131..e4acac3f 100644
+--- a/src/renderer/wddmcon/WddmConRenderer.hpp
++++ b/src/renderer/wddmcon/WddmConRenderer.hpp
+@@ -50,10 +50,8 @@ namespace Microsoft::Console::Render
+ 
+         [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+ 
+-        [[nodiscard]] HRESULT UpdateDrawingBrushes(COLORREF const colorForeground,
+-                                                   COLORREF const colorBackground,
+-                                                   const WORD legacyColorAttribute,
+-                                                   const ExtendedAttributes extendedAttrs,
++        [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
++                                                   const gsl::not_null<IRenderData*> pData,
+                                                    bool const isSettingDefaultBrushes) noexcept override;
+         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& fiFontInfoDesired, FontInfo& fiFontInfo) noexcept override;
+         [[nodiscard]] HRESULT UpdateDpi(int const iDpi) noexcept override;

@@ -1,0 +1,715 @@
+commit a12a3054c9c5dded034ee72faac20e578b5503af
+Author: Brian Clozel <bclozel@vmware.com>
+Date:   Fri May 22 18:35:08 2020 +0200
+
+    Optimize UrlPathHelper configuration for Spring MVC
+    
+    Prior to this commit, Spring Boot would auto-configure Spring MVC and
+    would keep the default `UrlPathHelper` configuration.
+    Since Spring Boot is in charge of configuring the `DispatcherServlet`
+    and its mapping, it is in a position to optimally configure the
+    `UrlPathHelper` depending on the chosen mapping.
+    
+    This commit sets the `alwaysUseFullPath` property of `UrlPathHelper` if
+    the Servlet mapping is `"/"`. This is more efficient since this
+    configuration requires less processing of the request path.
+    
+    Closes gh-21499
+
+commit ab72237b1b707355c8678dc8b2ef644964131c60
+Merge: 37575d78bf ddb5cc3f99
+Author: Stephane Nicoll <snicoll@pivotal.io>
+Date:   Fri Feb 7 14:28:42 2020 +0100
+
+    Merge pull request #19002 from medamines1
+    
+    * pr/19002:
+      Polish "Make Kubernetes detection slightly more efficient"
+      Make Kubernetes detection slightly more efficient
+    
+    Closes gh-19002
+
+commit ddb5cc3f9988bf7540de1a722f3022d865fa931d
+Author: Stephane Nicoll <snicoll@pivotal.io>
+Date:   Fri Feb 7 14:17:56 2020 +0100
+
+    Polish "Make Kubernetes detection slightly more efficient"
+    
+    See gh-19002
+
+commit aee22bfb5120249640c6a5eadc3cc8687c567d01
+Author: med-amine.dahmen <m_amine22@outlook.com>
+Date:   Wed Dec 11 15:38:43 2019 +0100
+
+    Make Kubernetes detection slightly more efficient
+    
+    See gh-19002
+
+commit 5b2de5c81dc1cc3ab4e8c21ae615bc4d19567347
+Author: Brian Clozel <bclozel@pivotal.io>
+Date:   Fri Jun 7 00:14:01 2019 +0200
+
+    Configure PathPattern for RSocket routing
+    
+    This commit configures a `PathPatternRouteMatcher` in the RSocket
+    support if spring-web is on the classpath. This `RouteMatcher`
+    implementation is more efficient than the `SimpleRouteMatcher`, which is
+    based on the `AntPathMatcher`.
+    
+    Closes gh-16865
+
+commit 93ef7951593145800e66e6b7f15769686dc823a5
+Author: Andy Wilkinson <awilkinson@pivotal.io>
+Date:   Fri Jan 15 16:58:21 2016 +0000
+
+    More use entrySet() rather than using keySet() and get(key)
+    
+    This commit replaces some more occurrances of keySet() and get(key)
+    with more efficient usage of the map's entry set.
+    
+    See gh-4813
+
+commit 53a61474aaf1ab8617cc3e6cef43e87f2599621c
+Author: Dave Syer <dsyer@pivotal.io>
+Date:   Mon Mar 30 10:39:41 2015 +0100
+
+    Add counter and gauge services based on in-memory buffers
+    
+    This seems pretty efficient (approx 12M write/s as opposed to 2M with
+    the DefaultCounterService). N.B. there is no need to change most of
+    the rest of the metrics stuff because metrics are write-often, read-
+    seldom, so we don't need high performance reads as much.
+    
+    The Spring Integration configuration and Dropwizard support has changed
+    a bit. Functionally very similar and probably opaque to users, but now
+    the messaging operates as an Exporter on a @Scheduled method, and
+    Dropwizard is a replacement [Gauge,Counter]Service.
+    
+    Metrics are all
+    collected live in-memory (and can be very fast with Java 8), buffered
+    there and shipped out to a MessageChannel (if one exists with id
+    "metricsChannel") in a background thread.
+    
+    We can still use Java 8 library APIs (like LongAdder) but to compile
+    to java 7 compatible byte code we have to forgo the use of lambdas :-(
+    and shorthand generics (<>).
+    
+    Fixes gh-2682, fixes gh-2513 (for Java 8 and Dropwizard users).
+
+commit bd577f15152f5a25271375ae7eb3d7097fb3a9ee
+Author: Andy Wilkinson <awilkinson@gopivotal.com>
+Date:   Mon Jul 28 14:38:11 2014 +0100
+
+    Rework Jetty startup so connectors are only started once
+    
+    Previously the server was started to make the ServletContext
+    available, then, to prevent requests from being handled before the
+    application context had been started, the connectors were stopped.
+    Once application context startup had completed, the connectors were
+    then started again. In addition to being somewhat inefficient, this
+    caused problems on FreeBSD where stopping the connector didn't free
+    up the port quickly enough for the subsequent start to then be able
+    to bind to it.
+    
+    This commit updates the Jetty startup logic to be closer to the logic
+    that's used for Tomcat. Before the server is started, the configured
+    connectors are cached and then removed. The server is then started
+    without any connectors. Once application context startup has
+    completed, the connectors are reinstated and started.
+    
+    Fixes #968
+commit 288889685daaae3feab50c8ad8cedaf01b183a9b
+Author: Scott Frederick <sfrederick@pivotal.io>
+Date:   Tue Jan 21 18:06:27 2020 -0600
+
+    Change default BootstrapMode for JPA repositories
+    
+    Change the default `BootstrapMode` for auto-configured `JpaRepositories`
+    to `BootstrapMode.DEFERRED` to allow the initialization of
+    `EntityManagerFactory` to be parallelized for increased startup efficiency.
+    
+    Prior to this change, the default BootstrapMode for all auto-configured
+    Spring Data repositories was `BootstrapMode.DEFAULT`.
+    
+    Closes gh-16230
+
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfiguration.java b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfiguration.java
+index f5f345bfa0..69accee93f 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfiguration.java
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfiguration.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -56,6 +56,7 @@ import org.springframework.data.jpa.repository.support.JpaRepositoryFactoryBean;
+  *
+  * @author Phillip Webb
+  * @author Josh Long
++ * @author Scott Frederick
+  * @since 1.0.0
+  * @see EnableJpaRepositories
+  */
+@@ -95,7 +96,7 @@ public class JpaRepositoriesAutoConfiguration {
+ 		}
+ 
+ 		@ConditionalOnProperty(prefix = "spring.data.jpa.repositories", name = "bootstrap-mode",
+-				havingValue = "deferred", matchIfMissing = false)
++				havingValue = "deferred", matchIfMissing = true)
+ 		static class DeferredBootstrapMode {
+ 
+ 		}
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesRegistrar.java b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesRegistrar.java
+index ddc5919ec6..008250a392 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesRegistrar.java
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesRegistrar.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -34,6 +34,7 @@ import org.springframework.util.StringUtils;
+  *
+  * @author Phillip Webb
+  * @author Dave Syer
++ * @author Scott Frederick
+  */
+ class JpaRepositoriesRegistrar extends AbstractRepositoryConfigurationSourceSupport {
+ 
+@@ -56,7 +57,7 @@ class JpaRepositoriesRegistrar extends AbstractRepositoryConfigurationSourceSupp
+ 
+ 	@Override
+ 	protected BootstrapMode getBootstrapMode() {
+-		return (this.bootstrapMode == null) ? super.getBootstrapMode() : this.bootstrapMode;
++		return (this.bootstrapMode == null) ? BootstrapMode.DEFERRED : this.bootstrapMode;
+ 	}
+ 
+ 	@Override
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfigurationTests.java b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfigurationTests.java
+index 6310e6294b..31f90d9404 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfigurationTests.java
++++ b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfigurationTests.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -51,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
+  *
+  * @author Dave Syer
+  * @author Oliver Gierke
++ * @author Scott Frederick
+  */
+ class JpaRepositoriesAutoConfigurationTests {
+ 
+@@ -85,7 +86,7 @@ class JpaRepositoriesAutoConfigurationTests {
+ 	}
+ 
+ 	@Test
+-	void whenBootstrappingModeIsLazyWithMultipleAsyncExecutorBootstrapExecutorIsConfigured() {
++	void whenBootstrapModeIsLazyWithMultipleAsyncExecutorBootstrapExecutorIsConfigured() {
+ 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
+ 				.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class,
+ 						TaskSchedulingAutoConfiguration.class))
+@@ -96,7 +97,7 @@ class JpaRepositoriesAutoConfigurationTests {
+ 	}
+ 
+ 	@Test
+-	void whenBootstrappingModeIsLazyWithSingleAsyncExecutorBootstrapExecutorIsConfigured() {
++	void whenBootstrapModeIsLazyWithSingleAsyncExecutorBootstrapExecutorIsConfigured() {
+ 		this.contextRunner.withUserConfiguration(SingleAsyncTaskExecutorConfiguration.class)
+ 				.withPropertyValues("spring.data.jpa.repositories.bootstrap-mode=lazy")
+ 				.run((context) -> assertThat(
+@@ -105,7 +106,7 @@ class JpaRepositoriesAutoConfigurationTests {
+ 	}
+ 
+ 	@Test
+-	void whenBootstrappingModeIsDeferredBootstrapExecutorIsConfigured() {
++	void whenBootstrapModeIsDeferredBootstrapExecutorIsConfigured() {
+ 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
+ 				.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class,
+ 						TaskSchedulingAutoConfiguration.class))
+@@ -116,7 +117,7 @@ class JpaRepositoriesAutoConfigurationTests {
+ 	}
+ 
+ 	@Test
+-	void whenBootstrappingModeIsDefaultBootstrapExecutorIsNotConfigured() {
++	void whenBootstrapModeIsDefaultBootstrapExecutorIsNotConfigured() {
+ 		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
+ 				.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class,
+ 						TaskSchedulingAutoConfiguration.class))
+@@ -124,6 +125,16 @@ class JpaRepositoriesAutoConfigurationTests {
+ 						context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor()).isNull());
+ 	}
+ 
++	@Test
++	void bootstrapModeIsDeferredByDefault() {
++		this.contextRunner.withUserConfiguration(MultipleAsyncTaskExecutorConfiguration.class)
++				.withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class,
++						TaskSchedulingAutoConfiguration.class))
++				.run((context) -> assertThat(
++						context.getBean(LocalContainerEntityManagerFactoryBean.class).getBootstrapExecutor())
++								.isEqualTo(context.getBean("applicationTaskExecutor")));
++	}
++
+ 	@Configuration(proxyBeanMethods = false)
+ 	@EnableScheduling
+ 	@Import(TestConfiguration.class)
+diff --git a/spring-boot-project/spring-boot-test-autoconfigure/src/main/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTest.java b/spring-boot-project/spring-boot-test-autoconfigure/src/main/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTest.java
+index 7534c4fc5e..1a9fef2c46 100644
+--- a/spring-boot-project/spring-boot-test-autoconfigure/src/main/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTest.java
++++ b/spring-boot-project/spring-boot-test-autoconfigure/src/main/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTest.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -36,6 +36,7 @@ import org.springframework.boot.test.context.SpringBootTest;
+ import org.springframework.context.annotation.ComponentScan.Filter;
+ import org.springframework.core.annotation.AliasFor;
+ import org.springframework.core.env.Environment;
++import org.springframework.data.repository.config.BootstrapMode;
+ import org.springframework.test.context.BootstrapWith;
+ import org.springframework.test.context.junit.jupiter.SpringExtension;
+ import org.springframework.transaction.annotation.Transactional;
+@@ -62,6 +63,7 @@ import org.springframework.transaction.annotation.Transactional;
+  *
+  * @author Phillip Webb
+  * @author Artsiom Yudovin
++ * @author Scott Frederick
+  * @since 1.4.0
+  * @see AutoConfigureDataJpa
+  * @see AutoConfigureTestDatabase
+@@ -99,6 +101,14 @@ public @interface DataJpaTest {
+ 	@PropertyMapping("spring.jpa.show-sql")
+ 	boolean showSql() default true;
+ 
++	/**
++	 * The {@link BootstrapMode} for the test repository support. Defaults to
++	 * {@link BootstrapMode#LAZY}.
++	 * @return the {@link BootstrapMode} to use for test the repository
++	 */
++	@PropertyMapping("spring.data.jpa.repositories.bootstrap-mode")
++	BootstrapMode bootstrapMode() default BootstrapMode.LAZY;
++
+ 	/**
+ 	 * Determines if default filtering should be used with
+ 	 * {@link SpringBootApplication @SpringBootApplication}. By default no beans are
+diff --git a/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestPropertiesIntegrationTests.java b/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestAttributesIntegrationTests.java
+similarity index 66%
+rename from spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestPropertiesIntegrationTests.java
+rename to spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestAttributesIntegrationTests.java
+index da8567836f..92ccce3c95 100644
+--- a/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestPropertiesIntegrationTests.java
++++ b/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestAttributesIntegrationTests.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -20,17 +20,18 @@ import org.junit.jupiter.api.Test;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.core.env.Environment;
++import org.springframework.data.repository.config.BootstrapMode;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ 
+ /**
+- * Tests for the {@link DataJpaTest#properties properties} attribute of
+- * {@link DataJpaTest @DataJpaTest}.
++ * Tests for non-default attributes of {@link DataJpaTest @DataJpaTest}.
+  *
+  * @author Artsiom Yudovin
++ * @author Scott Frederick
+  */
+-@DataJpaTest(properties = "spring.profiles.active=test")
+-class DataJpaTestPropertiesIntegrationTests {
++@DataJpaTest(properties = "spring.profiles.active=test", bootstrapMode = BootstrapMode.DEFERRED)
++class DataJpaTestAttributesIntegrationTests {
+ 
+ 	@Autowired
+ 	private Environment environment;
+@@ -40,4 +41,10 @@ class DataJpaTestPropertiesIntegrationTests {
+ 		assertThat(this.environment.getActiveProfiles()).containsExactly("test");
+ 	}
+ 
++	@Test
++	void bootstrapModeIsSet() {
++		assertThat(this.environment.getProperty("spring.data.jpa.repositories.bootstrap-mode"))
++				.isEqualTo(BootstrapMode.DEFERRED.name());
++	}
++
+ }
+diff --git a/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestIntegrationTests.java b/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestIntegrationTests.java
+index 8324341391..efe3b4aac6 100644
+--- a/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestIntegrationTests.java
++++ b/spring-boot-project/spring-boot-test-autoconfigure/src/test/java/org/springframework/boot/test/autoconfigure/orm/jpa/DataJpaTestIntegrationTests.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2012-2019 the original author or authors.
++ * Copyright 2012-2020 the original author or authors.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+ import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
+ import org.springframework.context.ApplicationContext;
++import org.springframework.data.repository.config.BootstrapMode;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.test.context.TestPropertySource;
+ 
+@@ -37,6 +38,7 @@ import static org.springframework.boot.test.autoconfigure.AutoConfigurationImpor
+  *
+  * @author Phillip Webb
+  * @author Andy Wilkinson
++ * @author Scott Frederick
+  */
+ @DataJpaTest
+ @TestPropertySource(properties = "spring.jpa.hibernate.use-new-id-generator-mappings=false")
+@@ -106,4 +108,10 @@ class DataJpaTestIntegrationTests {
+ 		assertThat(this.applicationContext).has(importedAutoConfiguration(LiquibaseAutoConfiguration.class));
+ 	}
+ 
++	@Test
++	void bootstrapModeIsLazyByDefault() {
++		assertThat(this.applicationContext.getEnvironment().getProperty("spring.data.jpa.repositories.bootstrap-mode"))
++				.isEqualTo(BootstrapMode.LAZY.name());
++	}
++
+ }
+
+commit e2a75942463faac195a90541917067fc95b8d164
+Author: Brian Clozel <bclozel@pivotal.io>
+Date:   Wed Aug 22 19:14:34 2018 +0200
+
+    Configure Reactor HTTP client resources
+    
+    This commit adds support for the new `ReactorResourceFactory` and
+    ensures that such a bean is created and destroyed with the application
+    context. This will create a `ClientHttpConnector` bean, to be configured
+    on the `WebClient.Builder` instance - or let developers create their own
+    `ClientHttpConnector` bean to override that opinion.
+    
+    By default, the `ReactorResourceFactory` is configured to participate
+    with the global resources, for better efficiency.
+    
+    Closes gh-14058
+
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfiguration.java b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfiguration.java
+new file mode 100644
+index 0000000000..828970fd5e
+--- /dev/null
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfiguration.java
+@@ -0,0 +1,53 @@
++/*
++ * Copyright 2012-2018 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.boot.autoconfigure.web.reactive.function.client;
++
++import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
++import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.context.annotation.Import;
++import org.springframework.core.annotation.Order;
++import org.springframework.http.client.reactive.ClientHttpConnector;
++import org.springframework.web.reactive.function.client.WebClient;
++
++/**
++ * {@link EnableAutoConfiguration Auto-configuration} for {@link ClientHttpConnector}.
++ * <p>
++ * It can produce a {@link org.springframework.http.client.reactive.ClientHttpConnector}
++ * bean and possibly a companion {@code ResourceFactory} bean, depending on the chosen
++ * HTTP client library.
++ *
++ * @author Brian Clozel
++ * @since 2.1.0
++ */
++@Configuration
++@ConditionalOnClass(WebClient.class)
++@Import({ ClientHttpConnectorConfiguration.ReactorNetty.class })
++public class ClientHttpConnectorAutoConfiguration {
++
++	@Bean
++	@Order(0)
++	@ConditionalOnBean(ClientHttpConnector.class)
++	public WebClientCustomizer clientConnectorCustomizer(
++			ClientHttpConnector clientHttpConnector) {
++		return (builder) -> builder.clientConnector(clientHttpConnector);
++	}
++
++}
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorConfiguration.java b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorConfiguration.java
+new file mode 100644
+index 0000000000..1997e8b1f7
+--- /dev/null
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorConfiguration.java
+@@ -0,0 +1,62 @@
++/*
++ * Copyright 2012-2018 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.boot.autoconfigure.web.reactive.function.client;
++
++import java.util.function.Function;
++
++import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.http.client.reactive.ClientHttpConnector;
++import org.springframework.http.client.reactive.ReactorClientHttpConnector;
++import org.springframework.http.client.reactive.ReactorResourceFactory;
++
++/**
++ * Configuration classes for WebClient client connectors.
++ * <p>
++ * Those should be {@code @Import} in a regular auto-configuration class to guarantee
++ * their order of execution.
++ *
++ * @author Brian Clozel
++ */
++@Configuration
++class ClientHttpConnectorConfiguration {
++
++	@Configuration
++	@ConditionalOnClass(reactor.netty.http.client.HttpClient.class)
++	@ConditionalOnMissingBean(ClientHttpConnector.class)
++	public static class ReactorNetty {
++
++		@Bean
++		@ConditionalOnMissingBean
++		public ReactorResourceFactory reactorResourceFactory() {
++			ReactorResourceFactory factory = new ReactorResourceFactory();
++			factory.setGlobalResources(false);
++			return factory;
++		}
++
++		@Bean
++		public ReactorClientHttpConnector reactorClientHttpConnector(
++				ReactorResourceFactory reactorResourceFactory) {
++			return new ReactorClientHttpConnector(reactorResourceFactory,
++					Function.identity());
++		}
++
++	}
++
++}
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfiguration.java b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfiguration.java
+index 27da9a5801..f775d40612 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfiguration.java
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfiguration.java
+@@ -49,7 +49,8 @@ import org.springframework.web.reactive.function.client.WebClient;
+  */
+ @Configuration
+ @ConditionalOnClass(WebClient.class)
+-@AutoConfigureAfter(CodecsAutoConfiguration.class)
++@AutoConfigureAfter({ CodecsAutoConfiguration.class,
++		ClientHttpConnectorAutoConfiguration.class })
+ public class WebClientAutoConfiguration {
+ 
+ 	private final WebClient.Builder webClientBuilder;
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/main/resources/META-INF/spring.factories b/spring-boot-project/spring-boot-autoconfigure/src/main/resources/META-INF/spring.factories
+index f12e533f7e..cf88c0a33c 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/main/resources/META-INF/spring.factories
++++ b/spring-boot-project/spring-boot-autoconfigure/src/main/resources/META-INF/spring.factories
+@@ -121,6 +121,7 @@ org.springframework.boot.autoconfigure.web.reactive.HttpHandlerAutoConfiguration
+ org.springframework.boot.autoconfigure.web.reactive.ReactiveWebServerFactoryAutoConfiguration,\
+ org.springframework.boot.autoconfigure.web.reactive.WebFluxAutoConfiguration,\
+ org.springframework.boot.autoconfigure.web.reactive.error.ErrorWebFluxAutoConfiguration,\
++org.springframework.boot.autoconfigure.web.reactive.function.client.ClientHttpConnectorAutoConfiguration,\
+ org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientAutoConfiguration,\
+ org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration,\
+ org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration,\
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfigurationTests.java b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfigurationTests.java
+new file mode 100644
+index 0000000000..844d88b1af
+--- /dev/null
++++ b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/ClientHttpConnectorAutoConfigurationTests.java
+@@ -0,0 +1,59 @@
++/*
++ * Copyright 2012-2018 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.boot.autoconfigure.web.reactive.function.client;
++
++import org.junit.Test;
++
++import org.springframework.boot.autoconfigure.AutoConfigurations;
++import org.springframework.boot.test.context.runner.ApplicationContextRunner;
++import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
++import org.springframework.http.client.reactive.ReactorClientHttpConnector;
++import org.springframework.http.client.reactive.ReactorResourceFactory;
++import org.springframework.web.reactive.function.client.WebClient;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++
++/**
++ * Tests for {@link ClientHttpConnectorAutoConfiguration}
++ *
++ * @author Brian Clozel
++ */
++public class ClientHttpConnectorAutoConfigurationTests {
++
++	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
++			.withConfiguration(
++					AutoConfigurations.of(ClientHttpConnectorAutoConfiguration.class));
++
++	@Test
++	public void shouldCreateHttpClientBeans() {
++		this.contextRunner.run((context) -> {
++			assertThat(context).hasSingleBean(ReactorResourceFactory.class);
++			assertThat(context).hasSingleBean(ReactorClientHttpConnector.class);
++			WebClientCustomizer clientCustomizer = context
++					.getBean(WebClientCustomizer.class);
++			WebClient.Builder builder = mock(WebClient.Builder.class);
++			clientCustomizer.customize(builder);
++			verify(builder, times(1))
++					.clientConnector(any(ReactorClientHttpConnector.class));
++		});
++	}
++
++}
+diff --git a/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfigurationTests.java b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfigurationTests.java
+index 90d0a85bca..4eeff8ea60 100644
+--- a/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfigurationTests.java
++++ b/spring-boot-project/spring-boot-autoconfigure/src/test/java/org/springframework/boot/autoconfigure/web/reactive/function/client/WebClientAutoConfigurationTests.java
+@@ -49,7 +49,9 @@ import static org.mockito.Mockito.verify;
+ public class WebClientAutoConfigurationTests {
+ 
+ 	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+-			.withConfiguration(AutoConfigurations.of(WebClientAutoConfiguration.class));
++			.withConfiguration(
++					AutoConfigurations.of(ClientHttpConnectorAutoConfiguration.class,
++							WebClientAutoConfiguration.class));
+ 
+ 	@Test
+ 	public void shouldCreateBuilder() {
+@@ -58,7 +60,6 @@ public class WebClientAutoConfigurationTests {
+ 			WebClient webClient = builder.build();
+ 			assertThat(webClient).isNotNull();
+ 		});
+-
+ 	}
+ 
+ 	@Test
+@@ -82,7 +83,7 @@ public class WebClientAutoConfigurationTests {
+ 				.run((context) -> {
+ 					WebClient.Builder builder = context.getBean(WebClient.Builder.class);
+ 					WebClientCustomizer customizer = context
+-							.getBean(WebClientCustomizer.class);
++							.getBean("webClientCustomizer", WebClientCustomizer.class);
+ 					builder.build();
+ 					verify(customizer).customize(any(WebClient.Builder.class));
+ 				});
+@@ -115,7 +116,7 @@ public class WebClientAutoConfigurationTests {
+ 					verify(secondConnector).connect(eq(HttpMethod.GET),
+ 							eq(URI.create("http://second.example.org/foo")), any());
+ 					WebClientCustomizer customizer = context
+-							.getBean(WebClientCustomizer.class);
++							.getBean("webClientCustomizer", WebClientCustomizer.class);
+ 					verify(customizer, times(1)).customize(any(WebClient.Builder.class));
+ 				});
+ 	}
+diff --git a/spring-boot-project/spring-boot-docs/src/main/asciidoc/spring-boot-features.adoc b/spring-boot-project/spring-boot-docs/src/main/asciidoc/spring-boot-features.adoc
+index cc83d9ae71..5cf26f2298 100644
+--- a/spring-boot-project/spring-boot-docs/src/main/asciidoc/spring-boot-features.adoc
++++ b/spring-boot-project/spring-boot-docs/src/main/asciidoc/spring-boot-features.adoc
+@@ -5785,13 +5785,14 @@ Finally, the most extreme (and rarely used) option is to create your own
+ == Calling REST Services with `WebClient`
+ If you have Spring WebFlux on your classpath, you can also choose to use `WebClient` to
+ call remote REST services. Compared to `RestTemplate`, this client has a more functional
+-feel and is fully reactive. You can create your own client instance with the builder,
+-`WebClient.create()`. See the {spring-reference}web.html#web-reactive-client[relevant
+-section on WebClient].
++feel and is fully reactive. You can leanr more about the `WebClient` in the dedicated
++{spring-reference}web-reactive.html#webflux-client[section in the Spring Framework docs].
+ 
+-Spring Boot creates and pre-configures such a builder for you. For example, client HTTP
+-codecs are configured in the same fashion as the server ones (see
+-<<boot-features-webflux-httpcodecs,WebFlux HTTP codecs auto-configuration>>).
++Spring Boot creates and pre-configures a `WebClient.Builder` for you; it is strongly
++advised to inject it in your components and use it to create `WebClient` instances.
++Spring Boot is configuring that builder to share HTTP resources, reflect codecs
++setup in the same fashion as the server ones (see
++<<boot-features-webflux-httpcodecs,WebFlux HTTP codecs auto-configuration>>), and more.
+ 
+ The following code shows a typical example:
+ 
+@@ -5815,6 +5816,21 @@ The following code shows a typical example:
+ ----
+ 
+ 
++[[boot-features-webclient-runtime]]
++=== WebClient Runtime
++
++Spring Boot will auto-detect which `ClientHttpConnector` to drive `WebClient`, depending
++on the libraries available on the application classpath.
++
++Developers can override this choice by defining their own `ClientHttpConnector` bean;
++in this case, and depending on your HTTP client library of choice, you should also
++define a resource factory bean that manages the HTTP resources for that client.
++For example, a `ReactorResourceFactory` bean for the Reactor Netty client.
++
++You can learn more about the
++{spring-reference}web-reactive.html#webflux-client-builder[`WebClient` configuration
++options in the Spring Framework reference documentation].
++
+ 
+ [[boot-features-webclient-customization]]
+ === WebClient Customization
