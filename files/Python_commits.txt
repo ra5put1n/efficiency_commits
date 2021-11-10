@@ -177,15 +177,6 @@ Date:   Wed Aug 5 03:39:15 2020 -0700
     
     Co-authored-by: Christian Clauss <cclauss@me.com>
 
-commit a57809af9c7611ae119b44b3279fee6f7ce7049c
-Author: prathmesh1199 <51616294+prathmesh1199@users.noreply.github.com>
-Date:   Sat Oct 26 14:48:28 2019 +0530
-
-    Added binomial coefficient (#1467)
-    
-    * Added binomial coefficient
-    
-    * Format code with psf/black and add a doctest
 
 commit 9cc9f67d646d427eb6b8296767aea50dd139969f
 Author: Sushil Singh <36241112+OddExtension5@users.noreply.github.com>
@@ -258,13 +249,6 @@ Date:   Sun Nov 19 22:03:30 2017 +0100
     
     On this solution I used a 'set' data structure, since more efficient.
 
-commit abe0f29b8be567d99f01cec362dafa301219e5a0
-Author: Christian Bender <christianbender89@web.de>
-Date:   Sun Nov 19 22:01:31 2017 +0100
-
-    Problem 29 -- Project Euler
-    
-    On this solution I used a 'set' data structure, since more efficient.
 commit 1f5134b36846cf0e5e936888a4fe51a2012e0d78
 Author: Aanuoluwapo Babajide <46856621+anubabajide@users.noreply.github.com>
 Date:   Fri Aug 28 17:25:02 2020 +0100
@@ -297,55 +281,3 @@ Date:   Fri Aug 28 17:25:02 2020 +0100
     
     * Fixed doctest
 
-commit aa01114c273819faa9d46d684f06698eff66eb83
-Author: D4rkia <49065066+D4rkia@users.noreply.github.com>
-Date:   Tue Jul 7 12:46:09 2020 +0200
-
-    Add a missing "genetic algorithm" folder with a basic algorithm inside (#2179)
-    
-    * Add a basic genetic algorithm
-    
-    * Update basic_string.py
-    
-    * Improve comments and readability
-    
-    * Add url to wikipedia
-    
-    * Remove newline
-    
-    Co-authored-by: Christian Clauss <cclauss@me.com>
-    
-    * Sort import
-    
-    Co-authored-by: Christian Clauss <cclauss@me.com>
-    
-    * Apply suggestions from code review
-    
-    Co-authored-by: Christian Clauss <cclauss@me.com>
-    
-    * Improve Comments and readability
-    
-    * Update basic_string.py
-    
-    * Improve logic and efficiency
-    
-    * Add doctest
-    
-    * Update basic_string.py
-    
-    * Update basic_string.py
-    
-    * Update basic_string.py
-    
-    * Apply suggestions from code review
-    
-    Co-authored-by: Christian Clauss <cclauss@me.com>
-    
-    * Update basic_string.py
-    
-    * Update basic_string.py
-    
-    * Update basic_string.py
-    
-    Co-authored-by: Christian Clauss <cclauss@me.com>
-    Co-authored-by: vinayak <itssvinayak@gmail.com>
