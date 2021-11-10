@@ -1,0 +1,8 @@
+commit e0efec26920f73ade2f45aa0aa2560aebbf887a2
+Author: gudumuyu <32303402+gudumuyu@users.noreply.github.com>
+Date:   Wed Feb 5 23:46:28 2020 +0800
+
+    kcptun:bump to 20200201 (#2937)
+    
+    1、Fixed a bug in https://github.com/xtaci/kcp-go/releases/tag/v5.5.5
+    2、Upgraded scheduler in kcp-go for efficiency, https://github.com/xtaci/kcp-go/blob/master/timedsched.go

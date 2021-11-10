@@ -1,0 +1,351 @@
+commit 11a15cc5842bb44a81bc8ee56af8f25d92a74287
+Author: Naveen Namani <naveennamani877@gmail.com>
+Date:   Thu Oct 28 22:57:14 2021 +0530
+
+    Add solution for Project Euler problem 67 (#5519)
+    
+    * New solution for Euler problem 67
+    
+    A faster and memory efficient solution based on the template of sol1.py.
+    Modified the solution to be more memory efficient while reading and generating the array
+    and during the solution finding.
+    No conditions and straightforward logic.
+    
+    * added return type hint
+    
+    * Update project_euler/problem_067/sol2.py
+    
+    Preferring comprehensions over map
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Update sol2.py
+    
+    Self explanatory variable names
+    
+    * Updated sol2 to problem 067 in directory
+    
+    * Update project_euler/problem_067/sol2.py
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Update project_euler/problem_067/sol2.py
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Fixed extra line
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+
+commit bf6db32ec2fb04b6477722f0809c5efef0cad813
+Author: Dylan Buchi <devybuchi@gmail.com>
+Date:   Thu Oct 28 11:05:31 2021 -0300
+
+    [mypy] Fix type annotations for binary tree traversals in data structures (#5556)
+    
+    * [mypy] Fix type annotations for binary tree traversals in data structures
+    
+    * Change variable name and update level_order_1 to use a deque
+    
+    Using a deque instead of a list here, because since we are removing from the beginning of the list, the deque will be more efficient.
+    
+    * remove duplicate function
+    
+    * Update data_structures/binary_tree/binary_tree_traversals.py
+    
+    Co-authored-by: John Law <johnlaw.po@gmail.com>
+    
+    * fix function name at line 137
+    
+    * Update data_structures/binary_tree/binary_tree_traversals.py
+    
+    Co-authored-by: John Law <johnlaw.po@gmail.com>
+    
+    * Update data_structures/binary_tree/binary_tree_traversals.py
+    
+    Co-authored-by: John Law <johnlaw.po@gmail.com>
+    
+    * Remove type alias and use the new syntax
+    
+    * Update data_structures/binary_tree/binary_tree_traversals.py
+    
+    Co-authored-by: John Law <johnlaw.po@gmail.com>
+    
+    * Remove prints inside functions and return lists
+    
+    Co-authored-by: John Law <johnlaw.po@gmail.com>
+
+commit 00a67010e8c28cdaa6142d0c4a386282bbf29421
+Author: Martmists <mail@martmists.com>
+Date:   Sat Oct 23 23:19:25 2021 +0200
+
+    Simple audio filters (#5230)
+    
+    * Add IIR Filter and Butterworth design functions
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * naming conventions and missing type hints
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Link wikipedia in IIRFilter
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Add doctests and None return types
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * More doctests
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Requested changes
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * run pre-commit
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Make mypy stop complaining about ints vs floats
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Use slower listcomp to make it more readable
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Make doctests happy
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Remove scipy
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Test coefficients from bw filters
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Protocol test
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Make requested change
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Types
+    
+    Signed-off-by: Martmists <martmists@gmail.com>
+    
+    * Apply suggestions from code review
+    
+    * Apply suggestions from code review
+    
+    * Update butterworth_filter.py
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+
+commit ff00bfa0abbd0019d9e718c6beec2aa0e5d8b580
+Author: Fernando Benjamín PÉREZ MAURERA <fperezmaurera@gmail.com>
+Date:   Mon Nov 2 23:21:13 2020 -0300
+
+    Added a solution for Project Euler Problem 203 "Squarefree Binomial Coefficients" (#3513)
+    
+    * Added a solution for Project Euler Problem 203 (https://projecteuler.net/problem=203)
+    
+    * Simplified loop that calculates the coefficients of the Pascal's Triangle. Changes based on review suggestion.
+    
+    * Moved get_squared_primes_to_use function outside the get_squarefree function and fixed a failing doctest with the former.
+
+commit 871f8f4e00eec285251f0f3eae4740af46a73666
+Author: Filip Hlasek <fhlasek@gmail.com>
+Date:   Wed Aug 5 03:39:15 2020 -0700
+
+    More efficient least common multiple. (#2281)
+    
+    * More efficient least common multiple.
+    
+    * lowest -> least
+    
+    * integer division
+    
+    * Update least_common_multiple.py
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+
+commit a57809af9c7611ae119b44b3279fee6f7ce7049c
+Author: prathmesh1199 <51616294+prathmesh1199@users.noreply.github.com>
+Date:   Sat Oct 26 14:48:28 2019 +0530
+
+    Added binomial coefficient (#1467)
+    
+    * Added binomial coefficient
+    
+    * Format code with psf/black and add a doctest
+
+commit 9cc9f67d646d427eb6b8296767aea50dd139969f
+Author: Sushil Singh <36241112+OddExtension5@users.noreply.github.com>
+Date:   Mon Oct 7 00:22:04 2019 +0530
+
+    Chinese Remainder Theorem | Diophantine Equation | Modular Division (#1248)
+    
+    * Update .gitignore to remove __pycache__/
+    
+    * added chinese_remainder_theorem
+    
+    * Added Diophantine_equation algorithm
+    
+    * Update Diophantine eqn & chinese remainder theorem
+    
+    * Update Diophantine eqn & chinese remainder theorem
+    
+    * added efficient modular division algorithm
+    
+    * added GCD function
+    
+    * update chinese_remainder_theorem | dipohantine eqn | modular_division
+    
+    * update chinese_remainder_theorem | dipohantine eqn | modular_division
+    
+    * added a new directory named blockchain & a files from data_structures/hashing/number_theory
+    
+    * added a new directory named blockchain & a files from data_structures/hashing/number_theory
+
+commit 4d9a1611bda8124bf4ea21699c12c81c9fcdd1b4
+Author: Dave Kerr <davekerrcode@gmail.com>
+Date:   Fri May 31 04:03:55 2019 -0400
+
+    implementations may be *less* efficient than python standard libs (#854)
+
+commit c92b02cfa35b1e4cf76daf913d71b27394790ff8
+Author: Michael Fried <mikelfried@gmail.com>
+Date:   Sat Jan 19 22:49:06 2019 +0200
+
+    Editing base64, Adding average file, Editing find_lcm (#673)
+    
+    * avrage.py
+    
+    calculate and print the avrage of number list.
+    
+    * Update base64_cipher.py
+    
+    encoding and decoding base64 without any module.
+    
+    * Update and rename avrage.py to average.py
+    
+    * update find_lcm algorithm
+    
+    I made find_lcm more efficient form O(num1*num2) to O(min{num1,num2}).
+
+commit 6b60a6b53c992777031723eb3885cc4c516ddf52
+Merge: c461b34 070ebb3
+Author: Harshil <darjiharshil2994@gmail.com>
+Date:   Wed Mar 21 09:08:08 2018 +0530
+
+    Merge pull request #273 from daniel-s-ingram/master
+    
+    Algorithm for transforming one string into another in the most cost-efficient way
+
+commit 31ebde6e17c2d4b996701779eeb9bc05837834fa
+Author: Christian Bender <christianbender89@web.de>
+Date:   Sun Nov 19 22:03:30 2017 +0100
+
+    Problem 29
+    
+    On this solution I used a 'set' data structure, since more efficient.
+
+commit abe0f29b8be567d99f01cec362dafa301219e5a0
+Author: Christian Bender <christianbender89@web.de>
+Date:   Sun Nov 19 22:01:31 2017 +0100
+
+    Problem 29 -- Project Euler
+    
+    On this solution I used a 'set' data structure, since more efficient.
+commit 1f5134b36846cf0e5e936888a4fe51a2012e0d78
+Author: Aanuoluwapo Babajide <46856621+anubabajide@users.noreply.github.com>
+Date:   Fri Aug 28 17:25:02 2020 +0100
+
+    Create alternate_disjoint_set.py (#2302)
+    
+    * Create alternate_disjoint_set.py
+    
+    This code implements a disjoint set using Lists
+    with added heuristics for efficiency
+    Union by Rank Heuristic and Path Compression
+    
+    * Update alternate_disjoint_set.py
+    
+    Added typehints, doctests and some suggested variable name change
+    
+    * Update alternate_disjoint_set.py
+    
+    * Formatted with Black
+    
+    * More formatting
+    
+    * Formatting on line 28
+    
+    * Error in Doctest
+    
+    * Doctest Update in alternate disjoint set
+    
+    * Fixed build error
+    
+    * Fixed doctest
+
+commit aa01114c273819faa9d46d684f06698eff66eb83
+Author: D4rkia <49065066+D4rkia@users.noreply.github.com>
+Date:   Tue Jul 7 12:46:09 2020 +0200
+
+    Add a missing "genetic algorithm" folder with a basic algorithm inside (#2179)
+    
+    * Add a basic genetic algorithm
+    
+    * Update basic_string.py
+    
+    * Improve comments and readability
+    
+    * Add url to wikipedia
+    
+    * Remove newline
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Sort import
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Apply suggestions from code review
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Improve Comments and readability
+    
+    * Update basic_string.py
+    
+    * Improve logic and efficiency
+    
+    * Add doctest
+    
+    * Update basic_string.py
+    
+    * Update basic_string.py
+    
+    * Update basic_string.py
+    
+    * Apply suggestions from code review
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    
+    * Update basic_string.py
+    
+    * Update basic_string.py
+    
+    * Update basic_string.py
+    
+    Co-authored-by: Christian Clauss <cclauss@me.com>
+    Co-authored-by: vinayak <itssvinayak@gmail.com>

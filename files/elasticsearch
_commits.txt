@@ -1,0 +1,2820 @@
+commit f7454b8fb5955e992381480765ccd4ef0006ad8e
+Author: Tim Vernum <tim.vernum@elastic.co>
+Date:   Wed Oct 20 14:32:59 2021 +1100
+
+    Add optional content checking to ResourceWatcher (#79423)
+    
+    In some cloud environments, there may be frequent synchronization of
+    configuration files from the orchestration layer to the ES container.
+    
+    This can trigger frequent, unnecessary reloading of files.
+    
+    Previously, code that used the ResourceWatcherService / FileWatcher
+    would need to detect "no-op" file changes itself. With the addition of
+    this content checking support, it can be handled efficiently by the
+    Resource Watcher Service.
+
+commit 3d35144db4f587a0c63d11994a18f32d1c09132b
+Author: Yoann Rodière <yoann@hibernate.org>
+Date:   Tue Oct 19 11:27:17 2021 +0200
+
+    Fix execution of exists query within nested queries on field with doc_values disabled (#78841)
+    
+    The FieldNamesFieldMapper adds non-indexed fields to a special metadata
+    field so that exists queries can be run efficiently.  This is built in a postParse
+    method that is run once per document.  However, this means that nested
+    documents are not handled correctly - non-indexed field names are added to
+    the parent document's metadata field rather than to the nested document's
+    field.
+    
+    This commit fixes things to add non-indexed field names directly to the
+    nested documents.
+
+commit bd01654aa53851489b18c755e8955b0b20348b59
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Fri Oct 15 17:20:31 2021 -0400
+
+    Create a coordinating node level reader for tsdb (#79197)
+    
+    * Create a coordinating node level reader for tsdb
+    
+    This creates an interface that reads data in a time series compatible
+    way on the coordinating node. We believe that it can one day smooth out
+    querying time series data at a high level.
+    
+    Right now there is a single implementation of this interface that
+    targets standard indices very inefficiently. It delegates down to our
+    standard `_search` APIs, specifically `composite`, `top_hits`, and
+    `search_after`. It is our hope that when we have fancier TSDB support we
+    can use it to speed the API.
+    
+    The API itself looks like:
+    ```
+    // The latest value for all time series in the range
+    void latestInRange(metric, from, to, callback);
+    // The latest value for all time series in ranges starting from
+    // `from`, st
+    void latestInRanges(metric, from, to, step, callback);
+    void valuesInRange(metric, from, to, callback);
+    ```
+    
+    * Move package
+
+commit 5823ad695de79992d117e4e9ab8a6e3cd617831e
+Author: David Turner <david.turner@elastic.co>
+Date:   Thu Oct 7 16:43:25 2021 +0100
+
+    Adjust /_cat/templates not to request all metadata (#78829)
+    
+    Today `GET /_cat/templates` retrieves the whole cluster metadata from
+    the master, which includes all sorts of unnecessary junk and consumes
+    significant resources. This commit reimplements these endpoints using
+    `GetIndexTemplatesAction` and `GetComposableIndexTemplateAction` which
+    are much more efficient.
+    
+    The docs for this API indicate that it accepts a comma-separated list of
+    template names/patterns of the form `GET /_cat/templates/name1,name2`
+    but in fact today it only accepts a single name or pattern. This commit
+    also adds support for multiple names/patterns as the docs claim.
+
+commit b07dbe52caca7ad86e6ee5a4ea75a181f9af22ac
+Author: David Turner <david.turner@elastic.co>
+Date:   Thu Oct 7 12:02:20 2021 +0100
+
+    Adjust /_cat/templates not to request all metadata (#78812)
+    
+    Today `GET /_cat/templates` retrieves the whole cluster metadata from
+    the master, which includes all sorts of unnecessary junk and consumes
+    significant resources. This commit reimplements these endpoints using
+    `GetIndexTemplatesAction` and `GetComposableIndexTemplateAction` which
+    are much more efficient.
+    
+    The docs for this API indicate that it accepts a comma-separated list of
+    template names/patterns of the form `GET /_cat/templates/name1,name2`
+    but in fact today it only accepts a single name or pattern. This commit
+    also adds support for multiple names/patterns as the docs claim.
+
+commit ec8603a357769b441673fda303c9f96d02fab8fd
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Oct 1 17:47:46 2021 +0200
+
+    Simple ILM Task Batching Implementation (#78547)
+    
+    A simple implementation for ILM task batching that resolves the issue of ILM
+    creating endless queues of tasks at `NORMAL` priority in most cases.
+    A follow-up to this should make this more efficient by not using outright
+    cluster state updates as batching tasks to avoid creating a series of concrete
+    cluster states for each task which can become somewhat expensive if a larger
+    number of tasks is batched together.
+
+commit 7d55449fe940fe6a1f088fe0f51483de30f6c900
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Mon Sep 13 13:34:14 2021 -0400
+
+    Memory efficient xcontent filtering (#77154)
+    
+    I found myself needing support for something like `filter_path` on
+    `XContentParser`. It was simple enough to plug it in so I did. Then I
+    realized that it might offer more memory efficient source filtering
+    (#25168) so I put together a quick benchmark comparing the source
+    filtering that we do in `_search`.
+    
+    Filtering using the parser is about 33% faster than how we filter now
+    when you select a single field from a 300 byte document:
+    ```
+    Benchmark                                          (excludes)  (includes)  (source)  Mode  Cnt     Score    Error  Units
+    FetchSourcePhaseBenchmark.filterObjects                           message     short  avgt    5  2360.342 ±  4.715  ns/op
+    FetchSourcePhaseBenchmark.filterXContentOnBuilder                 message     short  avgt    5  2010.278 ± 15.042  ns/op
+    FetchSourcePhaseBenchmark.filterXContentOnParser                  message     short  avgt    5  1588.446 ± 18.593  ns/op
+    ```
+    
+    The top line is the way we filter now. The middle line is adding a
+    filter to `XContentBuilder` - something we can do right now without any
+    of my plumbing work. The bottom line is filtering on the parser,
+    requiring all the new plumbing.
+    
+    This isn't particularly impresive. 33% *sounds* great! But 700
+    nanoseconds per document isn't going to cut into anyone's search times.
+    If you fetch a thousand docuents that's .7 milliseconds of savings.
+    
+    But we mostly advise folks to use source filtering on fetch when the
+    source is large and you only want a small part of it. So I tried when
+    the source is about 4.3kb and you want a single field:
+    ```
+    Benchmark                                          (excludes)  (includes)      (source)  Mode  Cnt     Score     Error  Units
+    FetchSourcePhaseBenchmark.filterObjects                           message  one_4k_field  avgt    5  5957.128 ± 117.402  ns/op
+    FetchSourcePhaseBenchmark.filterXContentOnBuilder                 message  one_4k_field  avgt    5  4999.073 ±  96.003  ns/op
+    FetchSourcePhaseBenchmark.filterXContentonParser                  message  one_4k_field  avgt    5  3261.478 ±  48.879  ns/op
+    ```
+    
+    That's 45% faster. Put another way, 2.7 microseconds a document. Not
+    bad!
+    
+    But have a look at how things come out when you want a single field from
+    a 4 *megabyte* document:
+    ```
+    Benchmark                                          (excludes)  (includes)      (source)  Mode  Cnt        Score        Error  Units
+    FetchSourcePhaseBenchmark.filterObjects                           message  one_4m_field  avgt    5  8266343.036 ± 176197.077  ns/op
+    FetchSourcePhaseBenchmark.filterXContentOnBuilder                 message  one_4m_field  avgt    5  6227560.013 ±  68306.318  ns/op
+    FetchSourcePhaseBenchmark.filterXContentonParser                  message  one_4m_field  avgt    5  1617153.472 ±  80164.547  ns/op
+    ```
+    
+    These documents are very large. I've encountered documents like them in
+    real life, but they've always been the outlier for me. But a 6.5
+    millisecond per document savings ain't anything to sneeze at.
+    
+    Take a look at what you get when I turn on gc metrics:
+    ```
+    FetchSourcePhaseBenchmark.filterObjects                          message  one_4m_field  avgt    5   7036097.561 ±  84721.312   ns/op
+    FetchSourcePhaseBenchmark.filterObjects:·gc.alloc.rate           message  one_4m_field  avgt    5      2166.613 ±     25.975  MB/sec
+    FetchSourcePhaseBenchmark.filterXContentOnBuilder                message  one_4m_field  avgt    5   6104595.992 ±  55445.508   ns/op
+    FetchSourcePhaseBenchmark.filterXContentOnBuilder:·gc.alloc.rate message  one_4m_field  avgt    5      2496.978 ±     22.650  MB/sec
+    FetchSourcePhaseBenchmark.filterXContentonParser                 message  one_4m_field  avgt    5   1614980.846 ±  31716.956   ns/op
+    FetchSourcePhaseBenchmark.filterXContentonParser:·gc.alloc.rate  message  one_4m_field  avgt    5         1.755 ±      0.035  MB/sec
+    ```
+
+commit a91be8282db442c2f44204c345fd8a985468da43
+Author: Tim Brooks <tim@uncontended.net>
+Date:   Wed Aug 11 07:04:58 2021 -0600
+
+    Precompile regex for PatternSeenEventExpectation (#76332)
+    
+    Currently we compile the regex for each log string that we are
+    analyzing. This is extremely inefficient and may contribute to
+    instability seen in the logging IT. This commit compiles the regex a
+    single time.
+
+commit 6592cfe6be95118c390dfc461a5d39713bce42da
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Jul 30 17:46:11 2021 +0200
+
+    Refactor SnapshotsInProgress to Use RepositoryId for Concurency Logic (#75501)
+    
+    This refactors the snapshots-in-progress logic to work from `RepositoryShardId` when working out what parts of the repository are in-use by writes for snapshot concurrency safety. This change does not go all the way yet on this topic and there are a number of possible follow-up further improvements to simplify the logic that I'd work through over time.
+    But for now this allows fixing the remaining known issues that snapshot stress testing surfaced when combined with the fix in https://github.com/elastic/elasticsearch/pull/75530.
+    
+    These issues all come from the fact that `ShardId` is not a stable key across multiple snapshots if snapshots are partial. The scenarios that are broken are all roughly this:
+    * snapshot-1 for index-A with uuid-A runs and is partial
+    * index-A is deleted and re-created and now has uuid-B
+    * snapshot-2 for index-A is started and we now have it queued up behind snapshot-1 for the index
+    * snapshot-1 finishes and the logic tries to start the next snapshot for the same shard-id
+      * this fails because the shard-id is not the same, we can't compare index uuids, just index name + shard id
+      * this change fixes all these spots by always taking the round trip via `RepositoryShardId`
+    
+    planned follow-ups here are:
+    * dry up logic across cloning and snapshotting more as both now essentially run the same code in many state-machine steps
+    * serialize snapshots-in-progress efficiently instead of re-computing the index and by-repository-shard-id lookups in the constructor every time
+        * refactor the logic in snapshots-in-progress away from maps keyed by shard-id in almost all spots to this end, just keep an index name to `Index` map to work out what exactly is being snapshotted
+     * refactoring snapshots-in-progress to be a map of list of operations keyed by repository shard id instead of a list of maps as it currently is to make the concurrency simpler and more obviously correct
+    
+    closes #75423
+    
+    relates (#75339 ... should also fix this, but I have to verify by testing with a backport to 7.x)
+
+commit cdf67e0fd5cf044fc38549032a2cc87280292f58
+Author: Julie Tibshirani <julie.tibshirani@elastic.co>
+Date:   Thu Jul 8 15:33:41 2021 -0700
+
+    Support search slicing with point-in-time (#74457)
+    
+    This PR adds support for using the `slice` option in point-in-time searches. By
+    default, the slice query splits documents based on their Lucene ID. This
+    strategy is more efficient than the one used for scrolls, which is based on the
+    `_id` field and must iterate through the whole terms dictionary. When slicing a
+    search, the same point-in-time ID must be used across slices to guarantee the
+    partitions don't overlap or miss documents.
+    
+    Closes #65740.
+
+commit c1e9590a690b359e3b139a537e522111bd18fc9a
+Author: Armin Braun <me@obrown.io>
+Date:   Thu Jun 17 09:00:11 2021 +0200
+
+    Pagination and Sorting for Get Snapshots API (#73952)
+    
+    Pagination and snapshots for get snapshots API, build on top of the current implementation to enable work that needs this API for testing. A follow-up will leverage the changes to make things more efficient via pagination.
+    
+    Relates https://github.com/elastic/elasticsearch/pull/73570 which does part of the under-the-hood changes required to efficiently implement this API on the repository layer.
+
+commit dbb626abbb795d94a376367758bb7564859ad8b1
+Author: Armin Braun <me@obrown.io>
+Date:   Mon Jun 14 19:17:47 2021 +0200
+
+    Add Bulk Fetch SnapshotInfo API to Repository (#73570)
+    
+    This PR refactors the `Repository` API for fetching `SnapshotInfo` to enabled implementations to optimize for bulk fetching multiple `SnapshotInfo` at once. This is a requirement for making use of a more efficient repository format that does not require loading individual blobs per snapshot to fetch a snapshot listing. Also, by enabling consuming `SnapshotInfo` as they are fetched on the snapshot meta thread this allows for some more memory efficient usage of snapshot listing.
+    Also, this commit makes use of the new API to make the snapshot status API run a little more parallel if fetching multiple snapshots (though there's additional improvements possible+useful here as far as fetching shard level metadata in parallel).
+
+commit 0220dfb3fe4de4ca416918a76a6fdcff0369f624
+Author: Armin Braun <me@obrown.io>
+Date:   Thu May 6 06:32:52 2021 +0200
+
+    Dry up Hashing BytesReference (#72443)
+    
+    Dries up the efficient way to hash a bytes reference and makes use
+    of it in a few other spots that were needlessly copying all bytes in
+    the bytes reference for hashing.
+
+commit a999a0b8f6caf47958614d67c02def4231b22ae0
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Wed Apr 28 08:36:18 2021 -0400
+
+    Support much larger filters (#72277)
+    
+    Kibana's long had a problems sending Elasticsearch thousands of fields
+    to the source filtering API. It's probably not right to send *thousands*
+    of fields to it, but, in turn, we don't really have a good excuse for
+    rejecting them. I mean, we do. We reject them to keep ourselves from
+    allocating too much memory and crashing. But we can do better. This
+    makes us tollerate significantly larger field lists much more
+    efficiently.
+    
+    First, this changes the way we generate the "guts" of the filter API so
+    that we use a *ton* less memory thanks to Daciuk, Mihov, Watson,
+    and Watson: https://www.aclweb.org/anthology/J00-1002.pdf
+    Lucene has an implementation of their algorithm built right in. We just
+    have to plug it in. With this a list of four thousand fields generates
+    thirty four thousand automata states instead of hundreds of thousdands.
+    
+    Next we replace the algorithm that the source filtering uses to match
+    dotted field names with one that doesn't duplicate the automata we
+    build. This cuts that thirty four thousand states to seventeen thousand.
+    
+    Finally we bump the maximum number of automata states we accept from
+    10,000 to 50,000 which is *comfortable* enough to handle the number of
+    state need for that four thousand field list. 50,000 state automata will
+    likely weigh in around a megabyte of heap. Heavy, but fine. Thanks to
+    Daciuk, et al, you can throw absolutely massive lists of fields at us
+    before we get that large. I couldn't do it with copy and paste. I don't
+    have that kind of creativity. I expect folks will shy away from sending
+    field lists that are megabytes long. But I never expected thousands of
+    fields, so what do I know.
+    
+    Those the are enough for to take most of what kibana's historically sent
+    us without any problems. They are still huge requests and they'd be
+    better off not sending massive lists, but at least now the problem isn't
+    so pressing. That four thousand field list was 120kb over the wire.
+    That's big request!
+
+commit 78c63ff4d1384ebdf136fd7ac447af00ddd110ad
+Author: Alan Woodward <romseygeek@gmail.com>
+Date:   Mon Apr 26 16:54:45 2021 +0100
+
+    Don't index object subpaths in _field_names field (#72243)
+    
+    Back when we indexed every value-containing field from a document in
+    the _field_names field, it made sense to also index object subpaths
+    from that field so that we count efficiently run exists queries against
+    objects. However, since many fields now instead use docvalues or norms
+    iterators for their exists queries, and don't store their field names in
+    _field_names, object exists queries cannot make use of these
+    intermediate paths. We're still storing them, however.
+    
+    This commit stops storing these intermediate paths in the _field_names
+    field, as they are unused and just take up extra space.
+
+commit 83113ec8d362cc4b8e755aef452f09759153bfb5
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Apr 22 08:41:47 2021 +0200
+
+    Add `match_only_text`, a space-efficient variant of `text`. (#66172)
+    
+    This adds a new `match_only_text` field, which indexes the same data as a `text`
+    field that has `index_options: docs` and `norms: false` and uses the `_source`
+    for positional queries like `match_phrase`. Unlike `text`, this field doesn't
+    support scoring.
+
+commit 296ac1ac1b984e17bc36533b800c158d04b9794b
+Author: Yannick Welsch <yannick@welsch.lu>
+Date:   Wed Mar 24 10:47:01 2021 +0100
+
+    Always use CacheService for caching metadata blobs (#70668)
+    
+    This PR unifies CachedBlobContainerIndexInput and FrozenIndexInput so that they share the same infrastructure for
+    caching metadata blobs as well as header and footer ranges for data blobs. The idea is to always use CacheService for
+    this, which does not evict the metadata, and which efficiently stores the information on disk (using sparse file support).
+    
+    This also allows us to align writes in FrozenCacheService to 4KB block sizes in this PR, which addresses an issue when
+    reusing regions from the shared cache, as writes that are not aligned on page cache boundaries causes the existing data
+    (which we don't care about) to be loaded from disk, which comes with a dramatic performance penalty.
+    
+    Closes #70728
+    Closes #70763
+
+commit 800ae518f4201b8ed72c0e85bb5befd0ec2147d0
+Author: Andrei Dan <andrei.dan@elastic.co>
+Date:   Mon Feb 15 09:35:11 2021 +0000
+
+    ILM: searchable snapshot executes before migrate in cold/frozen (#68861)
+    
+    This moves the execution of the `searchable_snapshot` action before the
+    `migrate` action in the `cold` and `frozen` phases for more efficient
+    data migration (ie. mounting it as a searchable snapshot directly on the
+    target tier)
+    
+    Now that searchable_snapshot can precede other actions in the same phase
+    (eg. in frozen it is followed by `migrate`) we need to allow the mounted
+    index to resume executing the ILM policy starting with a step that's part
+    of a new action (ie. migrate).
+    
+    This adds support to resume the execution of the mounted index from another
+    action.
+    
+    With older versions, the execution would resume from the PhaseCompleteStep
+    as it was the last action in a phase, which was handled as a special case
+    in the `CopyExecutionStateStep`. This  generalises the `CopyExecutionStateStep`
+    to be able to resume from any `StepKey`.
+
+commit 31cf05829d9356c28444aceeed8699d6e083d9d2
+Author: David Turner <david.turner@elastic.co>
+Date:   Wed Jan 13 13:24:28 2021 +0000
+
+    Skip cluster state serialization to closed channel (#67413)
+    
+    Today if a client requests a cluster state and then closes the
+    connection then we still do all the work of computing and serializing
+    the cluster state before finally dropping it all on the floor.
+    
+    With this commit we introduce checks to make sure that the HTTP channel
+    is still open before starting the serialization process. We also make
+    the tasks themselves cancellable and abort any ongoing waiting if the
+    channel is closed (mainly to make the cancellability testing easier).
+    Finally we introduce a more detailed description of the task to help
+    identify cases where clients are inefficiently requesting more
+    components of the cluster state than they need.
+
+commit 5fe0d67ade5fed3de5b062a1a0837fd02286e0a9
+Author: Nhat Nguyen <nhat.nguyen@elastic.co>
+Date:   Tue Jan 12 08:43:06 2021 -0500
+
+    Use SequentialStoredFieldsLeafReader to read Lucene changes (#67190)
+    
+    Reading operations in Lucene changes is likely sequential and more
+    efficient with SequentialStoredFieldsLeafReader.
+    
+    Relates #66944
+
+commit 6cbaaed8a14f1e33c18bed4f7fa6e2f094559e6b
+Author: Nhat Nguyen <nhat.nguyen@elastic.co>
+Date:   Tue Jan 12 08:43:06 2021 -0500
+
+    Use SequentialStoredFieldsLeafReader to read Lucene changes (#67190)
+    
+    Reading operations in Lucene changes is likely sequential and more
+    efficient with SequentialStoredFieldsLeafReader.
+    
+    Relates #66944
+
+commit c5afa9a034d054c54cdd9a654dacd0ecf6d66e08
+Author: Alan Woodward <romseygeek@gmail.com>
+Date:   Wed Jan 6 10:20:45 2021 +0000
+
+    Use merging fieldsreader when restoring versionmap during recovery (#66944)
+    
+    When reading sequential data from compressed stored fields it is
+    more efficient to use a CodecReader's merge instance, as this holds
+    decompressed blocks in memory and avoids re-doing the
+    decompression for every document. When restoring the version map
+    during a recovery, we read id fields from all documents beyond the global
+    checkpoint, and this is precisely the situation where this performance
+    enhancement should help.
+    
+    This commit updates the IdOnlyFieldsVisitor to use a merge instance,
+    and in the process tidies up the API a bit; we now have a package-private
+    IdStoredFieldLoader that handles fetching merge instances and loading
+    ids for each document.
+
+commit f2651e47639aba972f4ad0d653907fafcff9d316
+Author: Tim Vernum <tim.vernum@elastic.co>
+Date:   Wed Dec 30 12:15:18 2020 +1100
+
+    Build complex automatons more efficiently (#66724)
+    
+    This change substantially reduces the CPU and Heap usage of
+    StringMatcher when processing large complex patterns.
+    
+    The improvement is achieved by switching the order in which we
+    perform concatenation and union for common styles of wildcard patterns.
+    
+    Given a set of wildcard strings:
+    - "*-logs-*"
+    - "*-metrics-*"
+    - "web-*-prod-*"
+    - "web-*-staging-*"
+    
+    The old implementation would perform steps roughly like:
+    
+        minimize {
+            union {
+                concatenate { MATCH_ANY, "-logs-", MATCH_ANY }
+                concatenate { MATCH_ANY, "-metrics-", MATCH_ANY }
+                concatenate { "web-", MATCH_ANY, "prod-", MATCH_ANY }
+                concatenate { "web-", MATCH_ANY, "staging-", MATCH_ANY }
+            }
+        }
+    
+    The outer minimize would require determinizing the automaton, which
+    was highly inefficient
+    
+    The new implementation is:
+    
+        minimize {
+            union {
+                concatenate {
+                    MATCH_ANY ,
+                    minimize {
+                        union { "-logs-", "-metrics"- }
+                    }
+                    MATCH_ANY
+                }
+                concatenate {
+                    minimize {
+                        union {
+                            concatenate { "web-", MATCH_ANY, "prod-" }
+                            concatenate { "web-", MATCH_ANY, "staging-" }
+                        }
+                    }
+                    MATCH_ANY
+                }
+            }
+        }
+    
+    By performing a union of the inner strings before concatenating the
+    MATCH_ANY ("*") the time & heap space spent on determinizing the
+    automaton is greatly reduced.
+
+commit 77a59ad5574fb50e97acb38f737a81e5f570b460
+Author: Tim Vernum <tim.vernum@elastic.co>
+Date:   Mon Dec 21 12:48:53 2020 +1100
+
+    Extract security wildcard pattern matching (#65404)
+    
+    This commit moves the implementation of wildcard pattern matching into
+    a standalone utility class ("StringMatcher").
+    
+    In general, we rely on lucene Automaton objects to implement pattern
+    matching (wildcards and regexp) within Elasticsearch security - for
+    example in Index name patterns within a role.
+    
+    The IndicesPermission class also has a special optimisation for exact
+    string matches (that is raw index names that contain no wildcards) as
+    using String.equals / Set.contains is more efficient for this common
+    case.
+    
+    All of the above functionality has now been extracted into the
+    StringMatcher class, and it is now used in several places where it may
+    be more efficient that the previous use of raw Automaton objects.
+    
+    A future change will expand this StringMatcher class with additional
+    optimisations for common use cases that are poorly handled within our
+    existing automaton compilation process.
+    
+    Relates: #36062
+
+commit b902d807039d3adc3ae16f14af931d9748b0e92f
+Author: David Turner <david.turner@elastic.co>
+Date:   Tue Dec 1 15:41:48 2020 +0000
+
+    Record timestamp field range in index metadata (#65564)
+    
+    Queries including a filter by timestamp range are common in time-series
+    data. Moreover older time-series indices are typically made read-only so
+    that the timestamp range becomes immutable. By recording in the index
+    metadata the range of timestamps covered by each index we can very
+    efficiently skip shards on the coordinating node, even if those shards
+    are not assigned.
+    
+    This commit computes the timestamp range of immutable indices and
+    records it in the index metadata as the shards start for the first time.
+    Note that the only indices it considers immutable today are ones using
+    the `ReadOnlyEngine`, which includes frozen indices and searchable
+    snapshots but not regular indices with a write block.
+
+commit 070b2e7c477984daf4240fc8891d66a1eca882fa
+Author: Rene Groeschke <rene@elastic.co>
+Date:   Tue Nov 24 10:19:26 2020 +0100
+
+    Port LicenseHeadersTask to java and remove ant layer (#65310)
+    
+    This ports Licenseheaders task from using groovies antbuilder to rely on the rat ant task
+    to use rat directly which allows us to port this completely to java. We also refactored rat to
+    generate xml instead of plain report file.
+    
+    - More efficient as plain file generation is based on running an xslt transformation on top
+    of the xml output (via ant rat in a different thread which results in faster task execution as seen
+    in the attached profiler report)
+    - Easier machine readable
+    - By using rat directly we can avoid parsing the log file for reporting.
+    - Ported more buildSrc sources from groovy to java which has been blocked from porting by
+    LicenseHeadersTask
+
+commit 0ed5174cb870c4d6be23c7820513cbdb3cf0ecb8
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Oct 30 18:30:42 2020 +0100
+
+    Make some Allocation Decider Code a Little More JIT Aware (#62275)
+    
+    When investigating our code cache usage for another issue I ran into this. This PR just fixes a few spots and there's many more. The current way we compute the decisions often creates much larger than necessary methods because the compiler has no efficient way of optimizing away things like using CLUSTER_ROUTING_ALLOCATION_AWARENESS_ATTRIBUTE_SETTING.getKey() as an explain parameter that do allocations (but whose results are thrown away immediately if debug is off).
+    
+    As a result e.g. the max retry allocation decider's canAllocate compiles into an 18kb method before and into a 2kb method after this change (at C1 L3). I think if we're a little more mindful of the JIT here we can get some measurable speedups out of the allocation deciders logic. Plus, this kind of change saves quite a few in allocations in isolation as well which is always nice on a hot CS thread I suppose.
+
+commit 4191c72baf517d793405c89b5e9645ecb1e5dde1
+Author: Alan Woodward <romseygeek@gmail.com>
+Date:   Tue Oct 27 12:07:51 2020 +0000
+
+    Distinguish between simple matches with and without the terms index (#63945)
+    
+    We currently use TextSearchInfo to let query parsers know when a field
+    will support match queries. Some field types (numeric, constant, range)
+    can produce simple match queries that don't use the terms index, and
+    it is useful to distinguish between these fields on the one hand and
+    keyword/text-type fields on the other. In particular, the
+    SignificantTextAggregation only works on fields that have indexed terms,
+    but there is currently no efficient way to see this at search time and so
+    the factory falls back on checking to see if an index analyzer has been
+    defined, with the result that some nonsensical field types are permitted.
+    
+    This commit adds a new static TextSearchInfo implementation called
+    SIMPLE_MATCH_WITHOUT_TERMS that can be returned by field
+    types with no corresponding terms index. It changes significant text
+    to check for this rather than for the presence of an index analyzer.
+    
+    This is a breaking change, in that the significant text agg will now throw
+    an error up-front if you try and apply it to a numeric field, whereas before
+    you would get an empty result.
+
+commit 2a8885ae91b19d82998d503a1ba6063b3b79b9f1
+Author: Rene Groeschke <rene@elastic.co>
+Date:   Thu Oct 1 10:45:21 2020 +0200
+
+    Wire local unreleased bwc versions more efficient for tests (#62473)
+    
+    For testing against the local distribution we already avoid the packaging/unpackaging
+    cycle of es distributions when setting up test clusters. This PR adopts the usage of the
+    expanded created distributions for unreleased bwc versions (versions that are checkout
+    from a branch and build from source in the :distribution:bwc:minor / :distribution:bwc:bugfix).
+    This makes the setup of bwc based cross version tests a bit faster by avoiding
+    the unpackaging overhead. We still assemble both in the bwcBuild tasks atm
+    which will be addressed in a later issue.
+    
+    This reworks the :distribution:bwc project:
+    
+    - Convert all the custom logic from build script logic (groovy) into gradle binary plugins (java)
+    - Tried to make the bwc setup logic a bit more readable
+    - Add basic functional test coverage for the bwc logic this PR tweaked.
+    - Extracted a general internal BWC Git plugin out of the bwc setup plugin to improve maintenance
+    and testability
+    - Changed the InternalDistributionPlugin to resolve the extracted distro instead on relying
+    on unpacking the distribution archive
+
+commit ea2dbd93b492b8032ef6919a55320206fde782a2
+Author: Christoph Büscher <cbuescher@posteo.de>
+Date:   Mon Sep 21 11:04:22 2020 +0200
+
+    Add field type for version strings (#59773)
+    
+    This PR adds a new 'version' field type that allows indexing string values
+    representing software versions similar to the ones defined in the Semantic
+    Versioning definition (semver.org). The field behaves very similar to a
+    'keyword' field but allows efficient sorting and range queries that take into
+    accound the special ordering needed for version strings. For example, the main
+    version parts are sorted numerically (ie 2.0.0 < 11.0.0) whereas this wouldn't
+    be possible with 'keyword' fields today.
+    
+    Valid version values are similar to the Semantic Versioning definition, with the
+    notable exception that in addition to the "main" version consiting of
+    major.minor.patch, we allow less or more than three numeric identifiers, i.e.
+    "1.2" or "1.4.6.123.12" are treated as valid too.
+    
+    Relates to #48878
+
+commit 92fb003566df04364d5fd74956818f275b067b8b
+Author: Tanguy Leroux <tlrx.dev@gmail.com>
+Date:   Tue Sep 15 12:52:41 2020 +0200
+
+    Abort non-fully consumed S3 input stream (#62167)
+    
+    Today when an S3RetryingInputStream is closed the remaining bytes
+    that were not consumed are drained right before closing the underlying
+    stream. In some contexts it might be more efficient to not consume the
+    remaining bytes and just drop the connection.
+    
+    This is for example the case with snapshot backed indices prewarming,
+    where there is not point in reading potentially large blobs if we know
+    the cache file we want to write the content of the blob as already been
+    evicted. Draining all bytes here takes a slot in the prewarming thread
+    pool for nothing.
+
+commit 3e9442b7d4f1260d33b0eb29dbc5607b2cfb1f8e
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Sep 15 05:07:03 2020 +0200
+
+    Improve Efficiency of ClusterApplierService Iteration (#62282)
+    
+    The complexity of removing a timeout listener was `O(n)` which
+    means that in case of many queued up CS update tasks (such as in the
+    case of an avalanche of dynamic mapping updates) we're dealing with
+    quadratic complexity for timing out N tasks which was observed to be
+    an issue in practice.
+    
+    This PR makes the complexity of timing out a task `O(1)` and generally
+    simplifies the iteration logic of listeners and applies to be a little
+    more efficient and inline better.
+
+commit 0ec40a0abeb85077285f585263b785a33a66ae39
+Author: Armin Braun <me@obrown.io>
+Date:   Mon Sep 14 13:05:22 2020 +0200
+
+    Save Some Allocations when Working with ClusterState (#62060)
+    
+    Just a number of obvious spots where we were allocating
+    duplicate empty structures or otherwise inefficient that I
+    found while investigating snapshot cluster state update performance.
+
+commit 305bebfcad138416fb0af9a57a22635edb44db1b
+Author: Armin Braun <me@obrown.io>
+Date:   Mon Aug 24 15:03:21 2020 +0200
+
+    Stop Needlessly Copying Bytes in XContent Parsing (#61447)
+    
+    Wrapping a `BytesArray` in a `StreamInput` for deserialization is inefficient.
+    This forces Jackson to internally buffer (i.e. copy) all bytes from the `BytesArray`
+    before deserializing, adding overhead for copying the bytes and managing the buffers.
+    
+    This commit fixes a number of spots where `BytesArray` is the most common type of
+    `BytesReference` to special case this type and parse it more efficiently.
+    Also improves parsing `String`s to use the more efficient direct `String` parsing APIs.
+
+commit 9059cfb7d40b9ab9e878662b69be7cfb04f11f52
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Aug 11 22:47:01 2020 +0200
+
+    Simplify and Speed up some Compression Usage (#60953)
+    
+    Use thread-local buffers and deflater and inflater instances to speed up
+    compressing and decompressing from in-memory bytes.
+    Not manually invoking `end()` on these should be safe since their off-heap memory
+    will eventually be reclaimed by the finalizer thread which should not be an issue for thread-locals
+    that are not instantiated at a high frequency.
+    This significantly reduces the amount of byte copying and object creation relative to the previous approach
+    which had to create a fresh temporary buffer (that was then resized multiple times during operations), copied
+    bytes out of that buffer to a freshly allocated `byte[]`, used 4k stream buffers needlessly when working with
+    bytes that are already in arrays (`writeTo` handles efficient writing to the compression logic now) etc.
+    
+    Relates #57284 which should be helped by this change to some degree.
+    Also, I expect this change to speed up mapping/template updates a little as those make heavy use of these
+    code paths.
+
+commit ec175d16537d461dd07e425cf90dc7dd16b053a9
+Author: Armin Braun <me@obrown.io>
+Date:   Wed Aug 5 14:54:17 2020 +0200
+
+    Improve some BytesStreamOutput Usage (#60730)
+    
+    * Stop redundantly creating a `0` length `ByteArray` that is never used
+    * Add efficient way to get a minimal size copy of the bytes in a `BytesStreamOutput`
+    * Avoid multiple redundant `byte[]` copies in search cache key creation
+
+commit 785a91c1e3f9880f1d31a6665b1bb48f188df2d6
+Author: Armin Braun <me@obrown.io>
+Date:   Wed Jul 22 23:41:48 2020 +0200
+
+    Optimize some Spots around Closing Resources (#60049)
+    
+    The single element `close` calls go through a very inefficient path that includes creating
+    a one element list.
+    `releaseOnce` is only with a single non-null input in production in two spots so no need for
+    varargs and any complexity here.
+    `ReleasableBytesStreamOutput` does not require any `releaseOnce` wrapping because we already have
+    that kind of logic implemented in `org.elasticsearch.common.util.AbstractArray` (which we were
+    wrapping here) already.
+
+commit 6b7f4c6bec71f51385bc53d859ef0a1fe5053861
+Author: Armin Braun <me@obrown.io>
+Date:   Wed Jul 22 16:46:37 2020 +0200
+
+    Formalize and Streamline Buffer Sizes used by Repositories (#59771)
+    
+    Due to complicated access checks (reads and writes execute in their own access context) on some repositories (GCS, Azure, HDFS), using a hard coded buffer size of 4k for restores was needlessly inefficient.
+    By the same token, the use of stream copying with the default 8k buffer size  for blob writes was inefficient as well.
+    
+    We also had dedicated, undocumented buffer size settings for HDFS and FS repositories. For these two we would use a 100k buffer by default. We did not have such a setting for e.g. GCS though, which would only use an 8k read buffer which is needlessly small for reading from a raw `URLConnection`.
+    
+    This commit adds an undocumented setting that sets the default buffer size to `128k` for all repositories. It removes wasteful allocation of such a large buffer for small writes and reads in case of HDFS and FS repositories (i.e. still using the smaller buffer to write metadata) but uses a large buffer for doing restores and uploading segment blobs.
+    
+    This should speed up Azure and GCS restores and snapshots in a non-trivial way as well as save some memory when reading small blobs on FS and HFDS repositories.
+
+commit 4ed6c0e05d8a415ebb2ee272eead25091f06faac
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Jul 7 10:39:22 2020 +0200
+
+    Share IT Infrastructure between Core Snapshot and SLM ITs (#59082)
+    
+    For #58994 it would be useful to be able to share test infrastructure.
+    This PR shares `AbstractSnapshotIntegTestCase` for that purpose, dries up SLM tests
+    accordingly and adds a shared and efficient (compared to the previous implementations)
+    way of waiting for no running snapshot operations to the test infrastructure to dry things up further.
+
+commit 371e1d15019b65a3fc98e3300d44d2ef50d84a80
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Tue Jun 23 10:40:35 2020 -0400
+
+    Drop deprecated aggregator wrapper (#58367)
+    
+    This drops the deprecated and now unused `asMultiBucketAggregator`. It
+    was too easy to use it to make inefficient `Aggregators`.
+    
+    Relates to #56487
+
+commit 37ab35156b581fd41f0577cc03936d3b24d85642
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Jun 5 19:16:41 2020 +0200
+
+    Deduplicate Index Metadata in BlobStore (#50278)
+    
+    This PR introduces two new fields in to `RepositoryData` (index-N) to track the blob name of `IndexMetaData` blobs and their content via setting generations and uuids. This is used to deduplicate the `IndexMetaData` blobs (`meta-{uuid}.dat` in the indices folders under `/indices` so that new metadata for an index is only written to the repository during a snapshot if that same metadata can't be found in another snapshot.
+    This saves one write per index in the common case of unchanged metadata thus saving cost and making snapshot finalization drastically faster if many indices are being snapshotted at the same time.
+    
+    The implementation is mostly analogous to that for shard generations in #46250 and piggy backs on the BwC mechanism introduced in that PR (which means this PR needs adjustments if it doesn't go into `7.6`).
+    
+    Relates to #45736 as it improves the efficiency of snapshotting unchanged indices
+    Relates to #49800 as it has the potential of loading the index metadata for multiple snapshots of the same index concurrently much more efficient speeding up future concurrent snapshot delete
+
+commit 2ef82cd7f954cc5edc19a74d662923ed2156a2ff
+Author: Armin Braun <me@obrown.io>
+Date:   Fri May 29 21:09:24 2020 +0200
+
+    Fix Local Translog Recovery not Updating Safe Commit in Edge Case (#57350)
+    
+    In case the local checkpoint in the latest commit is less
+    than the last processed local checkpoint we would recover
+    0 ops and hence not commit again.
+    This would lead to the logic in `IndexShard#recoverLocallyUpToGlobalCheckpoint`
+    not seeing the latest local checkpoint when it reload the safe commit from the store
+    and thus cause inefficient recoveries because the recoveries would work from a
+    lower than possible local checkpoint.
+    
+    Closes #57010
+
+commit beb3e493f3a198a480464ff8edda95332ae3c6ba
+Author: Armin Braun <me@obrown.io>
+Date:   Wed May 27 13:31:00 2020 +0200
+
+    Serialize Outbound Message on Flush (#57084)
+    
+    Follow up to #56961:
+    
+    We can be a little more efficient than just serializing at the IO loop by serializing
+    only when we flush to a channel. This has the advantage that we don't serialize a long
+    queue of messages for a channel that isn't writable for a longer period of time (unstable network,
+    actually writing large volumes of data, etc.).
+    Also, this further reduces the time for which we hold on to the write buffer for a message,
+    making allocations because of an empty page cache recycler pool less likely.
+
+commit cde202610c58def76e5a923892776c0d7e00f88a
+Author: David Kyle <david.kyle@elastic.co>
+Date:   Tue May 26 09:23:41 2020 +0100
+
+    Fix delete_expired_data/nightly maintenance when many model snapshots need deleting (#57041)
+    
+    The queries performed by the expired data removers pull back entire documents
+    when only a few fields are required. For ModelSnapshots in particular this is
+    a problem as they contain quantiles which may be 100s of KB and the search size
+    is set to 10,000.
+    
+    This change makes the search more efficient by only requesting the fields
+    needed to work out which expired data should be deleted.
+
+commit 7b34e22890e15b7480689b216c48487c87385978
+Author: Julie Tibshirani <julie.tibshirani@elastic.co>
+Date:   Wed May 13 11:34:54 2020 -0700
+
+    Use index sort range query when possible. (#56657)
+    
+    This PR proposes to use `IndexSortSortedNumericDocValuesRangeQuery` when possible to speed up certain range queries. Points-based queries are already very efficient, the only time this query makes a difference is when the range matches a large number of documents.
+    
+    Some notes:
+    * The optimization is only applied for fields of type `date`, `integer`, and `long`. I found that the query implementation isn't yet suited for `double` or `float` types (I will follow up with a Lucene issue).
+    * Before applying the query, we check that the index is sorted on the query field. This isn't strictly necessary, since the query itself checks this as part of its execution. But it seemed nice to avoid wrapping the query unnecessarily -- it makes debugging easier, like when reading search profile results.
+    
+    Below are benchmark results on the http-logs dataset. The following ranges were run against the `logs-241998` index:
+    
+    range-small (897633930, 897655999]: ~2M docs
+    range-medium (897623930, 897655999]: ~5M docs
+    range-large (897259801, 897503930]: ~21M docs
+    
+    ```
+    | 50th percentile service time |  range-small |     11.0228 |     8.19478 | -2.82797 |     ms |
+    | 95th percentile service time |  range-small |     11.8153 |     9.06257 | -2.75274 |     ms |
+    | 50th percentile service time | range-medium |     22.8912 |     7.23264 | -15.6585 |     ms |
+    | 95th percentile service time | range-medium |     25.0957 |     7.93246 | -17.1632 |     ms |
+    | 50th percentile service time |  range-large |     39.7224 |     6.34589 | -33.3765 |     ms |
+    | 95th percentile service time |  range-large |     43.9104 |     7.06604 | -36.8444 |     ms |
+    ```
+    
+    Relates to #48665.
+
+commit 36be0acdfc19e9b4225c88c189eee757c11ef250
+Author: Armin Braun <me@obrown.io>
+Date:   Tue May 12 17:21:32 2020 +0200
+
+    Move all Snapshot Master Node Steps to SnapshotsService (#56365)
+    
+    This refactoring has three motivations:
+    
+    1. Separate all master node steps during snapshot operations from all data node steps in code.
+    2. Set up next steps in concurrent repository operations and general improvements by centralizing tracking of each shard's state in the repository in `SnapshotsService` so that operations for each shard can be linearized efficiently (i.e. without having to inspect the full snapshot state for all shards on every cluster state update, allowing us to track more in memory and only fall back to inspecting the full CS on master failover like we do in the snapshot shards service).
+        * This PR already contains some best effort examples of this, but obviously this could be way improved upon still (just did not want to do it in this PR for complexity reasons)
+    3. Make the `SnapshotsService` less expensive on the CS thread for large snapshots
+
+commit f7c2cbdb5eab945ccab4866b3d36f0c8f220535c
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Apr 7 18:27:16 2020 +0200
+
+    Fix Race in Snapshot Abort (#54873)
+    
+    We can be a little more efficient when aborting a snapshot. Since we know the new repository
+    data after finalizing the aborted snapshot when can pass it down to the snapshot completion listeners.
+    This way, we don't have to fork off to the snapshot threadpool to get the repository data when the listener completes and can directly submit the delete task with high priority straight from the cluster state thread.
+
+commit ecdbd37f2e0f0447ed574b306adb64c19adc3ce1
+Author: Mark Vieira <portugee@gmail.com>
+Date:   Mon Mar 23 13:44:12 2020 -0700
+
+    Refactor global build info plugin to leverage JavaInstallationRegistry (#53994)
+    
+    This commit removes the configuration time vs execution time distinction
+    with regards to certain BuildParms properties. Because of the cost of
+    determining Java versions for configuration JDK locations we deferred
+    this until execution time. This had two main downsides. First, we had
+    to implement all this build logic in tasks, which required a bunch of
+    additional plumbing and complexity. Second, because some information
+    wasn't known during configuration time, we had to nest any build logic
+    that depended on this in awkward callbacks.
+    
+    We now defer to the JavaInstallationRegistry recently added in Gradle.
+    This utility uses a much more efficient method for probing Java
+    installations vs our jrunscript implementation. This, combined with some
+    optimizations to avoid probing the current JVM as well as deferring
+    some evaluation via Providers when probing installations for BWC builds
+    we can maintain effectively the same configuration time performance
+    while removing a bunch of complexity and runtime cost (snapshotting
+    inputs for the GenerateGlobalBuildInfoTask was very expensive). The end
+    result should be a much more responsive build execution in almost all
+    scenarios.
+
+commit 4d81edb6257732a73adc3e5bc5157ad01d1a42c4
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Mon Mar 16 14:51:54 2020 -0400
+
+    Stop using round-tripped PipelineAggregators (#53423)
+    
+    This begins to clean up how `PipelineAggregator`s and executed.
+    Previously, we would create the `PipelineAggregator`s on the data nodes
+    and embed them in the aggregation tree. When it came time to execute the
+    pipeline aggregation we'd use the `PipelineAggregator`s that were on the
+    first shard's results. This is inefficient because:
+    1. The data node needs to make the `PipelineAggregator` only to
+       serialize it and then throw it away.
+    2. The coordinating node needs to deserialize all of the
+       `PipelineAggregator`s even though it only needs one of them.
+    3. You end up with many `PipelineAggregator` instances when you only
+       really *need* one per pipeline.
+    4. `PipelineAggregator` needs to implement serialization.
+    
+    This begins to undo these by building the `PipelineAggregator`s directly
+    on the coordinating node and using those instead of the
+    `PipelineAggregator`s in the aggregtion tree. In a follow up change
+    we'll stop serializing the `PipelineAggregator`s to node versions that
+    support this behavior. And, one day, we'll be able to remove
+    `PipelineAggregator` from the aggregation result tree entirely.
+    
+    Importantly, this doesn't change how pipeline aggregations are declared
+    or parsed or requested. They are still part of the `AggregationBuilder`
+    tree because *that* makes sense.
+
+commit 0b2a62822ce565396bb1b33c39009a62f96c3c8a
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Mon Mar 2 16:46:46 2020 +0100
+
+    Introduce a `constant_keyword` field. (#49713)
+    
+    This field is a specialization of the `keyword` field for the case when all
+    documents have the same value. It typically performs more efficiently than
+    keywords at query time by figuring out whether all or none of the documents
+    match at rewrite time, like `term` queries on `_index`.
+    
+    The name is up for discussion. I liked including `keyword` in it, so that we
+    still have room for a `singleton_numeric` in the future. However I'm unsure
+    whether to call it `singleton`, `constant` or something else, any opinions?
+    
+    For this field there is a choice between
+     1. accepting values in `_source` when they are equal to the value configured
+        in mappings, but rejecting mapping updates
+     2. rejecting values in `_source` but then allowing updates to the value that
+        is configured in the mapping
+    This commit implements option 1, so that it is possible to reindex from/to an
+    index that has the field mapped as a keyword with no changes to the source.
+
+commit 4943bc0cd39c5f860b0280b78c3b800a668a3951
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Feb 27 09:49:31 2020 +0100
+
+    HybridDirectory should mmap postings. (#52641)
+    
+    Since version 8.4, `MMapDirectory` has an optimization to read long[]
+    arrays directly in little endian order, which postings leverage. So it'd
+    be more efficient to open postings with `MMapDirectory`.
+    
+    I refactored a bit the existing logic to better explain why every listed
+    file extension is open with `mmap`.
+
+commit cc00fd7e657ae787a1d9c0e57b1d073d241d49aa
+Author: Alan Woodward <romseygeek@apache.org>
+Date:   Mon Feb 24 14:28:51 2020 +0000
+
+    Use BoostQuery rather than FunctionScoreQuery for query-time indices_boost (#52272)
+    
+    This is a trivial change, but it should result in a slightly more efficient query boost.
+
+commit 5b2266601bea9de8082891ee4fcdf5171c1a9084
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Fri Feb 14 07:13:52 2020 -0500
+
+    Implement top_metrics agg (#51155)
+    
+    The `top_metrics` agg is kind of like `top_hits` but it only works on
+    doc values so it *should* be faster.
+    
+    At this point it is fairly limited in that it only supports a single,
+    numeric sort and a single, numeric metric. And it only fetches the "very
+    topest" document worth of metric. We plan to support returning a
+    configurable number of top metrics, requesting more than one metric and
+    more than one sort. And, eventually, non-numeric sorts and metrics. The
+    trick is doing those things fairly efficiently.
+    
+    Co-Authored by: Zachary Tong <zach@elastic.co>
+
+commit e349c5eec0975cf751bbe59ad533a9658c12692e
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Jan 14 17:15:00 2020 +0100
+
+    Track Snapshot Version in RepositoryData (#50930)
+    
+    Add tracking of snapshot versions to RepositoryData to make BwC logic more efficient.
+    Follow up to #50853
+
+commit fa8b48deefbec1eb58161252552628a1a0866e5f
+Author: Mayya Sharipova <mayya.sharipova@elastic.co>
+Date:   Tue Nov 26 09:07:39 2019 -0500
+
+    Optimize sort on numeric long and date fields.
+    
+    This rewrites long sort as a `DistanceFeatureQuery`, which can
+    efficiently skip non-competitive blocks and segments of documents.
+    Depending on the dataset, the speedups can be 2 - 10 times.
+    
+    The optimization can be disabled with setting the system property
+    `es.search.rewrite_sort` to `false`.
+    
+    Optimization is skipped when an index has 50% or more data with
+    the same value.
+    
+    Optimization is done through:
+    1. Rewriting sort as `DistanceFeatureQuery` which can
+    efficiently skip non-competitive blocks and segments of documents.
+    
+    2. Sorting segments according to the primary numeric sort field(#44021)
+    This allows to skip non-competitive segments.
+    
+    3. Using collector manager.
+    When we optimize sort, we sort segments by their min/max value.
+    As a collector expects to have segments in order,
+    we can not use a single collector for sorted segments.
+    We use collectorManager, where for every segment a dedicated collector
+    will be created.
+    
+    4. Using Lucene's shared TopFieldCollector manager
+    This collector manager is able to exchange minimum competitive
+    score between collectors, which allows us to efficiently skip
+    the whole segments that don't contain competitive scores.
+    
+    5. When index is force merged to a single segment, #48533 interleaving
+    old and new segments allows for this optimization as well,
+    as blocks with non-competitive docs can be skipped.
+    
+    Closes #37043
+    
+    Co-authored-by: Jim Ferenczi <jim.ferenczi@elastic.co>
+
+commit 79625fe694009b2f44c87111e8d184babde8aa85
+Author: Alan Woodward <romseygeek@apache.org>
+Date:   Mon Nov 11 12:03:35 2019 +0000
+
+    Remove Uid as an instantiable class (#48801)
+    
+    The Uid class encapsulates a document's type and id. Now that indexes only have a single
+    type, this extra information is superfluous, and we can just pass around ids as simple
+    String values.
+    
+    This commit cuts over the remaining few places that use Uid objects to use Strings,
+    and also makes the Uid class non-instantiable, preserving only some static helper methods
+    for efficient encoding of numeric values.
+
+commit 5297e5afa0b3902501868ec61a0173f233baf0d6
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Tue Oct 29 09:00:04 2019 +0100
+
+    Add a new merge policy that interleaves old and new segments on force merge (#48533)
+    
+    This change adds a new merge policy that interleaves eldest and newest segments picked by MergePolicy#findForcedMerges
+    and MergePolicy#findForcedDeletesMerges. This allows time-based indices, that usually have the eldest documents
+    first, to be efficient at finding the most recent documents too. Although we wrap this merge policy for all indices
+    even though it is mostly useful for time-based but there should be no overhead for other type of indices so it's simpler
+    than adding a setting to enable it. This change is needed in order to ensure that the optimizations that we are working
+    on in # remain efficient even after running a force merge.
+    
+    Relates #37043
+
+commit 12d32af6b4cde721a11d4f8d1c49128baadc840f
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Thu Oct 24 15:33:30 2019 +0200
+
+    Change grok watch dog to be Matcher based instead of thread based. (#48346)
+    
+    There is a watchdog in order to avoid long running (and expensive)
+    grok expressions. Currently the watchdog is thread based, threads
+    that run grok expressions are registered and after completion unregister.
+    If these threads stay registered for too long then the watch dog interrupts
+    these threads. Joni (the library that powers grok expressions) has a
+    mechanism that checks whether the current thread is interrupted and
+    if so abort the pattern matching.
+    
+    Newer versions have an additional method to abort long running pattern
+    matching inside joni. Instead of checking the thread's interrupted flag,
+    joni now also checks a volatile field that can be set via a `Matcher`
+    instance. This is more efficient method for aborting long running matches.
+    (joni checks each 30k iterations whether interrupted flag is set vs.
+    just checking a volatile field)
+    
+    Recently we upgraded to a recent joni version (#47374), and this PR
+    is a followup of that PR.
+    
+    This change should also fix #43673, since it appears when unit tests
+    are ran the a test runner thread's interrupted flag may already have
+    been set, due to some thread reuse.
+
+commit 11d4a6585307361cd9acb7ff5f0caae38ea602f0
+Merge: f183ac1aa57 d941e1b3cba
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Tue Oct 15 16:26:13 2019 +0200
+
+    This commits merges (#48039) the enrich feature branch,
+    which adds a new ingest processor, named enrich processor,
+    that allows document being ingested to be enriched with data from other indices.
+    
+    Besides a new enrich processor, this PR adds several APIs to manage an enrich policy.
+    An enrich policy is in charge of making the data from other indices available to the enrich processor in an efficient manner.
+    
+    Closes #32789
+
+commit 785cf6bd44d5de91edc3fc184d8be3d3ba511898
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Fri Oct 4 06:30:41 2019 -0500
+
+    Upgrade joni from 2.1.6 to 2.1.29 (#47374)
+    
+    Changed the Grok class to use searchInterruptible(...) instead of search(...)
+    otherwise we can't interrupt long running matching via the thread watch
+    dog.
+    
+    Joni now also provides another way to interrupt long running matches.
+    By invoking the interrupt() method on the Matcher. We need then to refactor
+    the watch thread dog to keep track of Matchers instead of Threads, but
+    it is a better way of doing this, since interrupting would be more direct
+    (not every 30k iterations) and efficient (checking a volatile field).
+    This work needs to be done in a follow up.
+
+commit a4ed7b1ca102267ecdda7c788713675ed3958f3f
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Sep 4 21:48:03 2019 +0200
+
+    Decouple shard allocation awareness from search and get requests (#45735)
+    
+    With this commit, Elasticsearch will no longer prefer using shards in the same location
+    (with the same awareness attribute values) to process `_search` and `_get` requests.
+    Instead, adaptive replica selection (the default since 7.0) should route requests more efficiently
+    using the service time of prior inter-node communications. Clusters with big latencies between
+    nodes should switch to cross cluster replication to isolate nodes within the same zone.
+    Note that this change only targets 8.0 since it is considered as breaking. However a follow up
+    pr should add an option to activate this behavior in 7.x in order to allow users to opt-in early.
+    
+    Closes #43453
+
+commit ccf30c3842ecc62db9f4395e70fa47ec758ce141
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Fri Aug 9 08:55:38 2019 +0200
+
+    Added a custom api to perform the msearch more efficiently for enrich processor (#43965)
+    
+    Currently the msearch api is used to execute buffered search requests;
+    however the msearch api doesn't deal with search requests in an intelligent way.
+    It basically executes each search separately in a concurrent manner.
+    
+    This api reuses the msearch request and response classes and executes
+    the searches as one request in the node holding the enrich index shard.
+    Things like engine.searcher and query shard context are only created once.
+    Also there are less layers than executing a regular msearch request. This
+    results in an interesting speedup.
+    
+    Without this change, in a single node cluster, enriching documents
+    with a bulk size of 5000 items, the ingest time in each bulk response
+    varied from 174ms to 822ms. With this change the ingest time in each
+    bulk response varied from 54ms to 109ms.
+    
+    I think we should add a change like this based on this improvement in ingest time.
+    
+    However I do wonder if instead of doing this change, we should improve
+    the msearch api to execute more efficiently. That would be more complicated
+    then this change, because in this change the custom api can only search
+    enrich index shards and these are special because they always have a single
+    primary shard. If msearch api is to be improved then that should work for
+    any search request to any indices. Making the same optimization for
+    indices with more than 1 primary shard requires much more work.
+    
+    The current change is isolated in the enrich plugin and LOC / complexity
+    is small. So this good enough for now.
+
+commit c855cc2290138cdd5a18ec8338810b6780d029ce
+Author: Armin Braun <me@obrown.io>
+Date:   Wed Jul 31 14:27:59 2019 +0200
+
+    Stop Recreating Wrapped Handlers in RestController (#44964)
+    
+    * We shouldn't be recreating wrapped REST handlers over and over for every request. We only use this hook in x-pack and the wrapper there does not have any per request state.
+      This is inefficient and could lead to some very unexpected memory behavior
+       => I made the logic create the wrapper on handler registration and adjusted the x-pack wrapper implementation to correctly forward the circuit breaker and content stream flags
+
+commit 8a21cc8a0f12da6beb749d5d5dff010433acd939
+Author: Dimitris Athanasiou <dimitris@elastic.co>
+Date:   Mon Jul 29 16:02:45 2019 +0300
+
+    [ML] Outlier detection should only fetch docs that have the analyzed … (#44944)
+    
+    As data frame rows with missing values for analyzed fields are skipped,
+    we can be more efficient by including a query that only picks documents
+    that have values for all analyzed fields. Besides improving the number
+    of documents we go through, we also provide a more accurate measurement
+    of how many rows we need which reduces the memory requirements.
+    
+    This also adds an integration test that runs outlier detection on data
+    with missing fields.
+
+commit baf155dced6280951320bc188c13f4307f2bd5b9
+Author: Zachary Tong <polyfractal@elastic.co>
+Date:   Mon Jul 1 10:02:36 2019 -0400
+
+    Add RareTerms aggregation (#35718)
+    
+    This adds a `rare_terms` aggregation.  It is an aggregation designed
+    to identify the long-tail of keywords, e.g. terms that are "rare" or
+    have low doc counts.
+    
+    This aggregation is designed to be more memory efficient than the
+    alternative, which is setting a terms aggregation to size: LONG_MAX
+    (or worse, ordering a terms agg by count ascending, which has
+    unbounded error).
+    
+    This aggregation works by maintaining a map of terms that have
+    been seen. A counter associated with each value is incremented
+    when we see the term again.  If the counter surpasses a predefined
+    threshold, the term is removed from the map and inserted into a cuckoo
+    filter.  If a future term is found in the cuckoo filter we assume it
+    was previously removed from the map and is "common".
+    
+    The map keys are the "rare" terms after collection is done.
+
+commit 5b1de3ca167f8ff39a92d00a7412f648e12d6d43
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Jun 19 21:25:21 2019 +0200
+
+    Allocate memory lazily in BestBucketsDeferringCollector (#43339)
+    
+    While investigating memory consumption of deeply nested aggregations for #43091
+    the memory used to keep track of the doc ids and buckets in the BestBucketsDeferringCollector
+    showed up as one of the main contributor. In my tests half of the memory held in the
+     BestBucketsDeferringCollector is associated to segments that don't have matching docs
+     in the selected buckets. This is expected on fields that have a big cardinality since each
+     bucket can appear in very few segments. By allocating the builders lazily this change
+     reduces the memory consumption by a factor 2 (from 1GB to 512MB), hence reducing the
+    impact on gcs for these volatile allocations. This commit also switches the PackedLongValues.Builder
+    with a RoaringDocIdSet in order to handle very sparse buckets more efficiently.
+    
+    I ran all my tests on the `geoname` rally track with the following query:
+    
+    ````
+    {
+        "size": 0,
+        "aggs": {
+            "country_population": {
+                "terms": {
+                    "size": 100,
+                    "field": "country_code.raw"
+                },
+                "aggs": {
+                    "admin1_code": {
+                        "terms": {
+                            "size": 100,
+                            "field": "admin1_code.raw"
+                        },
+                        "aggs": {
+                            "admin2_code": {
+                                "terms": {
+                                    "size": 100,
+                                    "field": "admin2_code.raw"
+                                },
+                                "aggs": {
+                                    "sum_population": {
+                                        "sum": {
+                                            "field": "population"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ````
+
+commit 0bf0f52014f666d77a8a2a9ee4953abc4cf98247
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Tue May 7 11:07:46 2019 +0200
+
+    Change the reindex fetch in policy runner from 1000 to 10000 and (#41838)
+    
+    Reindex uses scroll searches to read the source data. It is more efficient
+    to read more data in one search scroll round then several. I think 10000
+    is a good sweet spot.
+    
+    Relates to #32789
+
+commit 891998866ae847b663f757b12375d23f7990388e
+Author: Tim Vernum <tim@adjective.org>
+Date:   Wed Mar 27 17:14:02 2019 +1100
+
+    Support mustache templates in role mappings (#39984)
+    
+    This adds a new `role_templates` field to role mappings that is an
+    alternative to the existing roles field.
+    
+    These templates are evaluated at runtime to determine which roles should be
+    granted to a user.
+    For example, it is possible to specify:
+    
+        "role_templates": [
+          { "template":{ "source": "_user_{{username}}" } }
+        ]
+    
+    which would mean that every user is assigned to their own role based on
+    their username.
+    
+    You may not specify both roles and role_templates in the same role
+    mapping.
+    
+    This commit adds support for templates to the role mapping API, the role
+    mapping engine, the Java high level rest client, and Elasticsearch
+    documentation.
+    
+    Due to the lack of caching in our role mapping store, it is currently
+    inefficient to use a large number of templated role mappings. This will be
+    addressed in a future change.
+
+commit cfa58a51afd1cd41d8aebb024d6f8987373b21d1
+Author: Tim Brooks <tim@uncontended.net>
+Date:   Wed Jan 9 11:46:24 2019 -0700
+
+    Add TLS/SSL channel close timeouts (#37246)
+    
+    Closing a channel using TLS/SSL requires reading and writing a
+    CLOSE_NOTIFY message (for pre-1.3 TLS versions). Many implementations do
+    not actually send the CLOSE_NOTIFY message, which means we are depending
+    on the TCP close from the other side to ensure channels are closed. In
+    case there is an issue with this, we need a timeout. This commit adds a
+    timeout to the channel close process for TLS secured channels.
+    
+    As part of this change, we need a timer service. We could use the
+    generic Elasticsearch timeout threadpool. However, it would be nice to
+    have a local to the nio event loop timer service dedicated to network needs. In
+    the future this service could support read timeouts, connect timeouts,
+    request timeouts, etc. This commit adds a basic priority queue backed
+    service. Since our timeout volume (channel closes) is very low, this
+    should be fine. However, this can be updated to something more efficient
+    in the future if needed (timer wheel). Everything being local to the event loop
+    thread makes the logic simple as no locking or synchronization is necessary.
+
+commit 3229dfc4de1b6464f5656bad145e13eec48cf17c
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Tue Nov 13 14:53:55 2018 +0100
+
+    Allow efficient can_match phases on frozen indices (#35431)
+    
+    This change adds a special caching reader that caches all relevant
+    values for a range query to rewrite correctly in a can_match phase
+    without actually opening the underlying directory reader. This
+    allows frozen indices to be filtered with can_match and in-turn
+    searched with wildcards in a efficient way since it allows us to
+    exclude shards that won't match based on their date-ranges without
+    opening their directory readers.
+    
+    Relates to #34352
+    Depends on #34357
+
+commit 8de3c6e618505e46c10f95e4360ec23c746d2ddf
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Wed Nov 7 20:41:27 2018 +0100
+
+    Ignore date ranges containing 'now' when pre-processing a percolator query (#35160)
+    
+    Today when a percolator query contains a date range then the query
+    analyzer extracts that range, so that at search time the `percolate` query
+    can exclude percolator queries efficiently that are never going to match.
+    
+    The problem is that if 'now' is used it is evaluated at index time.
+    So the idea is to rewrite date ranges with 'now' to a match all query,
+    so that the query analyzer can't extract it and the `percolate` query
+    is  then able to evaluate 'now' at query time.
+
+commit 64a044240a6c2003268920c230f6aca202078ffd
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Oct 26 20:57:57 2018 +0200
+
+    MINOR: Remove Deadcode in aggregtions.support (#34323)
+    
+    * Removed methods are just unused (the exceptions being isGeoPoint() and is
+    isFloatingPoint() but those could more efficiently be replaced by enum comparisons to simplify the code)
+    * Remove exceptions aren't thrown
+
+commit ee21067a418be2abab626fe847ff0eb607cc641f
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Oct 3 18:33:39 2018 +0200
+
+    Add early termination support for min/max aggregations (#33375)
+    
+    This commit adds the support to early terminate the collection of a leaf
+    in the min/max aggregator. If the query matches all documents the min and max value
+    for a numeric field can be retrieved efficiently in the points reader.
+    This change applies this optimization when possible.
+
+commit 5a3e03183147e3d8f01e4110744a7185a7779a3b
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Oct 3 11:55:30 2018 +0200
+
+    Preserve the order of nested documents in the Lucene index (#34225)
+    
+    Today we reverse the initial order of the nested documents when we
+    index them in order to ensure that parents documents appear after
+    their children. This means that a query will always match nested documents
+    in the reverse order of their offsets in the source document.
+    Reversing all documents is not needed so this change ensures that parents
+    documents appear after their children without modifying the initial order
+    in each nested level. This allows to match children in the order of their
+    appearance in the source document which is a requirement to efficiently
+    implement #33587. Old indices created before this change will continue
+    to reverse the order of nested documents to ensure backwark compatibility.
+
+commit 50e07dd413ea1ca009d15c5ecc77f88c83200f6b
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Sep 5 19:57:36 2018 +0200
+
+    Add an index setting to control TieredMergePolicy#deletesPctAllowed (#32907)
+    
+    This change adds an expert index setting called `index.merge.policy.deletes_pct_allowed`.
+    It controls the maximum percentage of deleted documents that is tolerated in the index.
+    Lower values make the index more space efficient at the expense of increased CPU and I/O activity.
+    Values must be between `20` and `50`. Default value is `33`.
+
+commit 9822a6f911cba6e00a8828432e2094e289935435
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Thu Jul 12 16:22:42 2018 -0400
+
+    Docs: Explain closing the high level client
+    
+    It looks like we weren't clear on when and why you should close the high
+    level client and folks were closing it after every request which is not
+    efficient. This explains why you should close the client and when so
+    this shouldn't be as common.
+    
+    Closes #32001
+
+commit b4469f82b9d6fcb2197e38d6610b229d3b2b993a
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Tue Jun 12 10:34:06 2018 +0200
+
+    Ensure LuceneChangesSnapshot reads in leaf order (#31246)
+    
+    Today we re-initialize DV instances while we read docs
+    for the snapshot. This is caused by the fact that we sort the
+    docs by seqID which causes then to be our of order. This change
+    sorts documents temporarily by docID, fetches the metadata (not source)
+    into a in-memory datastructure and sorts it back.
+    This allows efficient reuse of DV instances.
+
+commit 5c6711b8a440a937dccb890e1e33cc75728bbc0c
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Thu Jun 7 07:39:28 2018 +0200
+
+    Use a `_recovery_source` if source is omitted or modified (#31106)
+    
+    Today if a user omits the `_source` entirely or modifies the source
+    on indexing we have no chance to re-create the document after it has
+    been added. This is an issue for CCR and recovery based on soft deletes
+    which we are going to make the default. This change adds an additional
+    recovery source if the source is disabled or modified that is only kept
+    around until the document leaves the retention policy window.
+    
+    This change adds a merge policy that efficiently removes this extra source
+    on merge for all document that are live and not in the retention policy window
+    anymore.
+
+commit 886db84ad21bf7666a5027bd1487c961ebf14b9c
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Wed May 23 08:55:21 2018 +0200
+
+    Expose Lucene's FeatureField. (#30618)
+    
+    Lucene has a new `FeatureField` which gives the ability to record numeric
+    features as term frequencies. Its main benefit is that it allows to boost
+    queries with the values of these features and efficiently skip non-competitive
+    documents at the same time using block-max WAND and indexed impacts.
+
+commit c08daf25892c12f7219a097e8b9290dff280c047
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Fri Apr 27 15:26:46 2018 +0200
+
+    Build global ordinals terms bucket from matching ordinals (#30166)
+    
+    The global ordinals terms aggregator has an option to remap global ordinals to
+    dense ordinal that match the request. This mode is automatically picked when the terms
+    aggregator is a child of another bucket aggregator or when it needs to defer buckets to an
+    aggregation that is used in the ordering of the terms.
+    Though when building the final buckets, this aggregator loops over all possible global ordinals
+    rather than using the hash map that was built to remap the ordinals.
+    For fields with high cardinality this is highly inefficient and can lead to slow responses even
+    when the number of terms that match the query is low.
+    This change fixes this performance issue by using the hash table of matching ordinals to perform
+    the pruning of the final buckets for the terms and significant_terms aggregation.
+    I ran a simple benchmark with 1M documents containing 0 to 10 keywords randomly selected among 1M unique terms.
+    This field is used to perform a multi-level terms aggregation using rally to collect the response times.
+    The aggregation below is an example of a two-level terms aggregation that was used to perform the benchmark:
+    
+    ```
+    "aggregations":{
+       "1":{
+          "terms":{
+             "field":"keyword"
+          },
+          "aggregations":{
+             "2":{
+                "terms":{
+                   "field":"keyword"
+                }
+             }
+          }
+       }
+    }
+    ```
+    
+    | Levels of aggregation | 50th percentile ms (master) | 50th percentile ms (patch) |
+    | --- | --- | --- |
+    | 2 | 640.41ms | 577.499ms |
+    | 3 | 2239.66ms | 600.154ms |
+    | 4 | 14141.2ms | 703.512ms |
+    
+    Closes #30117
+
+commit 85ac541ab3dc4af61e94cdf9addb137dd76181f6
+Author: Jason Tedor <jason@tedor.me>
+Date:   Fri Apr 13 16:57:59 2018 -0400
+
+    Make NodeInfo#nodeVersion strongly-typed as Version (#29515)
+    
+    Today we have a nodeVersion property on the NodeInfo class that we use
+    to carry around information about a standalone node that we will start
+    during tests. This property is a String which we usually end up parsing
+    to a Version anyway to do various checks on it. This can end up
+    happening a lot during configuration so it would be more efficient and
+    safer to have this already be strongly-typed as a Version and parsed
+    from a String only once for each instance of NodeInfo. Therefore, this
+    commit makes NodeInfo#nodeVersion strongly-typed as a Version.
+
+commit 98815655c180091c489ae3533fd561e73b0a59b0
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Apr 12 09:12:16 2018 +0200
+
+    Cache number of live documents with document-level security. (elastic/x-pack-elasticsearch#4255)
+    
+    Currently numDocs() is computed lazily, but this doesn't help since
+    BaseCompositeReader calls numDocs() on its sub readers eagerly. This may cause
+    performance issues since every time we wrap a reader with DocumentSubSetReader
+    (which means for every query when DLS is enabled) we need to recompute the
+    number of live documents, which runs in linear time with the number of matches
+    of the role query.
+    
+    Not computing numDocs() eagerly in DocumentSubSetReader might help, but it
+    would also be fragile since callers of this method still usually assume that
+    it runs in constant time. So I am proposing that we add a cache of the number
+    of live docs in order to decrease the performance hit of document-level
+    security. I would expect this cache to be efficient as it will not only reuse
+    entries in-between refreshes, but also across refreshes for segments that
+    haven't received any new updates.
+    
+    Original commit: elastic/x-pack-elasticsearch@5a3af1b174d97f95969f2b6c467b811c3643114f
+
+commit 720e96e2887dfa5f6d4c0de461da0c6861cea99f
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Mon Nov 20 16:50:08 2017 +0100
+
+    Ensure nested documents have consistent version and seq_ids (#27455)
+    
+    Today we index dummy values for seq_ids and version on nested documents.
+    This is on the one hand trappy since users can request these values via
+    inner hits and on the other hand not necessarily good for compression since
+    the dummy value will likely not compress well when seqIDs are lowish.
+    
+    This change ensures that we share the same field values for all documents in a
+    nested block. This won't have any overhead, in-fact it might be more efficient since
+    we even reduce the work needed slightly.
+
+commit 454cfc2ceab7471315df57cbd4aaf4f6addcb09b
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Wed Sep 13 15:26:33 2017 +0200
+
+    More efficient encoding of range fields. (#26470)
+    
+    This PR removes the vInt that precedes every value in order to know how long
+    they are. Instead the query takes an enum that tells how to compute the length
+    of values: for fixed-length data (ip addresses, double, float) the length is a
+    constant while longs and integers use a variable-length representation that
+    allows the length to be computed from the encoded values.
+    
+    Also the encoding of ints/longs was made a bit more efficient in order not to
+    waste 3 bits in the header. As a consequence, values between -8 and 7 can now
+    be encoded on 1 byte and values between -2048 and 2047 can now be encoded on 2
+    bytes or less.
+    
+    Closes #26443
+
+commit 1500074cb28d02864c8a0ef103cd77129af191ba
+Author: David Roberts <dave.roberts@elastic.co>
+Date:   Tue Sep 12 10:25:53 2017 +0100
+
+    [ML] Add method to find the established memory use for a job (elastic/x-pack-elasticsearch#2449)
+    
+    "Established" memory use will be one of the building blocks for smarter node
+    allocation.
+    
+    In order for a job to be considered to have established memory usage it must:
+    - Have generated at least 20 buckets of results
+    - Have generated at least one model size stats document
+    - Have low variability of model bytes in model size stats documents in the
+      time period covered by the last 20 buckets, which is defined as having a
+      coefficient of variation of no more than 0.1
+    
+    Relates elastic/x-pack-elasticsearch#546
+    
+    Original commit: elastic/x-pack-elasticsearch@5032eb01d884977a0808a16a030b31a11291d709
+
+commit 0a25558f98a2d32eda61d51fef093e2394d02890
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Fri May 12 14:33:59 2017 +0200
+
+    Query range fields by doc values when they are expected to be more efficient than points.
+    
+    * Enable doc values for range fields by default.
+    * Store ranges in a binary format that support multi field fields.
+    * Added BinaryDocValuesRangeQuery that can query ranges that have been encoded into a binary doc values field.
+    * Wrap range queries on a range field in IndexOrDocValuesQuery query.
+    
+    Closes #24314
+
+commit 40bb1663eeddca7371bec09b52de8ad67f2e97a3
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Fri Jul 7 14:22:47 2017 +0200
+
+    Index ids in binary form. (#25352)
+    
+    Indexing ids in binary form should help with indexing speed since we would
+    have to compare fewer bytes upon sorting, should help with memory usage of
+    the live version map since keys will be shorter, and might help with disk
+    usage depending on how efficient the terms dictionary is at compressing
+    terms.
+    
+    Since we can only expect base64 ids in the auto-generated case, this PR tries
+    to use an encoding that makes the binary id equal to the base64-decoded id in
+    the majority of cases (253 out of 256). It also specializes numeric ids, since
+    this seems to be common when content that is stored in Elasticsearch comes
+    from another database that uses eg. auto-increment ids.
+    
+    Another option could be to require base64 ids all the time. It would make things
+    simpler but I'm not sure users would welcome this requirement.
+    
+    This PR should bring some benefits, but I expect it to be mostly useful when
+    coupled with something like #24615.
+    
+    Closes #18154
+
+commit 743217a4309dbe11a0c6b597cd3eedf5156d78bc
+Author: Ali Beyad <ali@elastic.co>
+Date:   Wed May 10 15:48:40 2017 -0400
+
+    Enhances get snapshots API to allow retrieving repository index only (#24477)
+    
+    Currently, the get snapshots API (e.g. /_snapshot/{repositoryName}/_all)
+    provides information about snapshots in the repository, including the
+    snapshot state, number of shards snapshotted, failures, etc.  In order
+    to provide information about each snapshot in the repository, the call
+    must read the snapshot metadata blob (`snap-{snapshot_uuid}.dat`) for
+    every snapshot.  In cloud-based repositories, this can be expensive,
+    both from a cost and performance perspective.  Sometimes, all the user
+    wants is to retrieve all the names/uuids of each snapshot, and the
+    indices that went into each snapshot, without any of the other status
+    information about the snapshot.  This minimal information can be
+    retrieved from the repository index blob (`index-N`) without needing to
+    read each snapshot metadata blob.
+    
+    This commit enhances the get snapshots API with an optional `verbose`
+    parameter.  If `verbose` is set to false on the request, then the get
+    snapshots API will only retrieve the minimal information about each
+    snapshot (the name, uuid, and indices in the snapshot), and only read
+    this information from the repository index blob, thereby giving users
+    the option to retrieve the snapshots in a repository in a more
+    cost-effective and efficient manner.
+    
+    Closes #24288
+
+commit fec1802e2f622c1a126c9adda28fa53f1b55529a
+Author: joachimdraeger <joachimdraeger+github@gmail.com>
+Date:   Mon May 8 22:43:01 2017 +0100
+
+    Fixes inefficient loading of snapshot repository data (#24510)
+    
+    This commit fixes inefficient (worst case exponential) loading of
+    snapshot repository data when checking for incompatible snapshots,
+    that was introduced in #22267.  When getting snapshot information,
+    getRepositoryData() was called on every snapshot, so if there are
+    a large number of snapshots in the repository and _all snapshots
+    were requested, the performance degraded exponentially.  This
+    commit fixes the issue by only calling getRepositoryData once and
+    using the data from it in all subsequent calls to get snapshot
+    information.
+    
+    Closes #24509
+
+commit 9b3c85dd88367355d5984bb946711ee295946265
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Mon Apr 10 10:10:16 2017 +0200
+
+    Deprecate _field_stats endpoint (#23914)
+    
+    _field_stats has evolved quite a lot to become a multi purpose API capable of retrieving the field capabilities and the min/max value for a field.
+    In the mean time a more focused API called `_field_caps` has been added, this enpoint is a good replacement for _field_stats since he can
+    retrieve the field capabilities by just looking at the field mapping (no lookup in the index structures).
+    Also the recent improvement made to range queries makes the _field_stats API obsolete since this queries are now rewritten per shard based on the min/max found for the field.
+    This means that a range query that does not match any document in a shard can return quickly and can be cached efficiently.
+    For these reasons this change deprecates _field_stats. The deprecation should happen in 5.4 but we won't remove this API in 6.x yet which is why
+     this PR is made directly to 6.0.
+     The rest tests have also been adapted to not throw an error while this change is backported to 5.4.
+
+commit 8d6a41f67145b3bbc369eb5eec7caceaa39f5345
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Tue Feb 14 16:05:19 2017 +0100
+
+    Nested queries should avoid adding unnecessary filters when possible. (#23079)
+    
+    When nested objects are present in the mappings, many queries get deoptimized
+    due to the need to exclude documents that are not in the right space. For
+    instance, a filter is applied to all queries that prevents them from matching
+    non-root documents (`+*:* -_type:__*`). Moreover, a filter is applied to all
+    child queries of `nested` queries in order to make sure that the child query
+    only matches child documents (`_type:__nested_path`), which is required by
+    `ToParentBlockJoinQuery` (the Lucene query behing Elasticsearch's `nested`
+    queries).
+    
+    These additional filters slow down `nested` queries. In 1.7-, the cost was
+    somehow amortized by the fact that we cached filters very aggressively. However,
+    this has proven to be a significant source of slow downs since 2.0 for users
+    of `nested` mappings and queries, see #20797.
+    
+    This change makes the filtering a bit smarter. For instance if the query is a
+    `match_all` query, then we need to exclude nested docs. However, if the query
+    is `foo: bar` then it may only match root documents since `foo` is a top-level
+    field, so no additional filtering is required.
+    
+    Another improvement is to use a `FILTER` clause on all types rather than a
+    `MUST_NOT` clause on all nested paths when possible since `FILTER` clauses
+    are more efficient.
+    
+    Here are some examples of queries and how they get rewritten:
+    
+    ```
+    "match_all": {}
+    ```
+    
+    This query gets rewritten to `ConstantScore(+*:* -_type:__*)` on master and
+    `ConstantScore(_type:AutomatonQuery {\norg.apache.lucene.util.automaton.Automaton@4371da44})`
+    with this change. The automaton is the complement of `_type:__*` so it matches
+    the same documents, but is faster since it is now a positive clause. Simplistic
+    performance testing on a 10M index where each root document has 5 nested
+    documents on average gave a latency of 420ms on master and 90ms with this change
+    applied.
+    
+    ```
+    "term": {
+      "foo": {
+        "value": "0"
+      }
+    }
+    ```
+    
+    This query is rewritten to `+foo:0 #(ConstantScore(+*:* -_type:__*))^0.0` on
+    master and `foo:0` with this change: we do not need to filter nested docs out
+    since the query cannot match nested docs. While doing performance testing in
+    the same conditions as above, response times went from 250ms to 50ms.
+    
+    ```
+    "nested": {
+      "path": "nested",
+      "query": {
+        "term": {
+          "nested.foo": {
+            "value": "0"
+          }
+        }
+      }
+    }
+    ```
+    
+    This query is rewritten to
+    `+ToParentBlockJoinQuery (+nested.foo:0 #_type:__nested) #(ConstantScore(+*:* -_type:__*))^0.0`
+    on master and `ToParentBlockJoinQuery (nested.foo:0)` with this change. The
+    top-level filter (`-_type:__*`) could be removed since `nested` queries only
+    match documents of the parent space, as well as the child filter
+    (`#_type:__nested`) since the child query may only match nested docs since the
+    `nested` object has both `include_in_parent` and `include_in_root` set to
+    `false`. While doing performance testing in the same conditions as above,
+    response times went from 850ms to 270ms.
+
+commit a969dad43e9027552ddccec09360dd022051c253
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Tue Feb 14 15:57:12 2017 +0100
+
+    Integrate IndexOrDocValuesQuery. (#23119)
+    
+    This gives Lucene the choice to use index/point-based queries or
+    doc-values-based queries depending on which one is more efficient. This commit
+    integrates this feature for:
+     - long/integer/short/byte/double/float/half_float/scaled_float ranges,
+     - date ranges,
+     - geo bounding box queries,
+     - geo distance queries.
+
+commit a9135cd636dcb3a06bf3a33627a6d139fb86948b
+Author: Colin Goodheart-Smithe <colings86@users.noreply.github.com>
+Date:   Wed Jan 25 10:37:15 2017 +0000
+
+    RangeQuery WITHIN case now normalises query (#22431)
+    
+    Previous to his change when the range query was rewritten to an unbounded range (`[* TO *]`) it maintained the timezone and format for the query. This means that queries with different timezones and format which are rewritten to unbounded range queries actually end up as different entries in the search request cache.
+    
+    This is inefficient and unnecessary so this change nulls the timezone and format in the rewritten query so that regardless of the timezone or format the rewritten query will be the same.
+    
+    Although this does not fix #22412 (since it deals with the WITHIN case rather than the INTERSECTS case) it is born from the same arguments
+
+commit b93ec686f3b60e3ac3f4193ea21690416730133f
+Author: Dimitris Athanasiou <dimitris@elastic.co>
+Date:   Thu Jan 12 13:36:09 2017 +0000
+
+    Use QUERY_THEN_FETCH (default) as search type for data extractor (elastic/elasticsearch#704)
+    
+    I thought QUERY_AND_FETCH was the most efficient for the data extractor
+    but it does not work with sorting. It causes all shard results to be
+    returned before sorting and thus we may get out-of-order errors.
+    
+    This commit switches to the default search type.
+    
+    Original commit: elastic/x-pack-elasticsearch@d8a8155973475cb46db01dc0284ed11d83188631
+
+commit 18a2cf23d4c0b08820ba01ccdc19689fd7207c26
+Author: Jay Modi <jaymode@users.noreply.github.com>
+Date:   Fri Dec 30 09:27:49 2016 -0500
+
+    Build a single role that represents a user's permissions (elastic/elasticsearch#4449)
+    
+    This PR changes how we use roles and how we look at the roles of a user. Previously we looked up each role individually, parsed each into their own `Role` object, and had a wrapper that essentially served as an iterator over the roles. The same pattern was also followed for the permissions that composed a role (ClusterPermission, IndicesPermission, and RunAsPermission). This resulted in a lot of code that was hard to follow and could be inefficient.
+    
+    Now, we look up the roles for a user in bulk and only get the RoleDescriptor for each role. Once all role descriptors have been retrieved, we build a single Role that represents the user's permissions and we also cache this combination for better performance as authorization can happen many times for a single top level request as we authorize the top level request and any sub requests, which could be a large number in the case of shard requests.
+    
+    This change also enabled a large cleanup of our permission and privilege classes, which should reduce the footprint of what needs to be followed. Some of the notable changes are:
+    
+    * Consolidation of GeneralPrivilege and AbstractAutomatonPrivilege into the Privilege class
+    * The DefaultRole class has been removed and the permissions it provided were moved into the AuthorizationService
+    * The GlobalPermission class was removed as there is a single role that represents a user's permissions
+    * The Global inner classes for the various permissions were removed
+    * The Core inner class was removed and ClusterPermission, IndexPermission, RunAsPermission became final classes instead of interfaces
+    * The Permission interface has been removed. The isEmpty() method defined by this interface is not needed as we can simply evaluate the permission to get the same effect
+    * The ClusterPermission#check method only takes the action name again
+    * The AutomatonPredicate class was removed and replaced by Automatons#predicate
+    * IndicesAccessControl objects no longer need to be merged when evaluating permissions
+    * MergedFieldPermissions has been removed
+    * The Name class that was used to hold an array of strings has been removed and replaced with the use of a Set
+    * Privilege resolution is more efficient by only combining automata once
+    
+    Other items:
+    * NativeRolesStore no longer does caching, so the RoleAndVersion class could be removed
+    * FileRolesStore doesn't need to be an AbstractLifecycleComponent
+    
+    Relates elastic/elasticsearch#4327
+    
+    Original commit: elastic/x-pack-elasticsearch@c1901bc82e4380901fc3a3aa5e9cf1aaf3f7c958
+
+commit ee22a477df841d2c7087674d5389b3adacc1701b
+Author: Lee Hinman <lee@writequit.org>
+Date:   Mon Oct 31 16:21:38 2016 -0600
+
+    Add internal _primary_term doc values field, fix _seq_no indexing
+    
+    This adds the `_primary_term` field internally to the mappings. This field is
+    populated with the current shard's primary term.
+    
+    It is intended to be used for collision resolution when two document copies have
+    the same sequence id, therefore, doc_values for the field are stored but the
+    filed itself is not indexed.
+    
+    This also fixes the `_seq_no` field so that doc_values are retrievable (they
+    were previously stored but irretrievable) and changes the `stats` implementation
+    to more efficiently use the points API to retrieve the min/max instead of
+    iterating on each doc_value value. Additionally, even though we intend to be
+    able to search on the field, it was previously not searchable. This commit makes
+    it searchable.
+    
+    There is no user-visible `_primary_term` field. Instead, the fields are
+    updated by calling:
+    
+    ```java
+    index.parsedDoc().updateSeqID(seqNum, primaryTerm);
+    ```
+    
+    This includes example methods in `Versions` and `Engine` for retrieving the
+    sequence id values from the index (see `Engine.getSequenceID`) that are only
+    used in unit tests. These will be extended/replaced by actual implementations
+    once we make use of sequence numbers as a conflict resolution measure.
+    
+    Relates to #10708
+    Supercedes #21480
+    
+    P.S. As a side effect of this commit, `SlowCompositeReaderWrapper` cannot be
+    used for documents that contain `_seq_no` because it is a Point value and SCRW
+    cannot wrap documents with points, so the tests have been updated to loop
+    through the `LeafReaderContext`s now instead.
+
+commit d03b8e4abb2d42f5020cb1ba985f4d287d8ab81d
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Sun Oct 30 12:25:51 2016 -0400
+
+    Implement reading from null safe dereferences
+    
+    Null safe dereferences make handling null or missing values shorter.
+    Compare without:
+    ```
+    if (ctx._source.missing != null && ctx._source.missing.foo != null) {
+      ctx._source.foo_length = ctx.source.missing.foo.length()
+    }
+    ```
+    
+    To with:
+    ```
+    Integer length = ctx._source.missing?.foo?.length();
+    if (length != null) {
+      ctx._source.foo_length = length
+    }
+    ```
+    
+    Combining this with the as of yet unimplemented elvis operator allows
+    for very concise defaults for nulls:
+    ```
+    ctx._source.foo_length = ctx._source.missing?.foo?.length() ?: 0;
+    ```
+    
+    Since you have to start somewhere, we started with null safe dereferenes.
+    
+    Anyway, this is a feature borrowed from groovy. Groovy allows writing to
+    null values like:
+    ```
+    def v = null
+    v?.field = 'cat'
+    ```
+    And the writes are simply ignored. Painless doesn't support this at this
+    point because it'd be complex to implement and maybe not all that useful.
+    
+    There is no runtime cost for this feature if it is not used. When it is
+    used we implement it fairly efficiently, adding a jump rather than a
+    temporary variable.
+    
+    This should also work fairly well with doc values.
+
+commit 56f35baf47435c963f63e4453b244fbe77a97c7c
+Author: Simon Willnauer <simon.willnauer@elasticsearch.com>
+Date:   Mon Oct 3 16:52:33 2016 +0200
+
+    Add date-math support to `_rollover` (#20709)
+    
+    today it's not possible to use date-math efficiently with the `_rollover`
+    API. This change adds support for date-math in the target index as well as
+    support for preserving the math logic when an existing index that was created with
+    a date math expression all subsequent indices are created with the same expression.
+
+commit ef926894f428f782073170173f2b1d144f42062f
+Author: Nicholas Knize <nknize@gmail.com>
+Date:   Wed Aug 24 13:53:38 2016 -0500
+
+    Cut over geo_point field and queries to new LatLonPoint type
+    
+    This commit cuts over geo_point fields to use Lucene's new point-based LatLonPoint type for indexes created in 5.0. Indexes created prior to 5.0 continue to use their respective encoding type. Below is a description of the changes made to support the new encoding type:
+    
+    * New indexes use a new LatLonPointFieldMapper which provides a parse method for the new type
+    * The new LatLonPoint parse method removes support for lat_lon and geohash parameters
+    * Backcompat testing for deprecated lat_lon and geohash parameters is added to all unit and integration tests
+    * LatLonPointFieldMapper provides DocValues support (enabled by default) which uses Lucene's new LatLonDocValuesField type
+    * New LatLonPoint field data classes are added for aggregation support (wraps LatLonPoint's Numeric Doc Values)
+    * MultiFields use the geohash as the string value instead of the lat,lon string making it easier to perform geo string queries on the geohash instead of a lat,lon comma delimited string.
+    
+    Removed Features:
+    
+    * With the removal of geohash indexing, GeoHashCellQuery support is removed for all new indexes (still supported on existing indexes)
+    * LatLonPoint does not support a Distance Range query because it is super inefficient. Instead, the geo_distance_range query should be accomplished using either the geo_distance aggregation, sorting by descending distance on a geo_distance query, or a boolean must not of the excluded distance (which is what the distance_range query did anyway).
+    
+    TODO:
+    
+    * fix/finish yaml changes for plugin and rest integration tests
+    * update documentation
+
+commit 27a760f9c19fff61f7dfaf1a7d0beaae7ff326d8
+Author: Yannick Welsch <yannick@welsch.lu>
+Date:   Wed Aug 17 10:46:59 2016 +0200
+
+    Add routing changes API to RoutingAllocation (#19992)
+    
+    Adds a class that records changes made to RoutingAllocation, so that at the end of the allocation round other values can be more easily derived based on these changes. Most notably, it:
+    
+    - replaces the explicit boolean flag that is passed around everywhere to denote changes to the routing table. The boolean flag is automatically updated now when changes actually occur, preventing issues where it got out of sync with actual changes to the routing table.
+    - records actual changes made to RoutingNodes so that primary term and in-sync allocation ids, which are part of index metadata, can be efficiently updated just by looking at the shards that were actually changed.
+
+commit dcc598c414184ffa6cf06b3a69eb15767e274330
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Jul 28 16:24:35 2016 +0200
+
+    Make the heuristic to compute the default shard size less aggressive.
+    
+    The current heuristic to compute a default shard size is pretty aggressive,
+    it returns `max(10, number_of_shards * size)` as a value for the shard size.
+    I think making it less aggressive has the benefit that it would reduce the
+    likelyness of running into OOME when there are many shards (yearly
+    aggregations with time-based indices can make numbers of shards in the
+    thousands) and make the use of breadth-first more likely/efficient.
+    
+    This commit replaces the heuristic with `size * 1.5 + 10`, which is enough
+    to have good accuracy on zipfian distributions.
+
+commit 398d70b56734797448bf1fe469962e3b19c18934
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Tue Jul 5 11:08:45 2016 +0200
+
+    Add `scaled_float`. #19264
+    
+    This is a tentative to revive #15939 motivated by elastic/beats#1941.
+    Half-floats are a pretty bad option for storing percentages. They would likely
+    require 2 bytes all the time while they don't need more than one byte.
+    
+    So this PR exposes a new `scaled_float` type that requires a `scaling_factor`
+    and internally indexes `value*scaling_factor` in a long field. Compared to the
+    original PR it exposes a lower-level API so that the trade-offs are clearer and
+    avoids any reference to fixed precision that might imply that this type is more
+    accurate (actually it is *less* accurate).
+    
+    In addition to being more space-efficient for some use-cases that beats is
+    interested in, this is also faster that `half_float` unless we can improve the
+    efficiency of decoding half-float bits (which is currently done using software)
+    or until Java gets first-class support for half-floats.
+
+commit f25676917991c5827da9247a85f51334d96612e6
+Author: Boaz Leskes <b.leskes@gmail.com>
+Date:   Fri Jun 17 09:22:15 2016 +0200
+
+    Simplify NodeJoinController to make use of new cluster state batching infra (#18832)
+    
+    The NodeJoinController is responsible for processing joins from nodes, both normally and during master election. For both use cases, the class processes incoming joins in batches in order to be efficient and to accumulated enough joins (i.e., >= min_master_nodes) to seal an election and ensure the new cluster state can be committed. Since the class was written, we introduced a new infrastructure to support batch changes to the cluster state at the `ClusterService` level. This commit rewrites NodeJoinController to use that infra and be simpler.
+    
+    The PR also introduces a new concept to ClusterService allowing to submit tasks in batches, guaranteeing that all tasks submitted in a batch will be processed together (potentially with more tasks).  On top of that I added some extra safety checks to the ClusterService, around potential double submission of task objects into the queue.
+    
+    This is done in preparation to revive #17811
+
+commit 4a265d027952b2cb0e46898d00fca357d8089d94
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Sat Jun 11 10:15:14 2016 -0400
+
+    Painless: Add } as a delimiter. Kindof.
+    
+    Add `}` is statement delimiter but only in places where it is
+    otherwise a valid part of the syntax, specificall the end of a block.
+    We do this by matching but not consuming it. Antlr 4 doesn't have
+    syntax for this so we have to kind of hack it together by actually
+    matching the `}` and then seeking backwards in the token stream to
+    "unmatch" it. This looks reasonably efficient. Not perfect, but way
+    better than the alternatives.
+    
+    I tried and rejected a few options:
+    1. Actually consuming the `}` and piping a boolean all through the
+    grammar from the last statement in a block to the delimiter. This
+    ended up being a rather large change and made the grammar way more
+    complicated.
+    2. Adding a semantic predicate to delimiter that just does the
+    lookahead. This doesn't work out well because it doesn't work (I
+    never figured out why) and because it generates an *amazing*
+    `adaptivePredict` which makes a super huge DFA. It looks super
+    inefficient.
+    
+    Closes #18821
+
+commit 5161afe5e333be7e4454b2c71411c53373b2fa1d
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Fri Jun 3 09:15:10 2016 -0400
+
+    Support optional ctor args in ConstructingObjectParser
+    
+    You declare them like
+    ```
+    static {
+      PARSER.declareInt(optionalConstructorArg(), new ParseField("animal"));
+    }
+    ```
+    
+    Other than being optional they follow all of the rules of regular
+    `constructorArg()`s. Parsing an object with optional constructor args
+    is going to be slightly less efficient than parsing an object with
+    all required args if some of the optional args aren't specified because
+    ConstructingObjectParser isn't able to build the target before the
+    end of the json object.
+
+commit cad0608cdb28e2b8485e5c01c26579a35cb84356
+Author: Jason Tedor <jason@tedor.me>
+Date:   Wed May 18 09:31:28 2016 -0400
+
+    Add GC overhead logging
+    
+    This commit adds simple GC overhead logging. This logging captures
+    intervals where the JVM is spending a lot of time performing GC but it
+    is not necessarily the case that each GC is large. For a start, this
+    logging is simple and does not attempt to incorporate whether or not the
+    collections were efficient (that is, we are only capturing that a lot of
+    GC is happening, not that a lot of useless GC is happening).
+    
+    Relates #18419
+
+commit 864ed04059f79a91a6680ee879f38182b5228865
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Wed May 11 10:28:42 2016 +0200
+
+    Lessen leniency of the query dsl. #18276
+    
+    This change does the following:
+     - Queries that are currently unsupported such as prefix queries on numeric
+       fields or term queries on geo fields now throw an error rather than returning
+       a query that does not match anything.
+     - Fuzzy queries on numeric, date and ip fields are now unsupported: they used
+       to create range queries, we now expect users to use range queries directly.
+       Fuzzy, regexp and prefix queries are now only supported on text/keyword
+       fields (including `_all`).
+     - The `_uid` and `_id` fields do not support prefix or range queries anymore as
+       it would prevent us to store them more efficiently in the future, eg. by
+       using a binary encoding.
+    
+    Note that it is still possible to ignore these errors by using the `lenient`
+    option of the `match` or `query_string` queries.
+
+commit 866a5459f023e4fa2775eb9158d03342e6221fd0
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Wed Apr 27 20:59:28 2016 +0200
+
+    Make significant terms work on fields that are indexed with points. #18031
+    
+    It will keep using the caching terms enum for keyword/text fields and falls back
+    to IndexSearcher.count for fields that do not use the inverted index for
+    searching (such as numbers and ip addresses). Note that this probably means that
+    significant terms aggregations on these fields will be less efficient than they
+    used to be. It should be ok under a sampler aggregation though.
+    
+    This moves tests back to the state they were in before numbers started using
+    points, and also adds a new test that significant terms aggs fail if a field is
+    not indexed.
+    
+    In the long term, we might want to follow the approach that Robert initially
+    proposed that consists in collecting all documents from the background filter in
+    order to compute frequencies using doc values. This would also mean that
+    significant terms aggregations do not require fields to be indexed anymore.
+
+commit aea7660e37d686375955d4093bbbdc344a0c1240
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Tue Jan 12 17:40:34 2016 +0100
+
+    Add search_after parameter in the Search API.
+    The search_after parameter provides a way to efficiently paginate from one page to the next. This parameter accepts an array of sort values, those values are then used by the searcher to sort the top hits from the first document that is greater to the sort values.
+    This parameter must be used in conjunction with the sort parameter, it must contain exactly the same number of values than the number of fields to sort on.
+    
+    NOTE: A field with one unique value per document should be used as the last element of the sort specification. Otherwise the sort order for documents that have the same sort values would be undefined. The recommended way is to use the field `_uuid` which is certain to contain one unique value for each document.
+    
+    Fixes #8192
+
+commit 7df9ba605332231955ac533e2a1a3f0f6737ede4
+Author: Nicholas Knize <nknize@gmail.com>
+Date:   Wed Jan 6 12:41:04 2016 -0600
+
+    [TEST] Speed up GeoShapeQueryTests
+    
+    This commit speeds up GeoShapeQueryTests by reducing the size of the random generated shapes and defaulting geo_shape indexes to use quadtree (more efficient for shapes) over geohash.
+
+commit 07658f58a82266286f4946698d4f2c4baa14d597
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Tue Dec 22 10:04:17 2015 +0100
+
+    FunctionScoreQuery should implement two-phase iteration.
+    
+    FunctionScoreQuery should do two things that it doesn't do today:
+     - propagate the two-phase iterator from the wrapped scorer so that things are
+       still executed efficiently eg. if a phrase or geo-distance query is wrapped
+     - filter out docs that don't have a high enough score using two-phase
+       iteration: this way the score is only checked when everything else matches
+    
+    While doing these changes, I noticed that minScore was ignored when scores were
+    not needed and that explain did not take it into account, so I fixed these
+    issues as well.
+
+commit ba3540675a5e6c24a57ba31490042c1cae22313f
+Author: Tanguy Leroux <tlrx.dev@gmail.com>
+Date:   Fri Jun 5 18:34:15 2015 +0200
+
+    Add delete-by-query plugin
+    
+    The delete by query plugin adds support for deleting all of the documents (from one or more indices) which match the specified query. It is a replacement for the problematic delete-by-query functionality which has been removed from Elasticsearch core in 2.0. Internally, it uses the Scan/Scroll and Bulk APIs to delete documents in an efficient and safe manner. It is slower than the old delete-by-query functionality, but fixes the problems with the previous implementation.
+    
+    Closes #7052
+
+commit 1cfb6a79f1e130dc73ac62a51be7420564a95c82
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Wed Mar 25 10:42:49 2015 +0100
+
+    Parent/child: refactored _parent field mapper and parent/child queries
+    
+    * Cut the `has_child` and `has_parent` queries over to use Lucene's query time global ordinal join. The main benefit of this change is that parent/child queries can now efficiently execute if parent/child queries are wrapped in a bigger boolean query. If the rest of the query only hit a few documents both has_child and has_parent queries don't need to evaluate all parent or child documents any more.
+    * Cut the `_parent` field over to use doc values. This significantly reduces the on heap memory footprint of parent/child, because the parent id values are never loaded into memory.
+    
+    Breaking changes:
+    * The `type` option on the `_parent` field can only point to a parent type that doesn't exist yet, so this means that an existing type/mapping can't become a parent type any longer.
+    * The `has_child` and `has_parent` queries can no longer be use in alias filters.
+    
+    All these changes, improvements and breaks in compatibility only apply for indices created with ES version 2.0 or higher. For indices creates with ES <= 2.0 the older implementation is used.
+    
+    It is highly recommended to re-index all your indices with parent and child documents to benefit from all the improvements that come with this refactoring. The easiest way to achieve this is by using the scan and bulk apis using a simple script.
+    
+    Closes #6107
+    Closes #8134
+
+commit d7abb12100adb3c77c6eb0d61e691d9fbba5bcba
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Apr 9 18:33:27 2015 +0200
+
+    Replace deprecated filters with equivalent queries.
+    
+    In Lucene 5.1 lots of filters got deprecated in favour of equivalent queries.
+    Additionally, random-access to filters is now replaced with approximations on
+    scorers. This commit
+     - replaces the deprecated NumericRangeFilter, PrefixFilter, TermFilter and
+       TermsFilter with NumericRangeQuery, PrefixQuery, TermQuery and TermsQuery,
+       wrapped in a QueryWrapperFilter
+     - replaces XBooleanFilter, AndFilter and OrFilter with a BooleanQuery in a
+       QueryWrapperFilter
+     - removes DocIdSets.isBroken: the new two-phase iteration API will now help
+       execute slow filters efficiently
+     - replaces FilterCachingPolicy with QueryCachingPolicy
+    
+    Close #8960
+
+commit d226a973f715183ccd5aa6d643562b15bb37d7c1
+Author: Robert Muir <rmuir@apache.org>
+Date:   Fri Jan 9 12:10:28 2015 -0500
+
+    core: upgrade to lucene 5 r1650327.
+    
+    refactor _version docvalues migration to be more efficient.
+    
+    closes #9206
+
+commit 59534391da040a00a803bb50b82af25a93528592
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Tue Dec 9 17:12:42 2014 +0100
+
+    [GATEWAY] Cleanup LocalGatewayShardsState
+    
+    This commit tries to cleanup LocalGatewayShardsState to be more efficient
+    and easier to understand.
+
+commit 3b38db121b2438dfb23824ceb6a3f790e2602b2e
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Wed Aug 20 14:29:09 2014 +0200
+
+    Mappings: Make lookup structures immutable.
+    
+    This commit makes the lookup structures that are used for mappings immutable.
+    When changes are required, a new instance is created while the current instance
+    is left unmodified. This is done efficiently thanks to a hash table
+    implementation based on a array hash trie, see
+    org.elasticsearch.common.collect.CopyOnWriteHashMap.
+    
+    ManyMappingsBenchmark returns indexing times that are similar to the ones that
+    can be observed in current master.
+    
+    Ultimately, I would like to see if we can make mappings completely immutable as
+    well and updated atomically. This is not trivial however, eg. because of dynamic
+    mappings. So here is a first baby step that should help move towards that
+    direction.
+    
+    Close #7486
+
+commit cb839b56b26406ad3d93ccbb8979908db74a2ec6
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Mon Sep 8 11:26:26 2014 +0200
+
+    [ThreadPool] Use DirectExecutor instead of deprecated API
+    
+    Guava deprecated MoreExecutors#sameThreadExecutor in favour of
+    a more efficient implemenation. We should move over to the new impl.
+
+commit 6f31b1135ac88736a67afde742ff5dca90f5526c
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Jul 24 14:29:45 2014 +0200
+
+    [Benchmark] Make TermsAggregationSearchBenchmark fairer to uninverted field data.
+    
+    The benchmark indexes 200 unique full-width longs. For uninverted field data
+    we try to use the most memory-efficient storage, and in that case it would use
+    two arrays: one for the doc->ordinals mapping and one for the ordinal->value
+    mapping. Which is slower than what doc values do by storing directly the
+    mapping from docs to values.
+
+commit 5249005578737aaee6e144c02c5a98e87afb0f9a
+Author: Shay Banon <kimchy@gmail.com>
+Date:   Thu Jul 3 16:20:00 2014 +0200
+
+    More resource efficient analysis wrapping usage
+    Today, we take great care to try and share the same analyzer instances across shards and indices (global analyzer). The idea is to share the same analyzer so the thread local resource it has will not be allocated per analyzer instance per thread.
+    The problem is that AnalyzerWrapper keeps its resources on its own per thread storage, and with per field reuse strategy, it causes for per field per thread token stream components to be used. This is very evident with the StandardTokenizer that uses a buffer...
+    This came out of test with "many fields", where the majority of 1GB heap was consumed by StandardTokenizer instances...
+    closes #6714
+
+commit 30c80319c05362fae49fdfe5d6422c59f942f0db
+Author: Clinton Gormley <clint@traveljury.com>
+Date:   Fri Jun 20 12:42:43 2014 +0200
+
+    Match query with operator and, cutoff_frequency and stacked tokens
+    
+    If the match query with cutoff_frequency encounters stacked tokens,
+    like synonyms in the same position, it returns a boolean query instead
+    of a common terms query.  However, if the original operator was set
+    to "and", it was ignoring that and resetting the operator to "or".
+    
+    In fact, if operator is "and" then there is little benefit in using
+    a common terms query as a must query is already
+    executed efficiently.
+
+commit 6dc434822c848f6cdec515254983c83712c4ed58
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Sun Jan 5 23:06:02 2014 +0100
+
+    Changed get index settings api to use new internal get index settings api instead of relying on the cluster state api.
+    
+    The new internal get index settings api is more efficient when it comes to sending the index settings from the master to the client via the
+    Also the get index settings support now all the indices options.
+    
+    Closes #4620
+
+commit aa548f514807b4f0747e5f387fc7720a1d459c69
+Author: Martijn van Groningen <martijn.v.groningen@gmail.com>
+Date:   Thu Jan 2 13:55:53 2014 +0100
+
+    Remove GET `_aliases` api in favour for GET `_alias` api
+    
+    Currently there are two get aliases apis that both have the same functionality, but have a different response structure. The reason for having 2 apis is historic.
+    
+    The GET _alias api was added in 0.90.x and is more efficient since it only sends the needed alias data from the cluster state between the master node and the node that received the request. In the GET _aliases api the complete cluster state is send to the node that received the request and then the right information is filtered out and send back to the client.
+    
+    The GET _aliases api should be removed in favour for the alias api
+    
+    Closes to #4539
+
+commit 9eb74415435725057c609c6f0a73d8e3c59c9d2e
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Thu Dec 26 15:51:18 2013 +0100
+
+    Make RangeAggregator a MULTI_BUCKETS aggregator.
+    
+    Until now, RangeAggregator was a PER_BUCKET aggregator, expecting to be always
+    collected with owningBUcketOrdinal == 0. However, since the number of buckets
+    it creates is known in advance, it can be changed to a MULTI_BUCKETS aggregator
+    by just multiplying the bucket ordinal by the number of ranges.
+    
+    This makes aggregations that have ranges as sub aggregations of PER_BUCKET
+    aggregators more efficient.
+    
+    Close #4550
+
+commit 99cb26fa0276d247ce3fb1b08b8ceb6b9c1560c2
+Author: Boaz Leskes <b.leskes@gmail.com>
+Date:   Tue Jun 25 14:13:44 2013 +0200
+
+    A small doc change to reflect StreamOutput.writeVInt() does support negative numbers but not efficiently. StreamOutput.writeVLong & StreamInput.readVLong really support it.
+    
+    This is to better describe the current situation. We probably want to normalize these methods and potentially add optimization/support for -1 values.
+
+commit c9c10273a66df858bca2e45b6b27051c969b78d6
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Thu May 2 17:47:58 2013 +0200
+
+    Introduced a Opertaion enum that is passed to each call of
+    WeightFunction#weight to allow dedicated weight calculations per operation. In certain
+    circumstance it is more efficient / required to ignore certain factors in the weight
+    calculation to prevent for instance relocations if they are solely triggered by tie-breakers.
+    In particular the primary balance property should not be taken into account if the delta for
+    early termination is calculated since otherwise a relocation could be triggered solely by the
+    fact that two nodes have different amount of primaries allocated to them.
+    
+    Closes #2984
+
+commit 5f05c2106fe2ea1531bf2187b0b908ba2e72af76
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Wed Mar 20 18:20:20 2013 +0100
+
+    Use more efficient StemmerOverrideFilter from Lucene trunk
+    
+    Closes #2800
+
+commit a7bbab7e878b8eefef66e106203de5177265cf5c
+Author: Simon Willnauer <simonw@apache.org>
+Date:   Wed Jan 30 17:27:35 2013 +0100
+
+    # Rescore Feature
+    
+    The rescore feature allows te rescore a document returned by a query based
+    on a secondary algorithm. Rescoring is commonly used if a scoring algorithm
+    is too costly to be executed across the entire document set but efficient enough
+    to be executed on the Top-K documents scored by a faster retrieval method. Rescoring
+    can help to improve precision by reordering a larger Top-K window than actually
+    returned to the user. Typically is it executed on a window between 100 and 500 documents
+    while the actual result window requested by the user remains the same.
+    
+    # Query Rescorer
+    
+    The `query` rescorer executes a secondary query only on the Top-K results of the actual
+    user query and rescores the documents based on a linear combination of the user query's score
+    and the score of the `rescore_query`. This allows to execute any exposed query as a
+    `rescore_query` and supports a `query_weight` as well as a `rescore_query_weight` to weight the
+    factors of the linear combination.
+    
+    # Rescore API
+    
+    The `rescore` request is defined along side the query part in the json request:
+    
+    ```json
+    curl -s -XPOST 'localhost:9200/_search' -d {
+      "query" : {
+        "match" : {
+          "field1" : {
+            "query" : "the quick brown",
+            "type" : "boolean",
+            "operator" : "OR"
+          }
+        }
+      },
+      "rescore" : {
+        "window_size" : 50,
+        "query" : {
+          "rescore_query" : {
+            "match" : {
+              "field1" : {
+                "query" : "the quick brown",
+                "type" : "phrase",
+                "slop" : 2
+              }
+            }
+          },
+          "query_weight" : 0.7,
+          "rescore_query_weight" : 1.2
+        }
+      }
+    }
+    ```
+    
+    Each `rescore` request is executed on a per-shard basis within the same roundtrip. Currently the rescore API
+    has only one implementation (the `query` rescorer) which modifies the result set in-place. Future developments
+    could include dedicated rescore results if needed by the implemenation ie. a pair-wise reranker.
+    *Note:* Only regualr queries are rescored, if the search type is set to `scan` or `count` rescorers are not executed.
+    
+    Closes #2640
+
+commit 818f3b4d7505e998fd42ac5cce5b622484c480a9
+Author: kimchy <kimchy@gmail.com>
+Date:   Tue Feb 22 00:11:31 2011 +0200
+
+    Search: Add search type `scan` allowing to efficiently scan large result set, closes #707.
+commit b3c117062783f734ce89649ab497a983a4b2ba67
+Author: Armin Braun <me@obrown.io>
+Date:   Tue Aug 24 13:21:59 2021 +0200
+
+    Save some Memory in Watcher XContent -> Map Round Trip (#76864)
+    
+    Low effort quick-fix to improve efficiency of this round trip and
+    push the  boundary of what search responses we can still convert until
+    we have a real fix.
+    
+    relates #74513
+
+commit a0d26954bd93b46261d36f194dcbfb7635b40dde
+Author: David Roberts <dave.roberts@elastic.co>
+Date:   Thu Jul 1 14:30:03 2021 +0100
+
+    Improve efficiency of Grok circular reference check (#74814)
+    
+    This change is a tweak to #74581 which removes the N^2
+    loop that was added in that PR.
+
+commit 4a8ff0f26bc44b1ca3c59ad2261f0952e0f9e860
+Author: Yang Wang <yang.wang@elastic.co>
+Date:   Mon Jun 28 20:48:00 2021 +1000
+
+    Support shard request cache for queries with DLS and FLS (#70191)
+    
+    Shard level request cache is now generally supported for queries with DLS
+    and/or FLS. The request cache is now enabled following the same rule as a
+    regular search w/o DLS/FLS except following few scenarios where the request
+    cache will still be disabled:
+    1. DLS query uses a stored script
+    2. The search targets any remote indices
+    3. The cluster has any nodes older than v7.11.2
+    
+    It is worth noting that the caching behaviour is overall safety over
+    efficiency. This means two functional equivalent set of DLS or FLS permissions
+    can possibly result into different cache entries. We consider this a better
+    tradeoff due to higher priorities for correctness and security.
+
+commit df365dd16e8ff3c71d5861a440d4ad1b301f9020
+Author: Yang Wang <yang.wang@elastic.co>
+Date:   Tue Jun 15 09:25:08 2021 +1000
+
+    ApiKeyAuthCache now expires after access instead of write (#73982)
+    
+    API key authCache is set to expire after write (by default 24 hours).
+    ExpireAfterWrite is generally preferred over expireAfterAccess because it
+    guarantees stale entries get evicted eventually in edge cases, e.g. when the
+    cache misses a notification from the cluster.
+    
+    However, things are a bit different for the authCache. There is an additional
+    roundtrip to the security index for fetching the API key document. If the
+    document does not exists (removed due to expiration) or is invalidated, the
+    authentication fails earlier on without even consulting the authCache. This
+    means the stale entries won't cause any security issues when they exist.
+    Therefore, this PR changes the authCache to be expire after access, which helps
+    preventing potential cyclic surge of expensive hash computations especially
+    when a large number of API keys are in use.
+    
+    To further help the cache efficiency, this PR also actively invalidates the
+    authCache if the document is either not found or invalidated so it does not
+    have to wait for 24 hour to happen. Note that these are all edge cases and we
+    don't expect them to happen often (if at all).
+
+commit 856b58ca17d575ec31c2e687a2459d3deabbeaf9
+Author: Yang Wang <yang.wang@elastic.co>
+Date:   Wed Feb 24 16:44:44 2021 +1100
+
+    Improve shard level request cache efficiency (#69505)
+    
+    Shard level request cache is improved to work correctly at all time. Also ensure profiling and suggester are properly disabled when not supported.
+
+commit aa6c88f56645716706bb43bb4e6193f5b46d210d
+Author: Tim Brooks <tim@uncontended.net>
+Date:   Tue Oct 6 10:49:45 2020 -0600
+
+    Write translog operation bytes to byte stream (#63298)
+    
+    Currently we add translog operation bytes to an array list and flush
+    them on the next write. Unfortunately, this does not currently play well
+    with our byte pooling which means each operation is backed, at minimum,
+    by a 16KB array. This commit improves memory efficiency for small
+    operations by serializing the operations to an output stream.
+
+commit 5d1be250e9f8e8fca8a593e22f5afc44733006f5
+Author: Dimitris Athanasiou <dimitris@elastic.co>
+Date:   Fri Sep 4 11:45:05 2020 +0300
+
+    [ML] Add incremental id during data frame analytics reindexing (#61943)
+    
+    Previously, we added a copy of the `_id` during reindexing and sorted
+    the destination index on that. This allowed us to traverse the docs in the
+    destination index in a stable order multiple times and with efficiency.
+    However, the destination index being sorted means we cannot have `nested`
+    typed fields. This is a problem as it does not allow us to provide
+    a good experience with our evaluate API when it comes to computing
+    metrics for specific classes, features, etc.
+    
+    This commit changes the approach in order to result to a destination
+    index that allows nested fields.
+    
+    Instead of adding a copy of the `_id` field, we now add an incremental
+    id that we can use to traverse the docs in a stable order. We also
+    ensure we always assign the same incremental id to the same doc from
+    the source indices by sorting on `_seq_no` during reindexing. That
+    in combination with the reindexing API using scroll gives us a stable
+    order as scroll uses the (`_index`, `_doc`, shard_id) tuple to resolve ties.
+    
+    The extractor now does not need to scroll. Instead we sort on the incremental
+    id and we do ranged searches to avoid the sort-all-docs overhead.
+    
+    Finally, the `TestDocsIterator` is simply changed to search_after the incremental id.
+    
+    With these changes data frame analytics jobs do not use scroll at any part.
+    
+    Having all these in place, the commit adds the `nested` types to the necessary
+    fields of `classification` and `regression` analyses results.
+
+commit 45ac012262a5fe2a1a44db6bbba3cea7e70bb42c
+Author: Armin Braun <me@obrown.io>
+Date:   Wed Jul 15 13:26:51 2020 +0200
+
+    Cleanup some Serialization Code around Snapshots (#59532)
+    
+    A number of obvious possible simplifications that also improve efficiency
+    in some cases (better empty collection handling and size hint use).
+    Also, added a shortcut for writing and reading immutable open maps that
+    can be used to dry up additional spots.
+
+commit a28ce1e21c5e23e0efa43ed115be37daa3a94252
+Author: Yang Wang <yang.wang@elastic.co>
+Date:   Mon Jul 13 21:23:23 2020 +1000
+
+    Improve role cache efficiency for API key roles (#58156)
+    
+    This PR ensure that same roles are cached only once even when they are from different API keys.
+    API key role descriptors and limited role descriptors are now saved in Authentication#metadata
+    as raw bytes instead of deserialised Map<String, Object>.
+    Hashes of these bytes are used as keys for API key roles. Only when the required role is not found
+    in the cache, they will be deserialised to build the RoleDescriptors. The deserialisation is directly
+    from raw bytes to RoleDescriptors without going through the current detour of
+    "bytes -> Map -> bytes -> RoleDescriptors".
+
+commit d333dacb4abb14a58b36f3108521547ee374a06a
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Jul 10 15:19:08 2020 +0200
+
+    Enable Fully Concurrent Snapshot Operations (#56911)
+    
+    Enables fully concurrent snapshot operations:
+    * Snapshot create- and delete operations can be started in any order
+    * Delete operations wait for snapshot finalization to finish, are batched as much as possible to improve efficiency and once enqueued in the cluster state prevent new snapshots from starting on data nodes until executed
+       * We could be even more concurrent here in a follow-up by interleaving deletes and snapshots on a per-shard level. I decided not to do this for now since it seemed not worth the added complexity yet. Due to batching+deduplicating of deletes the pain of having a delete stuck behind a long -running snapshot seemed manageable (dropped client connections + resulting retries don't cause issues due to deduplication of delete jobs, batching of deletes allows enqueuing more and more deletes even if a snapshot blocks for a long time that will all be executed in essentially constant time (due to bulk snapshot deletion, deleting multiple snapshots is mostly about as fast as deleting a single one))
+    * Snapshot creation is completely concurrent across shards, but per shard snapshots are linearized for each repository as are snapshot finalizations
+    
+    See updated JavaDoc and added test cases for more details and illustration on the functionality.
+    
+    Some notes:
+    
+    The queuing of snapshot finalizations and deletes and the related locking/synchronization is a little awkward in this version but can be much simplified with some refactoring.  The problem is that snapshot finalizations resolve their listeners on the `SNAPSHOT` pool while deletes resolve the listener on the master update thread. With some refactoring both of these could be moved to the master update thread, effectively removing the need for any synchronization around the `SnapshotService` state. I didn't do this refactoring here because it's a fairly large change and not necessary for the functionality but plan to do so in a follow-up.
+    
+    This change allows for completely removing any trickery around synchronizing deletes and snapshots from SLM and 100% does away with SLM errors from collisions between deletes and snapshots.
+    
+    Snapshotting a single index in parallel to a long running full backup will execute without having to wait for the long running backup as required by the ILM/SLM use case of moving indices to "snapshot tier". Finalizations are linearized but ordered according to which snapshot saw all of its shards complete first
+
+commit 7fb68ca9b5627c09c507f61921c4835b5c0bb0e7
+Author: Armin Braun <me@obrown.io>
+Date:   Mon Jun 8 09:26:07 2020 +0200
+
+    Make BackgroundIndexer more Efficient (#57781)
+    
+    Improve efficiency of background indexer by allowing to add
+    an assertion for failures while they are produced to prevent
+    queuing them up.
+    Also, add non-blocking stop to the background indexer so that when
+    stopping multiple indexers we don't needlessly continue indexing
+    on some indexers while stopping another one.
+    
+    Closes #57766
+
+commit 37ab35156b581fd41f0577cc03936d3b24d85642
+Author: Armin Braun <me@obrown.io>
+Date:   Fri Jun 5 19:16:41 2020 +0200
+
+    Deduplicate Index Metadata in BlobStore (#50278)
+    
+    This PR introduces two new fields in to `RepositoryData` (index-N) to track the blob name of `IndexMetaData` blobs and their content via setting generations and uuids. This is used to deduplicate the `IndexMetaData` blobs (`meta-{uuid}.dat` in the indices folders under `/indices` so that new metadata for an index is only written to the repository during a snapshot if that same metadata can't be found in another snapshot.
+    This saves one write per index in the common case of unchanged metadata thus saving cost and making snapshot finalization drastically faster if many indices are being snapshotted at the same time.
+    
+    The implementation is mostly analogous to that for shard generations in #46250 and piggy backs on the BwC mechanism introduced in that PR (which means this PR needs adjustments if it doesn't go into `7.6`).
+    
+    Relates to #45736 as it improves the efficiency of snapshotting unchanged indices
+    Relates to #49800 as it has the potential of loading the index metadata for multiple snapshots of the same index concurrently much more efficient speeding up future concurrent snapshot delete
+
+commit a60931e4a4136eafe3e747750784f76ebb5bce9c
+Author: Armin Braun <me@obrown.io>
+Date:   Wed May 27 13:32:58 2020 +0200
+
+    Improve Efficiency of SnapshotsService CS Apply (#56874)
+    
+    This change removes the redundant submitting of two separate cluster state updates
+    for the node configuration changes and routing changes that affect snapshots.
+    Since we submitted the task to deal with node configuration changes every time on master
+    fail-over we could also move the BwC cleanup loop that removes `INIT` state snapshots as well
+    as snapshots that have all their shards completed into this cluster state update task.
+    
+    Aside from improving efficiency overall this change has the fortunate side effect of moving
+    all snapshot finalization to the CS update thread. This is helpful for concurrent snapshots
+    since it makes it very natural and straight forward to order snapshot finalizations by exploiting
+    that they are all initiated on the same thread.
+
+commit 9521e4f0590c7550f278b88d51dc6e3e159ff403
+Author: David Roberts <dave.roberts@elastic.co>
+Date:   Tue Feb 4 12:36:36 2020 +0000
+
+    [ML] Improve multiline_start_pattern for CSV in find_file_structure (#51737)
+    
+    The work to switch file upload over to treating delimited files
+    like semi-structured text and using the ingest pipeline for CSV
+    parsing makes the multi-line start pattern used for delimited
+    files much more critical than it used to be.
+    
+    Previously it was always based on the time field, even if that
+    was towards the end of the columns, and no multi-line pattern
+    was created if no timestamp was detected.
+    
+    This change improves the multi-line start pattern by:
+    
+    1. Never creating a multi-line pattern if the sample contained
+       only single line records.  This improves the import
+       efficiency in a common case.
+    2. Choosing the leftmost field that has a well-defined pattern,
+       whether that be the time field or a boolean/numeric field.
+       This reduces the risk of a field with newlines occurring
+       earlier, and also means the algorithm doesn't automatically
+       fail for data without a timestamp.
+
+commit 1d9be0e860773ef844be7f260d369d58eb27a831
+Author: Ryan Ernst <ryan@elastic.co>
+Date:   Mon Aug 12 23:43:35 2019 -0700
+
+    Make distro test plugin apply to the top level project (#45406)
+    
+    The distro test plugin was originally designed to be applied within each
+    subproject, per operating system we run in a VM with vagrant. However,
+    for efficiency, and also ease of having a single task to run in CI when
+    launching within individual OS VMs, having the "destructive" tasks in a
+    single place is more convenient. This commit reworks the distro test
+    plugin to be applied to the qa/vagrant project, which now creates only
+    the wrapper tasks in each of the subprojects for each vagrant VM.
+
+commit ba3ee98943a79f04c3b04682db11a3dac3a9e36f
+Author: Jay Modi <jaymode@users.noreply.github.com>
+Date:   Thu Nov 29 11:37:06 2018 -0700
+
+    Security: improve exact index matching performance (#36017)
+    
+    This commit improves the efficiency of exact index name matching by
+    separating exact matches from those that include wildcards or regular
+    expressions. Internally, exact matching is done using a HashSet instead
+    of adding the exact matches to the automata. For the wildcard and
+    regular expression matches, the underlying implementation has not
+    changed.
+
+commit dc2cf28fde6a7ec2576cf526eb8e1a238fad2f3e
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Thu Oct 4 08:03:38 2018 -0400
+
+    Docs: Allow skipping response assertions (#34240)
+    
+    We generate tests from our documentation, including assertions about the
+    responses returned by a particular API. But sometimes we *can't* assert
+    that the response is correct because of some defficiency in our tooling.
+    Previously we marked the response `// NOTCONSOLE` to skip it, but this
+    is kind of odd because `// NOTCONSOLE` is really to mark snippets that
+    are json but aren't requests or responses. This introduces a new
+    construct to skip response assertions:
+    ```
+    // TESTRESPONSE[skip:reason we skipped this]
+    ```
+
+commit 17b9baf5fde7410cc7bc507221df620b93b54281
+Author: Jim Ferenczi <jim.ferenczi@elastic.co>
+Date:   Wed Oct 4 09:55:26 2017 +0200
+
+    Clarify pure wilcard matching with `query_string` (#26814)
+    
+    In 5.x pure wildcard queries `*` in `query_string` are rewritten to `exists` query for efficiency.
+    Though this introduced a change in the document that match such queries because
+    `exists` query also return documents with an empty value for the field.
+    This change clarifies this behavior for 5.x and beyond.
+    
+    Closes #26801
+    
+    * review
+
+commit ecbeffcb1eefdc9d9c7254f1f7587f1da113a784
+Author: Giuseppe <gm42@users.noreply.github.com>
+Date:   Mon Feb 13 12:15:01 2017 +0100
+
+    Add note about min_score filtering efficiency (#23109)
+    
+    * Add note about min_score filtering efficiency
+    
+    * Reword to mention 'HAVING'
+    
+    * Remove reference to HAVING
+
+commit 398d70b56734797448bf1fe469962e3b19c18934
+Author: Adrien Grand <jpountz@gmail.com>
+Date:   Tue Jul 5 11:08:45 2016 +0200
+
+    Add `scaled_float`. #19264
+    
+    This is a tentative to revive #15939 motivated by elastic/beats#1941.
+    Half-floats are a pretty bad option for storing percentages. They would likely
+    require 2 bytes all the time while they don't need more than one byte.
+    
+    So this PR exposes a new `scaled_float` type that requires a `scaling_factor`
+    and internally indexes `value*scaling_factor` in a long field. Compared to the
+    original PR it exposes a lower-level API so that the trade-offs are clearer and
+    avoids any reference to fixed precision that might imply that this type is more
+    accurate (actually it is *less* accurate).
+    
+    In addition to being more space-efficient for some use-cases that beats is
+    interested in, this is also faster that `half_float` unless we can improve the
+    efficiency of decoding half-float bits (which is currently done using software)
+    or until Java gets first-class support for half-floats.
+commit ee264c69573dd5b68f5e8f4649f6964c6582aed6
+Author: Nik Everett <nik9000@gmail.com>
+Date:   Mon Jan 23 11:57:43 2017 -0500
+
+    Fix parsing for `max_determinized_states` (#22749)
+    
+    There was a typo in the `ParseField` declaration. I know
+    we want to port these parsers to `ObjectParser` eventually
+    but I don't have the energy for that today and want to get
+    this fixed.
+    
+    Closes #22722

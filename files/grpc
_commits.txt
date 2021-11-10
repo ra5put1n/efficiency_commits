@@ -1,0 +1,300 @@
+commit 17174976b6b613bf6d2e41d8b17a75b57252d8ae
+Author: AJ Heller <hork@google.com>
+Date:   Tue Sep 7 13:22:57 2021 -0700
+
+    Remove the TaskHandle return type from EventEngine::Run (#27269)
+    
+    It isn't used in gRPC currently, and would be difficult to implement
+    efficiently in some scenarios.
+
+commit 2f838fd3b1cd89d00c4b583c6a066c22cbee1ca1
+Author: AJ Heller <hork@google.com>
+Date:   Tue Aug 31 17:54:12 2021 -0700
+
+    Remove EventEngine::Shutdown (#27207)
+    
+    It was determined that an explicit Shutdown method is not necessary, and further, it can be challenging to implement efficiently in some cases. Instead, EventEngines are expected to clean themselves up upon destruction. Anything that relies on an EventEngine's existence must coordinate itself to ensure the engine remains alive for as long as it's needed.
+
+commit c55c7c065e271f58f70b660ea7c908e97df5d568
+Author: donnadionne <donnadionne@google.com>
+Date:   Tue May 18 16:00:06 2021 -0700
+
+    ring_hash LB policy implementation (#26285)
+    
+    * ring_hash LB policy (#25697)
+    
+    * Ring Hash Policy implementation
+    
+    * Code review comment fixing
+    
+    * Fixing code review comments.
+    
+    * Code review comment fixing
+    
+    * Fixing reconnect logic
+    
+    * adding helper method for pick
+    
+    * Holding on to ref to parent
+    
+    * first attempt at calling AttemptToConnect
+    
+    * Fixing state change
+    
+    * Fixing code review comments
+    
+    * Fixing the reconnect from channel watcher code
+    
+    * Fixing the BUILD to include new policy
+    
+    * Fixing major code review suggestion
+    
+    * Fixing code review comments
+    
+    * Fixing code review suggestions
+    
+    * Initial 2 tests.
+    
+    * Adding channel id case.
+    
+    * Fixing code review comments.
+    
+    * Small change to get the spread of backends
+    
+    * Add header hashing tests
+    
+    * Added more tests and debugging
+    
+    * Fixing Header hash
+    
+    * Added more tests
+    
+    * cleanup
+    
+    * removing debugs
+    
+    * Fixing code review comments.
+    
+    * code review fixing
+    
+    * combining code and match design
+    
+    * fixing code review comments.
+    
+    * Fixed IDLE case
+    
+    * Moving tests
+    
+    * Fixing code review comments
+    
+    * Adding more tests according to code review comments.
+    
+    * Added tests with differetn types of weights
+    
+    * Adding terminal policy case
+    
+    * Remove hash_func as there is only 1
+    
+    * Added nack invalid hash function
+    
+    * Added NACK cases
+    
+    * fixing build error
+    
+    * fixing build
+    
+    * small warning
+    
+    * adding regex test
+    
+    * Adding policy tests
+    
+    * fixing warning
+    
+    * fixing warning
+    
+    * fixing code reivew comments.
+    
+    * fixing IDLE case
+    
+    * Code review comments.
+    
+    * fixing code review comments
+    
+    * Making a helper function
+    
+    * fixing reattempt case
+    
+    * Added afew more tests.
+    
+    * Adding more tests
+    
+    * Added backward compatible test
+    
+    * FIxing the reattempt test
+    
+    * Clean up
+    
+    * fixing clang error
+    
+    * fixing clang error
+    
+    * Fix logic discovered during code review
+    
+    * code review comments
+    
+    * code review comments
+    
+    * code review comment
+    
+    * clean up tests
+    
+    * fixing code review comments
+    
+    * clean up tests
+    
+    * Separated test
+    
+    * Fixing test
+    
+    * fixing test
+    
+    * fixing clang error
+    
+    * Addressing code review suggestions
+    
+    * Fixing last bit of code review comments
+    
+    * Fixing flaky tests
+    
+    * Fixing last bit of code review comments
+    
+    * clean debugs
+    
+    * Remove a verbose log
+    
+    * Relaxing deadline exceeded for 1st RPC until ring is optimized.
+    Making Hash more efficient for random case.
+
+commit 4ea47d6ae364a468e4cdce9ec070b2077265b331
+Author: AJ Heller <hork@google.com>
+Date:   Tue Mar 16 16:49:30 2021 -0700
+
+    Fix python3 performance tests - incomplete migration from python2 (#25734)
+    
+    This fixes a crash in the grpc_performance_profile_* and grpc_e2e_performance_* tests.
+    
+    Example failure: https://source.cloud.google.com/results/invocations/2112f2d5-db91-4901-87cb-cc9865f351f1/targets
+    
+    The daily performance test passes with this fixit branch:
+    http://sponge2/23d4df20-f4dd-48ee-8789-4cd96b078ed5.
+    
+    Additional fixes:
+    
+    reorder imports according to the google style guide
+    replace deprecated cgi.escape library method with html.escape
+    In case it comes up, with respect to upgrading from py2 to py3, the iter{items,keys,values} methods are intentionally replaced with the less-efficient-in-python2 non-iter versions. This is a recommended practice even when supporting both python versions, and this is not performance-critical code.
+    
+    Additional note: there is no performance difference btw py2 and py3 (~80 minutes to finish)
+
+commit dd2f706b8b9672f31ee40f678afea54c7bab899d
+Author: Craig Tiller <ctiller@google.com>
+Date:   Wed Apr 5 08:11:44 2017 -0700
+
+    Generate slightly more efficient code
+
+commit ef35bc33bdf7cc40ad3ef1fd254b3959ddd9fe6d
+Author: Sree Kuchibhotla <sreek@google.com>
+Date:   Tue Dec 13 23:25:43 2016 -0800
+
+    Code review comment: make maybe_embiggen more efficient and realloc only if necessary
+
+commit 3fcd20fb5aaa920afd8ab8fccaccb5ea7371b02b
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Fri Jul 8 14:38:39 2016 +0100
+
+    Overhaul how the native extension is found, loaded and used
+    
+    The goal of this is to fix #7230.
+    
+    The changes here are:
+    
+    - The layout in the nuget package; the files are now in
+      `/runtimes/{os}/native/{library}`
+    - The filename of each library, which now includes the architecture,
+      e.g `grpc_csharp_ext.x64.dll`
+    - The targets file used to copy those files in msbuild-based projects;
+      note that we now don't build up a folder structure.
+    - The way the functions are found
+    
+    Before this change, on Linux and OSX we used to find library symbols
+    manually, and use DllImport on Windows. With this change, the name
+    of the library file changes based on architecture, so `DllImport`
+    doesn't work. Instead, we have to use `GetProcAddress` to fetch the
+    function. This is further convoluted by the convention on
+    Windows-x86 to prefix the function name with `_` and suffix it based
+    on the stack size of the arguments. We can't easily tell the
+    argument size here, so we just try 0, 4, 8...128. (128 bytes should
+    be enough for anyone.) This is inefficient, but it's a one-time hit
+    with a known number of functions, and doesn't seem to have any
+    significant impact.
+    
+    The benefit of this in code is we don't need the DllImports any
+    more, and we don't need to conditionally use `FindSymbol` - we just
+    use it for everything, so things are rather more uniform and tidy.
+    
+    The further benefit of this is that the library name is no longer
+    tied to a particular filename format - so if someone wanted to have
+    a directory with the libraries for every version in, with the
+    version in the filename, we'd handle that just fine. (At least once
+    
+    Testing:
+    
+    - Windows:
+      - Console app under msbuild, dotnet cli and DNX
+      - ASP.NET Classic under msbuild
+      - ASP.NET Core (still running under net451)
+    - Ubuntu 16.04
+      - Console app under dotnet cli, run with dotnet run and mono
+    - OSX:
+      - Console app under dotnet cli, run with dotnet run and mono
+    
+    Under dotnet cli, a dependency on `Microsoft.NETCore.Platforms` is
+    required in order to force the libraries to be copied.
+    
+    This change does *not* further enable .NET Core. It attempts to
+    keep the existing experimental .NET Core project files in line
+    with the msbuild files, but I expect further work to be required
+    for .NET Core, which has a different build/publication model.
+
+commit d178524a748be300bc370a2ade797beda1c5b7bc
+Author: David Klempner <klempner@google.com>
+Date:   Wed Jan 28 17:00:21 2015 -0800
+
+    Freelist grpc_fd objects
+    
+    This is necessary for efficient implementations where multiple threads
+    simultaneously sit in epoll_wait and the like on the same pollset.
+commit 393bae7e8824ab3f6532a1f66178038b83ae873b
+Author: Vijay Pai <vpai@google.com>
+Date:   Fri May 21 14:42:41 2021 -0700
+
+    Expose trailers-only response status through C++ callback API (#26249)
+    
+    * Expose trailers-only response status through callback API
+    
+    * Fix change-detector test
+    
+    * Address reviewer comment about trailers_only headers
+    
+    * Add TODO requested by markdroth
+    
+    * Move variable in struct to improve space efficiency
+    
+    * Don't instantiate ExecCtx in channel_args destructor unless needed
+
+commit aaddd42c00647a0fea619d7dfda090c038f6d7fa
+Author: Jan Tattermusch <jtattermusch@google.com>
+Date:   Wed Jul 31 17:29:04 2019 -0700
+
+    add serializationScope and refactoring for efficiency

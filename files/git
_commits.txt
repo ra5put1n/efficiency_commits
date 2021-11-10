@@ -1,0 +1,956 @@
+commit 7463064b28086c0a765e247bc8336f8e32356494
+Author: Jeff King <peff@peff.net>
+Date:   Tue Jun 22 12:06:41 2021 -0400
+
+    object.h: add lookup_object_by_type() function
+    
+    In some cases it's useful for efficiency reasons to get the type of an
+    object before deciding whether to parse it, but we still want an object
+    struct. E.g., in reachable.c, bitmaps give us the type, but we just want
+    to mark flags on each object. Likewise, we may loop over every object
+    and only parse tags in order to peel them; checking the type first lets
+    us avoid parsing the non-tags.
+    
+    But our lookup_blob(), etc, functions make getting an object struct
+    annoying: we have to call the right function for every type. And we
+    cannot just use the generic lookup_object(), because it only returns an
+    already-seen object; it won't allocate a new object struct.
+    
+    Let's provide a function that dispatches to the correct lookup_*
+    function based on a run-time type. In fact, reachable.c already has such
+    a helper, so we'll just make that public.
+    
+    I did change the return type from "void *" to "struct object *". While
+    the former is a clever way to avoid casting inside the function, it's
+    less safe and less informative to people reading the function
+    declaration.
+    
+    The next commit will add a new caller.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 680ff910b0329c8482f98ad9d3c49f4628c1bafa
+Author: Jeff King <peff@peff.net>
+Date:   Thu Jan 28 01:34:31 2021 -0500
+
+    rerere: use strmap to store rerere directories
+    
+    We store a struct for each directory we access under .git/rr-cache. The
+    structs are kept in an array sorted by the binary hash associated with
+    their name (and we do lookups with a binary search).
+    
+    This works OK, but there are a few small downsides:
+    
+     - the amount of code isn't huge, but it's more than we'd need using one
+       of our other stock data structures
+    
+     - the insertion into a sorted array is quadratic (though in practice
+       it's unlikely anybody has enough conflicts for this to matter)
+    
+     - it's intimately tied to the representation of an object hash. This
+       isn't a big deal, as the conflict ids we generate use the same hash,
+       but it produces a few awkward bits (e.g., we are the only user of
+       hash_pos() that is not using object_id).
+    
+    Let's instead just treat the directory names as strings, and store them
+    in a strmap. This is less code, and removes the use of hash_pos().
+    
+    Insertion is now non-quadratic, though we probably use a bit more
+    memory. Besides the hash table overhead, and storing hex bytes instead
+    of a binary hash, we actually store each name twice. Other code expects
+    to access the name of a rerere_dir struct from the struct itself, so we
+    need a copy there. But strmap keeps its own copy of the name, as well.
+    
+    Using a bare hashmap instead of strmap means we could use the name for
+    both, but at the cost of extra code (e.g., our own comparison function).
+    Likewise, strmap has a feature to use a pointer to the in-struct name at
+    the cost of a little extra code. I didn't do either here, as simple code
+    seemed more important than squeezing out a few bytes of efficiency.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 918d8ff78099004c561e0da90fa04cd629bb3b0e
+Author: Eric Sunshine <sunshine@sunshineco.com>
+Date:   Fri Jul 31 19:32:14 2020 -0400
+
+    worktree: retire special-case normalization of main worktree path
+    
+    In order for "git-worktree list" to present consistent results,
+    get_main_worktree() performs manual normalization on the repository
+    path (returned by get_common_dir()) after passing it through
+    strbuf_add_absolute_path(). In particular, it cleans up the path for
+    three distinct cases when the current working directory is (1) the main
+    worktree, (2) the .git/ subdirectory, or (3) a bare repository.
+    
+    The need for such special-cases is a direct consequence of employing
+    strbuf_add_absolute_path() which, for the sake of efficiency, doesn't
+    bother normalizing the path (such as folding out redundant path
+    components) after making it absolute. Lack of normalization is not
+    typically a problem since redundant path elements make no difference
+    when working with paths at the filesystem level. However, when preparing
+    paths for presentation, possible redundant path components make it
+    difficult to ensure consistency.
+    
+    Eliminate the need for these special cases by instead making the path
+    absolute via strbuf_add_real_path() which normalizes the path for us.
+    Once normalized, the only case we need to handle manually is converting
+    it to the path of the main worktree by stripping the "/.git" suffix.
+    This stripping of the "/.git" suffix is a regular idiom in
+    worktree-related code; for instance, it is employed by
+    get_linked_worktree(), as well.
+    
+    Signed-off-by: Eric Sunshine <sunshine@sunshineco.com>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 4f3bd5606a02260274555f41fd7d6368f2bea1d8
+Author: Jeff King <peff@peff.net>
+Date:   Fri Feb 14 13:22:36 2020 -0500
+
+    pack-bitmap: implement BLOB_NONE filtering
+    
+    We can easily support BLOB_NONE filters with bitmaps. Since we know the
+    types of all of the objects, we just need to clear the result bits of
+    any blobs.
+    
+    Note two subtleties in the implementation (which I also called out in
+    comments):
+    
+      - we have to include any blobs that were specifically asked for (and
+        not reached through graph traversal) to match the non-bitmap version
+    
+      - we have to handle in-pack and "ext_index" objects separately.
+        Arguably prepare_bitmap_walk() could be adding these ext_index
+        objects to the type bitmaps. But it doesn't for now, so let's match
+        the rest of the bitmap code here (it probably wouldn't be an
+        efficiency improvement to do so since the cost of extending those
+        bitmaps is about the same as our loop here, but it might make the
+        code a bit simpler).
+    
+    Here are perf results for the new test on git.git:
+    
+      Test                                    HEAD^             HEAD
+      --------------------------------------------------------------------------------
+      5310.9: rev-list count with blob:none   1.67(1.62+0.05)   0.22(0.21+0.02) -86.8%
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit c8d521faf72590fd4cd9bab3d20eb3de139f69d5
+Author: Jeff King <peff@peff.net>
+Date:   Thu Aug 16 08:13:07 2018 +0200
+
+    Add delta-islands.{c,h}
+    
+    Hosting providers that allow users to "fork" existing
+    repos want those forks to share as much disk space as
+    possible.
+    
+    Alternates are an existing solution to keep all the
+    objects from all the forks into a unique central repo,
+    but this can have some drawbacks. Especially when
+    packing the central repo, deltas will be created
+    between objects from different forks.
+    
+    This can make cloning or fetching a fork much slower
+    and much more CPU intensive as Git might have to
+    compute new deltas for many objects to avoid sending
+    objects from a different fork.
+    
+    Because the inefficiency primarily arises when an
+    object is deltified against another object that does
+    not exist in the same fork, we partition objects into
+    sets that appear in the same fork, and define
+    "delta islands". When finding delta base, we do not
+    allow an object outside the same island to be
+    considered as its base.
+    
+    So "delta islands" is a way to store objects from
+    different forks in the same repo and packfile without
+    having deltas between objects from different forks.
+    
+    This patch implements the delta islands mechanism in
+    "delta-islands.{c,h}", but does not yet make use of it.
+    
+    A few new fields are added in 'struct object_entry'
+    in "pack-objects.h" though.
+    
+    The documentation will follow in a patch that actually
+    uses delta islands in "builtin/pack-objects.c".
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Christian Couder <chriscool@tuxfamily.org>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 29ef759d7ca039590240890a604be8308b30a069
+Author: Stefan Beller <sbeller@google.com>
+Date:   Mon Aug 13 18:41:20 2018 -0700
+
+    diff: use emit_line_0 once per line
+    
+    All lines that use emit_line_0 multiple times per line, are combined
+    into a single call to emit_line_0, making use of the 'set' argument.
+    
+    We gain a little efficiency here, as we can omit emission of color and
+    accompanying reset if 'len == 0'.
+    
+    Signed-off-by: Stefan Beller <sbeller@google.com>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 765b496dc6963ad8aaf40e9ac5dee358aa7fea47
+Author: Jeff King <peff@peff.net>
+Date:   Tue Jul 24 06:51:39 2018 -0400
+
+    pass st.st_size as hint for strbuf_readlink()
+    
+    When we initially added the strbuf_readlink() function in
+    b11b7e13f4 (Add generic 'strbuf_readlink()' helper function,
+    2008-12-17), the point was that we generally have a _guess_
+    as to the correct size based on the stat information, but we
+    can't necessarily trust it.
+    
+    Over the years, a few callers have grown up that simply pass
+    in 0, even though they have the stat information. Let's have
+    them pass in their hint for consistency (and in theory
+    efficiency, since it may avoid an extra resize/syscall loop,
+    but neither location is probably performance critical).
+    
+    Note that st.st_size is actually an off_t, so in theory we
+    need xsize_t() here. But none of the other callsites use it,
+    and since this is just a hint, it doesn't matter either way
+    (if we wrap we'll simply start with a too-small hint and
+    then eventually complain when we cannot allocate the
+    memory).
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit df11e1964825b825e179ccdbc1b9e3a6fc09e67a
+Author: Jonathan Tan <jonathantanmy@google.com>
+Date:   Fri Dec 8 15:27:15 2017 +0000
+
+    rev-list: support termination at promisor objects
+    
+    Teach rev-list to support termination of an object traversal at any
+    object from a promisor remote (whether one that the local repo also has,
+    or one that the local repo knows about because it has another promisor
+    object that references it).
+    
+    This will be used subsequently in gc and in the connectivity check used
+    by fetch.
+    
+    For efficiency, if an object is referenced by a promisor object, and is
+    in the local repo only as a non-promisor object, object traversal will
+    not stop there. This is to avoid building the list of promisor object
+    references.
+    
+    (In list-objects.c, the case where obj is NULL in process_blob() and
+    process_tree() do not need to be changed because those happen only when
+    there is a conflict between the expected type and the existing object.
+    If the object doesn't exist, an object will be synthesized, which is
+    fine.)
+    
+    Signed-off-by: Jonathan Tan <jonathantanmy@google.com>
+    Signed-off-by: Jeff Hostetler <jeffhost@microsoft.com>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit a2b22854bd5f252cd036636091a1d30141c35bce
+Author: Jeff King <peff@peff.net>
+Date:   Wed Jan 25 23:12:07 2017 -0500
+
+    fsck: lazily load types under --connectivity-only
+    
+    The recent fixes to "fsck --connectivity-only" load all of
+    the objects with their correct types. This keeps the
+    connectivity-only code path close to the regular one, but it
+    also introduces some unnecessary inefficiency. While getting
+    the type of an object is cheap compared to actually opening
+    and parsing the object (as the non-connectivity-only case
+    would do), it's still not free.
+    
+    For reachable non-blob objects, we end up having to parse
+    them later anyway (to see what they point to), making our
+    type lookup here redundant.
+    
+    For unreachable objects, we might never hit them at all in
+    the reachability traversal, making the lookup completely
+    wasted. And in some cases, we might have quite a few
+    unreachable objects (e.g., when alternates are used for
+    shared object storage between repositories, it's normal for
+    there to be objects reachable from other repositories but
+    not the one running fsck).
+    
+    The comment in mark_object_for_connectivity() claims two
+    benefits to getting the type up front:
+    
+      1. We need to know the types during fsck_walk(). (And not
+         explicitly mentioned, but we also need them when
+         printing the types of broken or dangling commits).
+    
+         We can address this by lazy-loading the types as
+         necessary. Most objects never need this lazy-load at
+         all, because they fall into one of these categories:
+    
+           a. Reachable from our tips, and are coerced into the
+              correct type as we traverse (e.g., a parent link
+              will call lookup_commit(), which converts OBJ_NONE
+              to OBJ_COMMIT).
+    
+           b. Unreachable, but not at the tip of a chunk of
+              unreachable history. We only mention the tips as
+              "dangling", so an unreachable commit which links
+              to hundreds of other objects needs only report the
+              type of the tip commit.
+    
+      2. It serves as a cross-check that the coercion in (1a) is
+         correct (i.e., we'll complain about a parent link that
+         points to a blob). But we get most of this for free
+         already, because right after coercing, we'll parse any
+         non-blob objects. So we'd notice then if we expected a
+         commit and got a blob.
+    
+         The one exception is when we expect a blob, in which
+         case we never actually read the object contents.
+    
+         So this is a slight weakening, but given that the whole
+         point of --connectivity-only is to sacrifice some data
+         integrity checks for speed, this seems like an
+         acceptable tradeoff.
+    
+    Here are before and after timings for an extreme case with
+    ~5M reachable objects and another ~12M unreachable (it's the
+    torvalds/linux repository on GitHub, connected to shared
+    storage for all of the other kernel forks):
+    
+      [before]
+      $ time git fsck --no-dangling --connectivity-only
+      real  3m4.323s
+      user  1m25.121s
+      sys   1m38.710s
+    
+      [after]
+      $ time git fsck --no-dangling --connectivity-only
+      real  0m51.497s
+      user  0m49.575s
+      sys   0m1.776s
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit f26eef302fc315394d1016eb06360637ac86f62e
+Author: Jeff King <peff@peff.net>
+Date:   Fri Jul 15 06:26:29 2016 -0400
+
+    check_everything_connected: always pass --quiet to rev-list
+    
+    The check_everything_connected function takes a "quiet"
+    parameter which does two things if non-zero:
+    
+      1. redirect rev-list's stderr to /dev/null to avoid
+         showing errors to the user
+    
+      2. pass "--quiet" to rev-list
+    
+    Item (1) is obviously useful. But item (2) is
+    surprisingly not. For rev-list, "--quiet" does not have
+    anything to do with chattiness on stderr; it tells rev-list
+    not to bother writing the list of traversed objects to
+    stdout, for efficiency.  And since we always redirect
+    rev-list's stdout to /dev/null in this function, there is no
+    point in asking it to ever write anything to stdout.
+    
+    The efficiency gains are modest; a best-of-five run of "git
+    rev-list --objects --all" on linux.git dropped from 32.013s
+    to 30.502s when adding "--quiet". That's only about 5%, but
+    given how easy it is, it's worth doing.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit f5b2dec1657e09a22f8b2aefa25d022988e3e467
+Author: Jeff King <peff@peff.net>
+Date:   Mon Aug 10 05:36:19 2015 -0400
+
+    refs.c: remove extra git_path calls from read_loose_refs
+    
+    In iterating over the loose refs in "refs/foo/", we keep a
+    running strbuf with "refs/foo/one", "refs/foo/two", etc. But
+    we also need to access these files in the filesystem, as
+    ".git/refs/foo/one", etc. For this latter purpose, we make a
+    series of independent calls to git_path(). These are safe
+    (we only use the result to call stat()), but assigning the
+    result of git_path is a suspicious pattern that we'd rather
+    avoid.
+    
+    This patch keeps a running buffer with ".git/refs/foo/", and
+    we can just append/reset each directory element as we loop.
+    This matches how we handle the refnames. It should also be
+    more efficient, as we do not keep formatting the same
+    ".git/refs/foo" prefix (which can be arbitrarily deep).
+    
+    Technically we are dropping a call to strbuf_cleanup() on
+    each generated filename, but that's OK; it wasn't doing
+    anything, as we are putting in single-level names we read
+    from the filesystem (so it could not possibly be cleaning up
+    cruft like "./" in this instance).
+    
+    A clever reader may also note that the running refname
+    buffer ("refs/foo/") is actually a subset of the filesystem
+    path buffer (".git/refs/foo/"). We could get by with one
+    buffer, indexing the length of $GIT_DIR when we want the
+    refname. However, having tried this, the resulting code
+    actually ends up a little more confusing, and the efficiency
+    improvement is tiny (and almost certainly dwarfed by the
+    system calls we are making).
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 9e3751d4437b43e72497178774c74be1ceac28b9
+Author: Jeff King <peff@peff.net>
+Date:   Thu May 21 00:45:13 2015 -0400
+
+    remote.c: drop "remote" pointer from "struct branch"
+    
+    When we create each branch struct, we fill in the
+    "remote_name" field from the config, and then fill in the
+    actual "remote" field (with a "struct remote") based on that
+    name. However, it turns out that nobody really cares about
+    the latter field. The only two sites that access it at all
+    are:
+    
+      1. git-merge, which uses it to notice when the branch does
+         not have a remote defined. But we can easily replace this
+         with looking at remote_name instead.
+    
+      2. remote.c itself, when setting up the @{upstream} merge
+         config. But we don't need to save the "remote" in the
+         "struct branch" for that; we can just look it up for
+         the duration of the operation.
+    
+    So there is no need to have both fields; they are redundant
+    with each other (the struct remote contains the name, or you
+    can look up the struct from the name). It would be nice to
+    simplify this, especially as we are going to add matching
+    pushremote config in a future patch (and it would be nice to
+    keep them consistent).
+    
+    So which one do we keep and which one do we get rid of?
+    
+    If we had a lot of callers accessing the struct, it would be
+    more efficient to keep it (since you have to do a lookup to
+    go from the name to the struct, but not vice versa). But we
+    don't have a lot of callers; we have exactly one, so
+    efficiency doesn't matter. We can decide this based on
+    simplicity and readability.
+    
+    And the meaning of the struct value is somewhat unclear. Is
+    it always the remote matching remote_name? If remote_name is
+    NULL (i.e., no per-branch config), does the struct fall back
+    to the "origin" remote, or is it also NULL? These questions
+    will get even more tricky with pushremotes, whose fallback
+    behavior is more complicated. So let's just store the name,
+    which pretty clearly represents the branch.*.remote config.
+    Any lookup or fallback behavior can then be implemented in
+    helper functions.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit c33ddc2e33d51da9391a81206a1d9e4a92d97d10
+Author: Jeff King <peff@peff.net>
+Date:   Wed Aug 27 03:57:08 2014 -0400
+
+    date: use strbufs in date-formatting functions
+    
+    Many of the date functions write into fixed-size buffers.
+    This is a minor pain, as we have to take special
+    precautions, and frequently end up copying the result into a
+    strbuf or heap-allocated buffer anyway (for which we
+    sometimes use strcpy!).
+    
+    Let's instead teach parse_date, datestamp, etc to write to a
+    strbuf. The obvious downside is that we might need to
+    perform a heap allocation where we otherwise would not need
+    to. However, it turns out that the only two new allocations
+    required are:
+    
+      1. In test-date.c, where we don't care about efficiency.
+    
+      2. In determine_author_info, which is not performance
+         critical (and where the use of a strbuf will help later
+         refactoring).
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 897e3e454062d2bb9d3c1e4068caf4971fd713ff
+Author: Albert L. Lash, IV <alash3@bloomberg.net>
+Date:   Sat Feb 8 15:41:36 2014 -0500
+
+    docs/git-clone: clarify use of --no-hardlinks option
+    
+    Current text claims optimization, implying the use of
+    hardlinks, when this option ratchets down the level of
+    efficiency. This change explains the difference made by
+    using this option, namely copying instead of hardlinking,
+    and why it may be useful.
+    
+    Signed-off-by: Albert L. Lash, IV <alash3@bloomberg.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 050ef3655c8ea1dc7a2b3b843ca7c45dd94d9c88
+Author: Jeff King <peff@peff.net>
+Date:   Sat Sep 28 04:35:35 2013 -0400
+
+    remote-curl: rewrite base url from info/refs redirects
+    
+    For efficiency and security reasons, an earlier commit in
+    this series taught http_get_* to re-write the base url based
+    on redirections we saw while making a specific request.
+    
+    This commit wires that option into the info/refs request,
+    meaning that a redirect from
+    
+        http://example.com/foo.git/info/refs
+    
+    to
+    
+        https://example.com/bar.git/info/refs
+    
+    will behave as if "https://example.com/bar.git" had been
+    provided to git in the first place.
+    
+    The tests bear some explanation. We introduce two new
+    hierearchies into the httpd test config:
+    
+      1. Requests to /smart-redir-limited will work only for the
+         initial info/refs request, but not any subsequent
+         requests. As a result, we can confirm whether the
+         client is re-rooting its requests after the initial
+         contact, since otherwise it will fail (it will ask for
+         "repo.git/git-upload-pack", which is not redirected).
+    
+      2. Requests to smart-redir-auth will redirect, and require
+         auth after the redirection. Since we are using the
+         redirected base for further requests, we also update
+         the credential struct, in order not to mislead the user
+         (or credential helpers) about which credential is
+         needed. We can therefore check the GIT_ASKPASS prompts
+         to make sure we are prompting for the new location.
+         Because we have neither multiple servers nor https
+         support in our test setup, we can only redirect between
+         paths, meaning we need to turn on
+         credential.useHttpPath to see the difference.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+
+commit 84054f79de35015fc92f73ec4780102dd820e452
+Author: Jeff King <peff@peff.net>
+Date:   Thu Jun 9 16:56:19 2011 -0400
+
+    clone: accept config options on the command line
+    
+    Clone does all of init, "remote add", fetch, and checkout
+    without giving the user a chance to intervene and set any
+    configuration. This patch allows you to set config options
+    in the newly created repository after the clone, but before
+    we do any other operations.
+    
+    In many cases, this is a minor convenience over something
+    like:
+    
+      git clone git://...
+      git config core.whatever true
+    
+    But in some cases, it can bring extra efficiency by changing
+    how the fetch or checkout work. For example, setting
+    line-ending config before the checkout avoids having to
+    re-checkout all of the contents with the correct line
+    endings.
+    
+    It also provides a mechanism for passing information to remote
+    helpers during a clone; the helpers may read the git config
+    to influence how they operate.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit ebc9529f0358bdb10192fa27bc75f5d4e452ce90
+Author: Christian Couder <chriscool@tuxfamily.org>
+Date:   Sat Jun 13 07:21:06 2009 +0200
+
+    bisect: use a PRNG with a bias when skipping away from untestable commits
+    
+    Using a PRNG (pseudo random number generator) with a bias should be better
+    than alternating between 3 fixed ratios.
+    
+    In repositories with many untestable commits it should prevent alternating
+    between areas where many commits are untestable. The bias should favor
+    commits that can give more information, so that the bisection process
+    should not loose much efficiency.
+    
+    HPA suggested to use a PRNG and found that the best bias is to raise a
+    ratio between 0 and 1 given by the PRNG to the power 1.5.
+    
+    An integer square root function is implemented to avoid including
+    <math.h> and linking with -lm.
+    
+    A PRNG function is implemented to get the same number sequence on
+    different machines as suggested by "man 3 rand".
+    
+    Signed-off-by: Christian Couder <chriscool@tuxfamily.org>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 8d2dfc49b199c7da6faefd7993630f24bd37fee0
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Fri Apr 10 17:27:58 2009 -0700
+
+    process_{tree,blob}: show objects without buffering
+    
+    Here's a less trivial thing, and slightly more dubious one.
+    
+    I was looking at that "struct object_array objects", and wondering why we
+    do that. I have honestly totally forgotten. Why not just call the "show()"
+    function as we encounter the objects? Rather than add the objects to the
+    object_array, and then at the very end going through the array and doing a
+    'show' on all, just do things more incrementally.
+    
+    Now, there are possible downsides to this:
+    
+     - the "buffer using object_array" _can_ in theory result in at least
+       better I-cache usage (two tight loops rather than one more spread out
+       one). I don't think this is a real issue, but in theory..
+    
+     - this _does_ change the order of the objects printed. Instead of doing a
+       "process_tree(revs, commit->tree, &objects, NULL, "");" in the loop
+       over the commits (which puts all the root trees _first_ in the object
+       list, this patch just adds them to the list of pending objects, and
+       then we'll traverse them in that order (and thus show each root tree
+       object together with the objects we discover under it)
+    
+       I _think_ the new ordering actually makes more sense, but the object
+       ordering is actually a subtle thing when it comes to packing
+       efficiency, so any change in order is going to have implications for
+       packing. Good or bad, I dunno.
+    
+     - There may be some reason why we did it that odd way with the object
+       array, that I have simply forgotten.
+    
+    Anyway, now that we don't buffer up the objects before showing them
+    that may actually result in lower memory usage during that whole
+    traverse_commit_list() phase.
+    
+    This is seriously not very deeply tested. It makes sense to me, it seems
+    to pass all the tests, it looks ok, but...
+    
+    Does anybody remember why we did that "object_array" thing? It used to be
+    an "object_list" a long long time ago, but got changed into the array due
+    to better memory usage patterns (those linked lists of obejcts are
+    horrible from a memory allocation standpoint). But I wonder why we didn't
+    do this back then. Maybe there's a reason for it.
+    
+    Or maybe there _used_ to be a reason, and no longer is.
+    
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 6ed807f8432c558ef102c94cb2e8ae4e03c48d4e
+Author: Johannes Sixt <johannes.sixt@telecom.at>
+Date:   Sat Dec 1 22:00:56 2007 +0100
+
+    Windows: A rudimentary poll() emulation.
+    
+    This emulation of poll() is by far not general. It assumes that the
+    fds that are to be waited for are connected to pipes. The pipes are
+    polled in a loop until data becomes available in at least one of them.
+    If only a single fd is waited for, the implementation actually does
+    not wait at all, but assumes that a subsequent read() will block.
+    
+    In order not to needlessly burn CPU time, the CPU is yielded to other
+    processes before the next round in the poll loop using Sleep(0). Note that
+    any sleep timeout greater than zero will reduce the efficiency by a
+    magnitude.
+    
+    Signed-off-by: Johannes Sixt <johannes.sixt@telecom.at>
+
+commit b76f6b627802d0a3c8bbf66fba0c090dbe56d509
+Author: Junio C Hamano <junkio@cox.net>
+Date:   Thu Feb 23 23:04:52 2006 -0800
+
+    pack-objects: allow "thin" packs to exceed depth limits
+    
+    When creating a new pack to be used in .git/objects/pack/
+    directory, we carefully count the depth of deltified objects to
+    be reused, so that the generated pack does not to exceed the
+    specified depth limit for runtime efficiency.  However, when we
+    are generating a thin pack that does not contain base objects,
+    such a pack can only be used during network transfer that is
+    expanded on the other end upon reception, so being careful and
+    artificially cutting the delta chain does not buy us anything
+    except increased bandwidth requirement.  This patch disables the
+    delta chain depth limit check when reusing an existing delta.
+    
+    Signed-off-by: Junio C Hamano <junkio@cox.net>
+
+commit 461cf59f8924f174d7a0dcc3d77f576d93ed29a4
+Author: Linus Torvalds <torvalds@osdl.org>
+Date:   Wed Jan 18 14:47:30 2006 -0800
+
+    rev-list: stop when the file disappears
+    
+    The one thing I've considered doing (I really should) is to add a "stop
+    when you don't find the file" option to "git-rev-list". This patch does
+    some of the work towards that: it removes the "parent" thing when the
+    file disappears, so a "git annotate" could do do something like
+    
+            git-rev-list --remove-empty --parents HEAD -- "$filename"
+    
+    and it would get a good graph that stops when the filename disappears
+    (it's not perfect though: it won't remove all the unintersting commits).
+    
+    It also simplifies the logic of finding tree differences a bit, at the
+    cost of making it a tad less efficient.
+    
+    The old logic was two-phase: it would first simplify _only_ merges tree as
+    it traversed the tree, and then simplify the linear parts of the remainder
+    independently. That was pretty optimal from an efficiency standpoint
+    because it avoids doing any comparisons that we can see are unnecessary,
+    but it made it much harder to understand than it really needed to be.
+    
+    The new logic is a lot more straightforward, and compares the trees as it
+    traverses the graph (ie everything is a single phase). That makes it much
+    easier to stop graph traversal at any point where a file disappears.
+    
+    As an example, let's say that you have a git repository that has had a
+    file called "A" some time in the past. That file gets renamed to B, and
+    then gets renamed back again to A. The old "git-rev-list" would show two
+    commits: the commit that renames B to A (because it changes A) _and_ as
+    its parent the commit that renames A to B (because it changes A).
+    
+    With the new --remove-empty flag, git-rev-list will show just the commit
+    that renames B to A as the "root" commit, and stop traversal there
+    (because that's what you want for "annotate" - you want to stop there, and
+    for every "root" commit you then separately see if it really is a new
+    file, or if the paths history disappeared because it was renamed from some
+    other file).
+    
+    With this patch, you should be able to basically do a "poor mans 'git
+    annotate'" with a fairly simple loop:
+    
+            push("HEAD", "$filename")
+            while (revision,filename = pop()) {
+                    for each i in $(git-rev-list --parents --remove-empty $revision -- "$filename")
+    
+                    pseudo-parents($i) = git-rev-list parents for that line
+    
+                    if (pseudo-parents($i) is non-empty) {
+                            show diff of $i against pseudo-parents
+                            continue
+                    }
+    
+                    /* See if the _real_ parents of $i had a rename */
+                    parent($i) = real-parent($i)
+                    if (find-rename in $parent($i)->$i)
+                            push $parent($i), "old-name"
+            }
+    
+    which should be doable in perl or something (doing stacks in shell is just
+    too painful to be worth it, so I'm not going to do this).
+    
+    Anybody want to try?
+    
+                    Linus
+commit 3585d0ea232b1a9c5498ab5785b11f61e93967c8
+Author: Elijah Newren <newren@gmail.com>
+Date:   Wed Jun 30 17:30:00 2021 +0000
+
+    merge-recursive: handle rename-to-self case
+    
+    Directory rename detection can cause transitive renames, e.g. if the two
+    different sides of history each do one half of:
+        A/file -> B/file
+        B/     -> C/
+    then directory rename detection transitively renames to give us
+        A/file -> C/file
+    
+    However, when C/ == A/, note that this gives us
+        A/file -> A/file.
+    
+    merge-recursive assumed that any rename D -> E would have D != E.  While
+    that is almost always true, the above is a special case where it is not.
+    So we cannot do things like delete the rename source, we cannot assume
+    that a file existing at path E implies a rename/add conflict and we have
+    to be careful about what stages end up in the output.
+    
+    This change feels a bit hackish.  It took me surprisingly many hours to
+    find, and given merge-recursive's design causing it to attempt to
+    enumerate all combinations of edge and corner cases with special code
+    for each combination, I'm worried there are other similar fixes needed
+    elsewhere if we can just come up with the right special testcase.
+    Perhaps an audit would rule it out, but I have not the energy.
+    merge-recursive deserves to die, and since it is on its way out anyway,
+    fixing this particular bug narrowly will have to be good enough.
+    
+    Reported-by: Anders Kaseorg <andersk@mit.edu>
+    Signed-off-by: Elijah Newren <newren@gmail.com>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 4463ce75b7eea47f9b484b05957def655d3f46d5
+Author: Johannes Schindelin <johannes.schindelin@gmx.de>
+Date:   Thu Oct 8 15:29:35 2020 +0000
+
+    ci: do not skip tagged revisions in GitHub workflows
+    
+    When `master` is tagged, and then both `master` and the tag are pushed,
+    Travis CI will happily build both. That is a waste of energy, which is
+    why we skip the build for `master` in that case.
+    
+    Our GitHub workflow is also triggered by tags. However, the run would
+    fail because the `windows-test` jobs are _not_ skipped on tags, but the
+    `windows-build` job _is skipped (and therefore fails to upload the
+    build artifacts needed by the test jobs).
+    
+    In addition, we just added logic to our GitHub workflow that will skip
+    runs altogether if there is already a successful run for the same commit
+    or at least for the same tree.
+    
+    Let's just change the GitHub workflow to no longer specifically skip
+    tagged revisions.
+    
+    Signed-off-by: Johannes Schindelin <johannes.schindelin@gmx.de>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 7d78d5fc1a91b683dde970e5e48b6d9a873cfd99
+Author: Johannes Schindelin <johannes.schindelin@gmx.de>
+Date:   Thu Oct 8 15:29:34 2020 +0000
+
+    ci: skip GitHub workflow runs for already-tested commits/trees
+    
+    When pushing a commit that has already passed a CI or PR build
+    successfully, it makes sense to save some energy and time and skip the
+    new build.
+    
+    Let's teach our GitHub workflow to do that.
+    
+    For good measure, we also compare the tree ID, which is what we actually
+    test (the commit ID might have changed due to a reworded commit message,
+    which should not affect the outcome of the run).
+    
+    Signed-off-by: Johannes Schindelin <johannes.schindelin@gmx.de>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 6081d3898fe5e33e739cc0771f6df102b30b1db6
+Author: Johannes Schindelin <johannes.schindelin@gmx.de>
+Date:   Sat Apr 11 00:18:11 2020 +0700
+
+    ci: retire the Azure Pipelines definition
+    
+    We have GitHub Actions now. Running the same builds and tests in Azure
+    Pipelines would be redundant, and a waste of energy.
+    
+    Signed-off-by: Johannes Schindelin <johannes.schindelin@gmx.de>
+    Signed-off-by: Đoàn Trần Công Danh <congdanhqx@gmail.com>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit e4da43b1f063d227b5f7d2922d27458748763a2d
+Author: Jeff King <peff@peff.net>
+Date:   Mon Mar 20 21:28:49 2017 -0400
+
+    prefix_filename: return newly allocated string
+    
+    The prefix_filename() function returns a pointer to static
+    storage, which makes it easy to use dangerously. We already
+    fixed one buggy caller in hash-object recently, and the
+    calls in apply.c are suspicious (I didn't dig in enough to
+    confirm that there is a bug, but we call the function once
+    in apply_all_patches() and then again indirectly from
+    parse_chunk()).
+    
+    Let's make it harder to get wrong by allocating the return
+    value. For simplicity, we'll do this even when the prefix is
+    empty (and we could just return the original file pointer).
+    That will cause us to allocate sometimes when we wouldn't
+    otherwise need to, but this function isn't called in
+    performance critical code-paths (and it already _might_
+    allocate on any given call, so a caller that cares about
+    performance is questionable anyway).
+    
+    The downside is that the callers need to remember to free()
+    the result to avoid leaking. Most of them already used
+    xstrdup() on the result, so we know they are OK. The
+    remainder have been converted to use free() as appropriate.
+    
+    I considered retaining a prefix_filename_unsafe() for cases
+    where we know the static lifetime is OK (and handling the
+    cleanup is awkward). This is only a handful of cases,
+    though, and it's not worth the mental energy in worrying
+    about whether the "unsafe" variant is OK to use in any
+    situation.
+    
+    Signed-off-by: Jeff King <peff@peff.net>
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit e2eb527345d48881dac0d88e6bdfc0a267a2eb62
+Author: Junio C Hamano <gitster@pobox.com>
+Date:   Wed May 4 19:11:18 2011 -0700
+
+    require-work-tree wants more than what its name says
+    
+    Somebody tried "git pull" from a random place completely outside the work
+    tree, while exporting GIT_DIR and GIT_WORK_TREE that are set to correct
+    places, e.g.
+    
+        GIT_WORK_TREE=$HOME/git.git
+        GIT_DIR=$GIT_WORK_TREE/.git
+        export GIT_WORK_TREE GIT_DIR
+        cd /tmp
+        git pull
+    
+    At the beginning of git-pull, we check "require-work-tree" and then
+    "cd-to-toplevel".  I _think_ the original intention when I wrote the
+    command was "we MUST have a work tree, our $(cwd) might not be at the
+    top-level directory of it", and no stronger than that.  That check is a
+    very sensible thing to do before doing cd-to-toplevel.  We check that the
+    place we would want to go exists, and then go there.
+    
+    But the implementation of require_work_tree we have today is quite
+    different.  I don't have energy to dig the history, but currently it says:
+    
+        test "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = true ||
+        die "fatal: $0 cannot be used without a working tree."
+    
+    Which is completely bogus.  Even though we may happen to be just outside
+    of it right now, we may have a working tree that we can cd_to_toplevel
+    back to.
+    
+    Add a function "require_work_tree_exists" that implements the check
+    this function originally intended (this is so that third-party scripts
+    that rely on the current behaviour do not have to get broken).
+    
+    For now, update _no_ in-tree scripts, not even "git pull", as nobody on
+    the list seems to really care about the above corner case workflow that
+    triggered this. Scripts can be updated after vetting that they do want the
+    "we want to make sure the place we are going to go actually exists"
+    semantics.
+    
+    Signed-off-by: Junio C Hamano <gitster@pobox.com>
+
+commit 8c989ec5288021e07c265882f86ac3999b44c142
+Author: Junio C Hamano <junkio@cox.net>
+Date:   Thu Apr 13 00:17:19 2006 -0700
+
+    Makefile: $(MAKE) check-docs
+    
+    This target lists undocumented commands, and/or whose document
+    is not referenced from the main git documentation.
+    
+    For now, there are some exceptions I added primarily because I
+    lack the energy to document them myself:
+    
+     - merge backends (we should really document them)
+     - ssh-push/ssh-pull (does anybody still use them?)
+     - annotate and blame (maybe after one of them eats the other ;-)
+    
+    Signed-off-by: Junio C Hamano <junkio@cox.net>

@@ -1,0 +1,675 @@
+commit ab0601d97af90d92f7354c7e0c25929d80a5e017
+Author: Andrew Trick <atrick@apple.com>
+Date:   Thu Sep 30 21:16:08 2021 -0700
+
+    Add PrunedLiveness::computeSSALiveness
+    
+    Straighforward API to build pruned liveness from a single SSA value.
+    
+    This 3-line function allows PrunedLiveness to be used anywhere
+    ValueLifetimeAnalysis was used in OSSA form. Aside from simplicity and
+    efficiency, the difference is that this composes with other utilities
+    that only care about PrunedLiveBlocks, PrunedLiveness, or
+    PrunesLivenessBounary independent of how those data structures were generated.
+
+commit cc0aa2f8b8740221420ac35e86d7e67cbcd8529b
+Author: Andrew Trick <atrick@apple.com>
+Date:   Thu Aug 27 17:48:16 2020 -0700
+
+    Add an AccessPath abstraction and formalize memory access
+    
+    Things that have come up recently but are somewhat blocked on this:
+    
+    - Moving AccessMarkerElimination down in the pipeline
+    - SemanticARCOpts correctness and improvements
+    - AliasAnalysis improvements
+    - LICM performance regressions
+    - RLE/DSE improvements
+    
+    Begin to formalize the model for valid memory access in SIL. Ignoring
+    ownership, every access is a def-use chain in three parts:
+    
+    object root -> formal access base -> memory operation address
+    
+    AccessPath abstracts over this path and standardizes the identity of a
+    memory access throughout the optimizer. This abstraction is the basis
+    for a new AccessPathVerification.
+    
+    With that verification, we now have all the properties we need for the
+    type of analysis requires for exclusivity enforcement, but now
+    generalized for any memory analysis. This is suitable for an extremely
+    lightweight analysis with no side data structures. We currently have a
+    massive amount of ad-hoc memory analysis throughout SIL, which is
+    incredibly unmaintainable, bug-prone, and not performance-robust. We
+    can begin taking advantage of this verifably complete model to solve
+    that problem.
+    
+    The properties this gives us are:
+    
+    Access analysis must be complete over memory operations: every memory
+    operation needs a recognizable valid access. An access can be
+    unidentified only to the extent that it is rooted in some non-address
+    type and we can prove that it is at least *not* part of an access to a
+    nominal class or global property. Pointer provenance is also required
+    for future IRGen-level bitfield optimizations.
+    
+    Access analysis must be complete over address users: for an identified
+    object root all memory accesses including subobjects must be
+    discoverable.
+    
+    Access analysis must be symmetric: use-def and def-use analysis must
+    be consistent.
+    
+    AccessPath is merely a wrapper around the existing accessed-storage
+    utilities and IndexTrieNode. Existing passes already very succesfully
+    use this approach, but in an ad-hoc way. With a general utility we
+    can:
+    
+    - update passes to use this approach to identify memory access,
+      reducing the space and time complexity of those algorithms.
+    
+    - implement an inexpensive on-the-fly, debug mode address lifetime analysis
+    
+    - implement a lightweight debug mode alias analysis
+    
+    - ultimately improve the power, efficiency, and maintainability of
+      full alias analysis
+    
+    - make our type-based alias analysis sensistive to the access path
+
+commit 69b513afaf073de6246a25156df87bc0e29d4dcb
+Author: Owen Voorhees <owenvoorhees@gmail.com>
+Date:   Tue Mar 3 08:48:32 2020 -0800
+
+    [Diagnostics] Updated (experimental) diagnostic printing style (#30027)
+    
+    * [Diagnostics] Experimental diagnostic printing updates
+    
+    This new style directly annotates small snippets of code with
+    error messages, highlights and fix-its. It also uses color more
+    effectively to highlight important segments.
+    
+    * [Diagnostics] Stage educational notes and experimental formatting behind separate frontend flags
+    
+    educational notes -> -enable-educational-notes
+    formatting -> -enable-experimental-diagnostic-formatting
+    
+    * [Diagnostics] Refactor expensive line lookups in diag formatting
+    
+    * [Diagnostics] Refactor some PrintingDiagnosticConsumer code into a flush method
+    
+    * [Diag-Experimental-Formatting] Custom formatting for Xcode editor placeholders
+    
+    * [Diag-Experimental-Formatting] Better and more consistent textual description of fix its
+    
+    * [Diags-Experimental-Formatting] Handle lines with tab characters correctly when rendering highlights and messages
+    
+    Tabs are converted to 2 spaces for display purposes.
+    
+    * [Diag-Experimental-Formatting] Refactor byte-to-column mapping for efficiency
+    
+    * [Diag-Experimental-Formatting] Fix line number indent calculation
+    
+    * [Diag-Experimental-Formatting] Include indicators of insertions and deletions in the highlight line
+    
+    Inserts are underlined by green '+' chars, deletions by red '-' chars.
+    
+    * [Diag-Experimental-Formatting] Change color of indicator arrow for non-ASCII anchored messages
+    * [Diag-experimental-formatting] Make tests less sensitive to line numbering
+    
+    * [Diag-Experimental-Formatting] Update tests to allow windows path separators
+    
+    * [Diag-Experimental-Formatting] Bug fixes for the integrated REPL
+
+commit 896d4fca0c496f9207efa5b2ae0adf63c088ec0f
+Author: Dave Abrahams <dave@boostpro.com>
+Date:   Sat Jan 4 15:01:15 2020 -0800
+
+    Add efficiency docs for partitionPoint
+
+commit f8d15143a5610edea059863e1c6428678974f669
+Author: Michael Gottesman <mgottesman@apple.com>
+Date:   Mon Mar 25 14:07:43 2019 -0700
+
+    [closure-lifetime-fixup] Expose a flag instead of allocating a new instruction.
+    
+    Small inefficiency I noticed.
+
+commit dfc2d47f3b0e97035b62133365ed2a7be3100938
+Author: Andrew Trick <atrick@apple.com>
+Date:   Thu Mar 7 18:01:00 2019 -0800
+
+    Redo the data flow part of AccessEnforcementOpts.
+    
+    Directly implement the data flow. Eliminate the extraneous work.
+    Remove cubic behavior. Do a single iteration of the data flow state at
+    each program point only performing the necessary set operations. At
+    unidentified access, clear the sets for simplicity and efficiency.
+    
+    This cleanup results in significant functional changes:
+    
+    - Allowing scopes to merge even if they are enclosed.
+    
+    - Handling unidentified access conservatively.
+    
+    Note that most of the added lines of code are comments.
+    
+    Somehow this cleanup incidentally fixes:
+    <rdar://problem/48514339> swift compiler hangs building project
+    
+    (I expected the subsequent loop summary cleanup to fix that problem.)
+
+commit b6517c50a1cfdfd9dae47ee9fa61a4bab76c7e39
+Merge: 8675c3795ad 099743894b3
+Author: David Zarzycki <dave@znu.io>
+Date:   Wed Mar 6 15:35:19 2019 -0500
+
+    Merge pull request #23014 from davezarzycki/faster_simpler_nominaltype_get
+    
+    [AST] NFC: Improve non-generic nominal type memory efficiency
+
+commit 099743894b38d32601ec13c0634327e568ecf53d
+Author: David Zarzycki <dave@znu.io>
+Date:   Fri Mar 1 09:13:01 2019 -0500
+
+    [AST] NFC: Improve non-generic nominal type memory efficiency
+    
+    The non-generic nominal type nodes do not actually need to use LLVM's
+    FoldingSetNode, and on my workstation the release build of the standard
+    library completes about 1/3 of a second faster after switching to LLVM
+    DenseMap. This is perhaps not surprising, because Decl to Type mappings
+    are only needed during early compiler stages, but the intrusive
+    FoldingSetNode data decreases CPU cache efficiency during all compiler
+    stages. As a bonus, the resulting code is simpler.
+
+commit 1ebc8e95f75d56b78484025e18e8e68f02bdda46
+Merge: 0632d8763a6 77a29c9551d
+Author: David Zarzycki <dave@znu.io>
+Date:   Wed Jan 3 17:20:01 2018 -0500
+
+    Merge pull request #13691 from davezarzycki/nfc_perf_getDesugaredType2
+    
+    [AST] Perf: Improve getDesugaredType() efficiency
+
+commit 77a29c9551df516707b7b046699f51c8655f9270
+Author: David Zarzycki <dave@znu.io>
+Date:   Wed Jan 3 07:17:43 2018 -0500
+
+    [AST] Perf: Improve getDesugaredType() efficiency
+    
+    Make getDesugaredType() as fast as possible for now. With the old way:
+    
+    1) Switching over the sugared types turned into a frequently
+       mispredicted branch because the sugar in the type system is random
+       as far as the processor is concerned.
+    2) Storing the underlying/singlely-desugared type at different offsets
+       in memory adds more code bloat and misprediction.
+    
+    Short of a major redesign to avoid pointer chasing, this is probably as
+    fast as the method will get.
+
+commit fbe34e0f6f843941b75bedb8c6b76777fb2b2c45
+Author: omochimetaru <omochi.metaru@gmail.com>
+Date:   Fri Dec 22 01:23:25 2017 +0900
+
+    [Parse] improve LF handling efficiency.
+
+commit 8f43cba0b5d4e7d666e1c487af8b1a0babaff43b
+Author: Doug Gregor <dgregor@apple.com>
+Date:   Tue Oct 31 23:27:39 2017 -0700
+
+    [Syntax] Replace TrivialList's std::deque with a std::vector.
+    
+    For very large source files, the parser's syntax map---which contains a
+    very large number of TrivialLists---was taking an inordinate amount of
+    memory due to the inefficiency of std::deque. Specifically, a
+    std::deque containing just one trivial element would allocate 4k of
+    memory. With the ~120MB SIL output of one of the parse_stdlib tests,
+    these std::deques would add up to > 6GB of memory, most of which is
+    wasted.
+    
+    Replacing the std::deque with a std::vector knocks the memory required
+    for one of the parse_stdlib tests from > 8GB down closer to 2 GB. The
+    parser's syntax map is still large (e.g., a 512MB allocation for the
+    overall vector plus a few hundred MB of raw-syntax data), but not
+    prohibitively so.
+    
+    Part of rdar://problem/34771322.
+
+commit 62f43ae75b0139cf8bdeefbab368873757bd3295
+Author: Doug Gregor <dgregor@apple.com>
+Date:   Tue Oct 31 23:27:39 2017 -0700
+
+    [Syntax] Replace TrivialList's std::deque with a std::vector.
+    
+    For very large source files, the parser's syntax map---which contains a
+    very large number of TrivialLists---was taking an inordinate amount of
+    memory due to the inefficiency of std::deque. Specifically, a
+    std::deque containing just one trivial element would allocate 4k of
+    memory. With the ~120MB SIL output of one of the parse_stdlib tests,
+    these std::deques would add up to > 6GB of memory, most of which is
+    wasted.
+    
+    Replacing the std::deque with a std::vector knocks the memory required
+    for one of the parse_stdlib tests from > 8GB down closer to 2 GB. The
+    parser's syntax map is still large (e.g., a 512MB allocation for the
+    overall vector plus a few hundred MB of raw-syntax data), but not
+    prohibitively so.
+    
+    Part of rdar://problem/34771322.
+
+commit 157de8c312f388f4b08b525a75e6a4bf51dadfae
+Author: Andrew Trick <atrick@apple.com>
+Date:   Mon Sep 11 13:28:13 2017 -0700
+
+    NFC. Reorder a verifier check for obvious efficiency.
+
+commit 6bfba480552265e61e7acd826d9c15fbf5e5bf5c
+Author: Xi Ge <xi_ge@apple.com>
+Date:   Thu Oct 20 18:43:03 2016 -0700
+
+    Revert "[swift-api-digester] caching the equality comparison results among SDKNodes. (#5297)" (#5391)
+    
+    Practical measurement suggests the efficiency improvement is
+    negligible, thus revert it.
+
+commit 1d5ccc0d1b1e486bb48a5f14a6d794bdb476d9e2
+Author: Michael Ilseman <milseman@apple.com>
+Date:   Sat Oct 1 10:16:56 2016 -0700
+
+    [ClangImporter] EnumInfos are now cached by Clang decl
+    
+    Now that we have a EnumInfoCache per NameImporter which is per Clang
+    instance, we can just cache our EnumInfo based off of Clang decl,
+    rather than using a faux-USR technique. This greatly speeds up and
+    simplifies enum imports.
+    
+    EnumInfos are requested about 200k times when building the module
+    cache for Foundation, and thousands of times for simple tests during
+    normal import, so efficiency here is important. While building module
+    caches, the EnumInfoCache is hit 99% of the time, and it is hit 98% of
+    the time during normal import with pre-built module caches.
+    
+    NFC.
+
+commit 6d2f11a305c1649d79334d29104bd0efc607b427
+Author: Doug Gregor <dgregor@apple.com>
+Date:   Mon Aug 1 21:20:41 2016 -0700
+
+    [Type checker] Synthesize Error._code witnesses as 'final' within a class.
+    
+    When synthesizing the witness for Error._code, synthesize it as
+    final. This isn't meant to be user-visible (and, therefore, isn't
+    meant to be user-overridable), so it's a minor efficiency
+    win. Moreover, we weren't making sure this member got synthesized in
+    in cross-module situations, leading to runtime crashes. Fixes
+    rdar://problem/27335637.
+
+commit 11e85d73a443059b9b8c00300d498947cfa84782
+Author: Tony Parker <anthony.parker@apple.com>
+Date:   Tue Jun 21 10:40:57 2016 -0700
+
+    Add a new set of initializers to Data to aid efficiency and clarity when wrapping NSData.
+    
+    addresses:
+    rdar://problem/26385078 Data() really needs a init(length:) and replaceBytes(in:withBytes:)
+    rdar://problem/26508250 Add more specific init method to Data to indicate keeping a ref type
+
+commit 8634a57696db16775d066b2a878d219efc878f9a
+Author: John McCall <rjmccall@apple.com>
+Date:   Mon Apr 11 14:53:29 2016 -0700
+
+    Only check the minimal set of generic requirements when opening
+    a generic function type during constraint solving, as opposed to
+    checking a bunch of implicit things that we already know.  This
+    should significantly improve the efficiency of checking uses of
+    generic APIs by reducing the total number of type variables and
+    constraints.
+    
+    It is becoming increasingly funny to refer to this minimized generic
+    signature as the "mangling" signature.
+    
+    The test changes are kind of a wash: in one case, we've eliminated
+    a confusing extra error, but in another we've caused the confusing
+    extra error to refer to '<<error type>>'.  Not worth fighting right
+    now.  The reference-dependencies change is due to not needing to
+    pull in all of those associated types anymore, which seems correct.
+
+commit c0021e1c6294e7c22dc0e043b3ae2198b0ce61be
+Author: John McCall <rjmccall@apple.com>
+Date:   Mon Apr 11 14:53:29 2016 -0700
+
+    Only check the minimal set of generic requirements when opening
+    a generic function type during constraint solving, as opposed to
+    checking a bunch of implicit things that we already know.  This
+    should significantly improve the efficiency of checking uses of
+    generic APIs by reducing the total number of type variables and
+    constraints.
+    
+    It is becoming increasingly funny to refer to this minimized generic
+    signature as the "mangling" signature.
+    
+    The test changes are kind of a wash: in one case, we've eliminated
+    a confusing extra error, but in another we've caused the confusing
+    extra error to refer to '<<error type>>'.  Not worth fighting right
+    now.  The reference-dependencies change is due to not needing to
+    pull in all of those associated types anymore, which seems correct.
+
+commit d55ebaec423a7b7f0af6e81273c38a42ab6edcc8
+Author: Michael Gottesman <mgottesman@apple.com>
+Date:   Wed Feb 17 13:41:32 2016 -0800
+
+    [arc] Make all *RefCountStates and RCStateTransition trivially destructable and constructable.
+    
+    Tested via static assert.
+    
+    There is no reason for these data structures to not have these properties.
+    Adding these properties will improve the compile time efficiency of ARC by
+    allowing for cheaper copying and 0 cost destruction.
+
+commit 925eb2e0d9717bb9a659bb36b8bbe6831c13d428
+Author: Xin Tong <xin_tong@apple.com>
+Date:   Tue Jan 26 10:42:13 2016 -0800
+
+    Correct an inefficiency in initial state of the data flow in RLE
+
+commit 7eff55dc3c56bfbec53c47f7d2f0c4235750901c
+Author: Nadav Rotem <nrotem@apple.com>
+Date:   Fri Jan 1 15:26:08 2016 -0800
+
+    [Mangler Utils] Fix an off-by-one error in the calculation of the longest huffman encoding for our alphabet.
+    
+    We calculate a conservative estimate of how long our bitstream needs to be to
+    hold the decoded string.  This commit fixes an off-by-one error in the
+    calculation of the longest possible encoding sequence for our alphabet.  The bug
+    was that we considered both the root of the tree and the leafs of the tree for
+    the distance calculation. However, only edges should be considered for the
+    length calculation because edges represent the one/zero bits.
+    
+    This commit can improve the efficiency of our encoding because the APInts we
+    need to work with will be slightly shorter.
+
+commit 42ecad79030e6952dd36ec0a3de8e6dd5a7f79b5
+Author: Xi Ge <xi_ge@apple.com>
+Date:   Fri Jul 17 00:03:22 2015 +0000
+
+    [SyntaxModel] Improve the efficiency of url regex search.
+    We improve the efficiency through two ways: 1. read the protocol keywords, such as
+    http, radar, or im, to select the right regex pattern to search for instead of
+    trying every known patterns; and 2. reduce the regex search space by truncating
+    text before protocol keywords. rdar://21009781
+    
+    Swift SVN r30290
+
+commit 3f375386aaadcf8b954ef93e085826370fb571a5
+Author: Andrew Trick <atrick@apple.com>
+Date:   Sat May 30 04:04:26 2015 +0000
+
+    Cleanup ClosureSpecializer.
+    
+    Now that we use ValueLifetime, restrucure some of the code for clarity and efficiency.
+    
+    While we're at it, make sure we're not copying vectors and maps needlessly.
+    
+    Swift SVN r29166
+
+commit 0b6b907a0abd7613007803172b94fac43df0af3b
+Author: Roman Levenstein <rlevenstein@apple.com>
+Date:   Thu Apr 16 20:28:07 2015 +0000
+
+    Do not produce an intermediate cast between the same ObjC types as it will get eliminated anyways.
+    
+    When casts optimizations were lowering bridged casts from ObjC to Swift, they were producing internally an intermediate cast from an ObjC type into the expected ObjC type of a bridged cast, before converting this expected ObjC type into a Swift type. In many cases, this resulted in a useless intermediate cast where both types were the same and such a cast would be eliminated afterwards. E.g.
+    
+    unconditional_checked_cast A to B  // where A is ObjC type and B is a Swift type
+    
+    was lowered into:
+    
+    unconditional_checked_cast A to B. _ObjectiveCType // Often useless as A is equal to B. _ObjectiveCType already.
+    unconditional_checked_cast B._ObjectiveCType to B
+    
+    This small inefficiency is fixed now. This problem was no observable from outside the optimization pass, it just required additional processing, therefore there is no test-case.
+    
+    Swift SVN r27370
+
+commit 4d71e0874e2a361ede0129c4a9687fa5585c341b
+Author: Dave Abrahams <dabrahams@apple.com>
+Date:   Thu Dec 18 20:47:40 2014 +0000
+
+    [stdlib] Remove testing inefficiency
+    
+    Bring some N^3-ness back down to N^2 in this test.
+    
+    Swift SVN r24016
+
+commit fd7ce02a514e7627ee284b515becf1e450712734
+Author: Dmitri Hrybenko <dgribenko@apple.com>
+Date:   Sat Oct 25 21:37:41 2014 +0000
+
+    Runtime: emit BridgeObject metadata on all platforms
+    
+    Per Joe, a low level retained-pointer-with-user-controlled-spare-bits
+    type would still be useful for space efficiency even on platforms that
+    don't need ObjC interop.
+    
+    Swift SVN r22943
+
+commit bba2a37070b71907aa1d5e02d1807fdccb6d83e0
+Author: Andrew Trick <atrick@apple.com>
+Date:   Sat Aug 30 09:20:07 2014 +0000
+
+    More COWArrayOpts cleanup.
+    
+    Arnold noticed during review that ArrayUserSet was not properly
+    updated after previous rounds of cleanup.
+    
+    This also removes some innefficiency by eliminating a few hash maps.
+    
+    I want to make sure this is in good shape before reusing the analysis
+    for immutable array properties.
+    
+    Swift SVN r21608
+
+commit 6bb6e1b0b43cd5e84edb8acafb52d0b64fb537fd
+Author: Dmitri Hrybenko <dgribenko@apple.com>
+Date:   Wed Jun 25 13:24:15 2014 +0000
+
+    stdlib/String: if we can not get a contiguous data buffer out of NSString,
+    don't call into CoreFoundation to perform UTF-8 transcoding.  CoreFoundation
+    can replace ill-formed sequences with a single byte, which is not good enough
+    to implement U+FFFD insertion.  Instead, use the same transcoding routine as
+    for contiguous buffer.
+    
+    Pulled out the transcoding routine into a generic function that should be
+    specialized and simplified for the case when input is UnsafeArray; we should
+    not be losing efficiency here.
+    
+    Fixes <rdar://problem/17297055> [unicode] println crashes when given string
+    with unpaired surrogate
+    
+    
+    
+    Swift SVN r19157
+
+commit a79a06fee4da0cd61cb2d73ef4250b685d3ab8c4
+Author: Dave Abrahams <dabrahams@apple.com>
+Date:   Fri May 23 20:27:55 2014 +0000
+
+    [stdlib] Improve efficiency of Array literals
+    
+    Before this change, the dispatching hacks sent convertFromArrayLiteral
+    through the "Sequence" path, wherein we could not assume the ability to
+    non-destructively measure the length of the Sequence before beginning to
+    add the elements, which resulted in buffer reallocations as elements
+    were added.  Now we the sequence is measured and storage is
+    pre-allocated.
+    
+    Swift SVN r18603
+
+commit 32dee228f80ad88938c04106a24bbaec36656e2a
+Author: Michael Gottesman <mgottesman@apple.com>
+Date:   Thu May 15 00:59:55 2014 +0000
+
+    [sil-aa] Change TBAA to use type oracle instructions instead of the raw types of instructions.
+    
+    The reason that this is important is that we *ARE* allowing the stdlib
+    to perform certain types of type punning for efficiency implying we need
+    to have a type oracle instruction to have safety.
+    
+    A type oracle instruction is an instruction which implies undefined behavior
+    unless its operand/result is of a certain type (allowing us to ignore that
+    possibility).
+    
+    In a following commit I am going to go over and fix any problems in the
+    actual TBAA implementation and give all the various checks tests.
+    
+    rdar://16651852
+    
+    Swift SVN r18090
+
+commit 3e917be738e3a46f7fae8a32c03b8da8a1c18807
+Author: Jordan Rose <jordan_rose@apple.com>
+Date:   Tue May 6 02:35:08 2014 +0000
+
+    Use full DeclNames for dynamic lookup of calls.
+    
+    Previously, we were just using the base name, which resulted in massive
+    inefficiency when dealing with Clang (we basically had to check every
+    selector in the system to see if it had the same first selector piece).
+    I've hacked ConstraintSystem a bit to carry a map from UnresolvedDotExpr
+    to the ApplyExpr that consumes it, so that we can use the full DeclName
+    and look up methods by full selector.
+    
+    Now that dynamic lookup is fast, re-enable it for the
+    Foundation_bridge.swift test. (r17520 actually provided most of the benefit.)
+    
+    This does break selector lookup on AnyObject when doing selector splitting,
+    and slightly regresses diagnostics when you try to call a method on AnyObject
+    and forget a parameter name.
+    
+    <rdar://problem/16808651>. Part of the Playground performance efforts.
+    
+    Swift SVN r17524
+
+commit 5e045b4453911d915687460b928d2955374c3c63
+Author: Dave Abrahams <dabrahams@apple.com>
+Date:   Sat May 3 19:49:53 2014 +0000
+
+    [stdlib] Limit array casts to Array<T>
+    
+    There's no need to support up- or down-casts for NativeArray<T> or
+    Slice<T>.  Slice might turn out to be easy, but we don't have time right
+    now.  Doing it for NativeArray<T> would have efficiency costs that we
+    don't want to pay.
+    
+    Swift SVN r17323
+
+commit be12d86dddf5d405770ef1199bd1fe4f402268ae
+Author: Jordan Rose <jordan_rose@apple.com>
+Date:   Thu Dec 5 01:51:11 2013 +0000
+
+    Turn ClangModule into ClangModuleUnit.
+    
+    Part of the FileUnit restructuring. A Clang module (whether from a framework
+    or a simple collection of headers) is now imported as a TranslationUnit
+    containing a single ClangModuleUnit.
+    
+    One wrinkle in all this is that Swift very much wants to do searches on a
+    per-module basis, but Clang can only do lookups across the entire
+    TranslationUnit. Unless and until we get a better way to deal with this,
+    we're stuck with an inefficiency here. Previously, we used to hack around
+    this by ignoring the "per-module" bit and only performing one lookup into
+    all Clang modules, but that's not actually correct with respect to visibility.
+    
+    Now, we're just taking the filtering hit for looking up a particular name,
+    and caching the results when we look up everything (for code completion).
+    This isn't ideal, but it doesn't seem to be costing too much in performance,
+    at least not right now, and it means we can get visibility correct.
+    
+    In the future, it might make sense to include a ClangModuleUnit alongside a
+    SerializedASTFile for adapter modules, rather than having two separate
+    modules with the same name. I haven't really thought through this yet, though.
+    
+    Swift SVN r10834
+
+commit f1c977889ce1be47688c1d8f67bf8dbd781fae9c
+Author: Andrew Trick <atrick@apple.com>
+Date:   Sat Oct 26 09:03:36 2013 +0000
+
+    Added a ReachingBlockSet and ReachingBlockMatrix for efficiency.
+    
+    Eventually, we may decide not to compute global reachability, but this
+    should be reasonably efficient in the meantime.
+    
+    Swift SVN r9691
+
+commit f328cff0c6fb0832ec763c0d26dba8a2a1d381bd
+Author: Chris Lattner <clattner@apple.com>
+Date:   Fri Aug 24 21:02:46 2012 +0000
+
+    compute a whole-function numbering for ssa values, instead of a block
+    local number.  Cache them for efficiency instead of recomputing.
+    
+    
+    Swift SVN r2759
+
+commit e7b9ae47fa272f08c3331d3083977bbaa58cc056
+Author: John McCall <rjmccall@apple.com>
+Date:   Thu Aug 23 05:21:31 2012 +0000
+
+    Defer to the value witness when moving an archetype.  This
+    is really a deficiency in TypeInfo::initializeWithTake, which
+    is now virtual and not implemented in TypeInfo anymore.  This
+    fixes rdar://problem/12153619.
+    
+    While I'm at it, fix an inefficiency in how we were handling
+    ignored results of generic calls, and add 4 new builtins:
+      Builtin.strideof is like sizeof, but guarantees that it
+      returns a multiple of the alignment (i.e., like C sizeof,
+      it is the appropriate allocation size for members of an
+      array).
+      Builtin.destroy destroys something "in place";  previously
+      this was being simulated by moving and ignoring the result.
+      Builtin.allocRaw allocates raw, uninitialized memory, given
+      a size and alignment.
+      Builtin.deallocRaw deallocates a pointer allocated with
+      Builtin.allocRaw;  it must be given the allocated size.
+    
+    Swift SVN r2720
+commit a7d37a90311f0f94500d47c54818eb2351f0a85a
+Author: Michael Gottesman <mgottesman@apple.com>
+Date:   Sun Feb 16 14:28:38 2020 -0800
+
+    [ownership] When we flag an over consume, improve error msg by dumping consuming user list.
+    
+    Specifically, there are a few places in the ownership data flow where before
+    this patch we just dumped the violating user and the block where the overconsume
+    occurred. Since we only dumped the block rather than consuming user list, it
+    could require a little bit of time/energy to identify why the block was
+    considered to already have a consume in it. So at least by dumping the consuming
+    user list, the compiler writer has more information to reason about this.
+
+commit caa3dd4d291ec93c1a59f1db62604e703bff8468
+Author: Huon Wilson <huon@apple.com>
+Date:   Fri May 25 20:13:32 2018 +1000
+
+    [Frontend] Turn symbols-missing-from-TBD validation on by default in debug builds on Apple platforms.
+    
+    TBD validation is effectively an expensive assertion, and is currently only
+    tuned for Apple platforms. However, we don't want it to regress more, and it
+    would be nice to start getting validation from people using master
+    snapshots. Together, this means that turning it on by default for the cases
+    mentioned above is an appropriate course of action.
+    
+    At the very least, this has the benefit of running validation across the stdlib,
+    the overlays and the whole testsuite on each build, so people making changes to
+    the compiler that change symbols are hopefully alerted.
+    
+    One limitation here is that this is only validating that the TBD is a superset
+    of the true set of symbols: it could include spurious symbols that aren't
+    actually in the binary. This case is less problematic for Swift than symbols
+    missing from the TBD file, and so we've focused energy on this. Once we've fixed
+    the extra-symbols problems and are confident in it, this validation can be
+    upgraded to validate that too.
+    
+    Half of rdar://problem/40431434.

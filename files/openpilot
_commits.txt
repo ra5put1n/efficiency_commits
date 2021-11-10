@@ -1,0 +1,5 @@
+commit 84de248fa7cbee37ecb2fd6a9d4df50ba60a1e04
+Author: Adeeb Shihadeh <adeebshihadeh@gmail.com>
+Date:   Mon Oct 18 13:21:24 2021 -0700
+
+    tici: affine loggerd to efficiency cores (#22581)

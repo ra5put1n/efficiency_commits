@@ -1,0 +1,309 @@
+commit 9abf6e2ab0d8847059edfc1720e6697c7282f527
+Author: Joshua Haberman <jhaberman@gmail.com>
+Date:   Wed Jan 13 12:16:25 2021 -0800
+
+    Ported Ruby extension to upb_msg (#8184)
+    
+    * WIP.
+    
+    * WIP.
+    
+    * WIP.
+    
+    * WIP.
+    
+    * WIP.
+    
+    * WIP.
+    
+    * Added some missing files.
+    
+    * WIP.
+    
+    * WIP.
+    
+    * Updated upb.
+    
+    * Extension loads, but crashes immediately.
+    
+    * Gets through the test suite without SEGV!
+    
+    Still a lot of bugs to fix, but it is a major step!
+    
+    214 tests, 378 assertions, 37 failures, 147 errors, 0 pendings, 0 omissions, 0 notifications
+    14.0187% passed
+    
+    * Test and build for Ruby 3.0
+    
+    * Fixed a few more bugs, efficient #inspect is almost done.
+    
+    214 tests, 134243 assertions, 30 failures, 144 errors, 0 pendings, 0 omissions, 0 notifications
+    18.6916% passed
+    
+    * Fixed message hash initialization and encode depth checking.
+    
+    214 tests, 124651 assertions, 53 failures, 70 errors, 0 pendings, 0 omissions, 0 notifications
+    42.5234% passed
+    
+    * A bunch of fixes to failing tests, now 70% passing.
+    
+    214 tests, 202091 assertions, 41 failures, 23 errors, 0 pendings, 0 omissions, 0 notifications
+    70.0935% passed
+    
+    * More than 80% of tests are passing now.
+    
+    214 tests, 322331 assertions, 30 failures, 9 errors, 0 pendings, 0 omissions, 0 notifications
+    81.7757% passed
+    
+    Unfortunately there is also a sporadic bug/segfault hanging around
+    that appears to be GC-related.
+    
+    * Add linux/ruby30 and macos/ruby30
+    
+    * Use rvm master for 3.0.0-preview2
+    
+    * Over 90% of tests are passing!
+    
+    214 tests, 349898 assertions, 15 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
+    92.5234% passed
+    
+    * Passes all tests!
+    
+    214 tests, 369388 assertions, 0 failures, 0 errors, 0 pendings, 0 omissions, 0 notifications
+    100% passed
+    
+    * A bunch of cleanup.
+    
+    1. Removed a bunch of internal-only symbols from headers.
+    2. Required a frozen check to get a non-const pointer to a map or array.
+    3. De-duplicated the code to get a type argument for Map/RepeatedField.
+    
+    * Removed a bunch more stuff from protobuf.h.  There is an intermittent assert failure.
+    
+    Intermittent failure:
+    
+    ruby: ../../../../ext/google/protobuf_c/protobuf.c:263: ObjectCache_Add: Assertion `rb_funcall(obj_cache2, (__builtin_constant_p("[]") ? __extension__ ({ static ID rb_intern_id_cache; if (!rb_intern_id_cache) rb_intern_id_cache = rb_intern2((("[]")
+    ), (long)strlen(("[]"))); (ID) rb_intern_id_cache; }) : rb_intern("[]")), 1, key_rb) == val' failed
+    
+    * Removed a few more things from protobuf.h.
+    
+    * Ruby 3.0.0-preview2 to 3.0.0
+    
+    * Require rake-compiler-dock >= 1.1.0
+    
+    * More progress, fighting with the object cache.
+    
+    * Passes on all Ruby versions!
+    
+    * Updated and clarified comment regarding WeakMap.
+    
+    * Fixed the wyhash compile.
+    
+    * Fixed conformance tests for Ruby.
+    
+    Conformance results now look like:
+    
+    RUBYLIB=../ruby/lib:. ./conformance-test-runner --enforce_recommended --failure_list failure_list_ruby.txt --text_format_failure_list text_format_failure_list_ruby.txt ./conformance_ruby.rb
+    
+    CONFORMANCE TEST BEGIN ====================================
+    
+    CONFORMANCE SUITE PASSED: 1955 successes, 0 skipped, 58 expected failures, 0 unexpected failures.
+    
+    CONFORMANCE TEST BEGIN ====================================
+    
+    CONFORMANCE SUITE PASSED: 0 successes, 111 skipped, 8 expected failures, 0 unexpected failures.
+    
+    Fixes include:
+    
+    - Changed Ruby compiler to no longer reject proto2 maps.
+    - Changed Ruby compiler to emit a warning when proto2 extensions are
+      present instead of rejecting the .proto file completely.
+    - Fixed conformance tests to allow proto2 and look up message by name
+      instead of hardcoding a specific list of messages.
+    - Fixed conformance test to support the "ignore unknown" option for
+      JSON.
+    - Fixed conformance test to properly report serialization errors.
+    
+    * Removed debug printf and fixed #inspect for floats.
+    
+    * Fixed compatibility test to have proper semantics for #to_json.
+    
+    * Updated Makefile.am with new file list.
+    
+    * Don't try to copy wyhash when inside Docker.
+    
+    * Fixed bug where we would forget that a sub-object is frozen in Ruby >=2.7.
+    
+    * Avoid exporting unneeded symbols and refactored a bit of code.
+    
+    * Some more refactoring.
+    
+    * Simplified and added more comments.
+    
+    * Some more comments and simplification. Added a missing license block.
+    
+    Co-authored-by: Masaki Hara <hara@wantedly.com>
+
+commit b0649a088a89b65f16b02428208e82afc92e808e
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Wed Apr 15 11:57:38 2020 +0100
+
+    Regenerate C# code with the new generator, adding unittest_proto3_optional.proto
+    
+    The changes in the existing proto2 code are solely around presence bits. The new generator allocated presence bits more efficiently. (Previously bits were sometimes allocated but never used.)
+
+commit 4dcafd12cb6b059a6af3ece3409c63f0b136e6b6
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Wed Apr 15 11:55:05 2020 +0100
+
+    Support proto3 optional fields in the C# generator
+    
+    Most changes are:
+    
+    - Introducing new helpers of SupportsPresenceApi and RequiresPresenceBit. This allows calling code to be a lot clearer about what it's interested in.
+    - Changing most previous IsProto2 calls to use one of the two new helper methods
+    - Avoiding treating synthetic oneofs as regular ones
+    - Some slight refactoring in csharp_primitive_field to avoid code duplication
+    - Comments explaining what we want when, so the next maintainer doesn't need to do the detective work I did!
+    
+    This change deliberately doesn't modify the API surface of any
+    existing code. The only change to previously-generated C# should be
+    making presence bits more efficient in proto2.
+    
+    Once proto3 optional fields are supported, we can consider further
+    changes to make the proto2 and proto3 generated API surface more
+    consistent (e.g. adding presence API for message fields and oneofs).
+
+commit da5740082ef7c39a5503e4d57ee73e11d3b43586
+Author: Tristan Pratt <tpratt@factset.com>
+Date:   Sat Aug 17 19:12:00 2019 -0400
+
+    c# feature(RepeatedField): Capacity property to resize the internal array
+    
+    This property is useful for efficiently initializing long RepeatedFields.
+    
+    I used System.Collections.Generic.List's design as a model.  It should feel the most familiar to C# developers.
+
+commit 7181b1c090e6f1565f72a09dbc971382be72a410
+Author: i9 <i9@users.noreply.github.com>
+Date:   Wed Jan 16 19:47:12 2019 -0800
+
+    Add proto3 to solidity link
+    
+    pb3-gen-sol is a proto3 to solidity library generator that supports proto3 native types and uses field option for solidity native types. Both the message and generated code are more efficient than other solutions. It also includes a library to decode protobuf wireformat.
+
+commit 9ed6d4da3710daae65cdc60719ebff79a472b648
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Mon Sep 28 17:28:02 2015 +0100
+
+    Support ToString in RepeatedField and MapField.
+    
+    This changes how we approach JSON formatting in general - instead of looking  at the field a value came from, we just look at the type of the value. It's possible this *could* be slightly inefficient, but if we start caring about JSON performance deeply, we'll probably want to rewrite all of this anyway. It's definitely simpler this way.
+    
+    When we support dynamic messages, we'll need to modify JsonFormatter to handle enum values, as they won't come be "real" .NET enums at that point. It shouldn't be hard to do though.
+
+commit f8c151f21e821371c55d1cd02b89ac1b8f50460f
+Author: Jon Skeet <jonskeet@google.com>
+Date:   Fri Jul 3 11:56:29 2015 +0100
+
+    Initial implementation of JSON formatting
+    
+    - No parsing
+    - Reflection based, so not hugely efficient
+    - No line breaks or indentation
+
+commit 35e4dbd51829216fd1ad85a95c01042346b63c6b
+Author: Jon Skeet <skeet@pobox.com>
+Date:   Thu Jun 11 14:19:30 2015 +0100
+
+    Improve string encoding times.
+    
+    Cache a reference to Encoding.UTF8 - the property access is (rather surprisingly) significant.
+    Additionally, when we detect that the string is all ASCII (due to the computed length in bytes being the length in characters), we can perform the encoding very efficiently ourselves.
+
+commit 2d6daa72ab5832bf4cab38df0d911f32df547021
+Author: kenton@google.com <kenton@google.com@630680e5-0e50-0410-840e-4b1c322b438d>
+Date:   Thu Jan 22 01:27:00 2009 +0000
+
+    Push out changes from internal codebase.
+    
+    All Languages
+    * Repeated fields of primitive types (types other that string, group, and
+      nested messages) may now use the option [packed = true] to get a more
+      efficient encoding.  In the new encoding, the entire list is written
+      as a single byte blob using the "length-delimited" wire type.  Within
+      this blob, the individual values are encoded the same way they would
+      be normally except without a tag before each value (thus, they are
+      tightly "packed").
+    
+    C++
+    * UnknownFieldSet now supports STL-like iteration.
+    * Message interface has method ParseFromBoundedZeroCopyStream() which parses
+      a limited number of bytes from an input stream rather than parsing until
+      EOF.
+    
+    Java
+    * Fixed bug where Message.mergeFrom(Message) failed to merge extensions.
+    * Message interface has new method toBuilder() which is equivalent to
+      newBuilderForType().mergeFrom(this).
+    * All enums now implement the ProtocolMessageEnum interface.
+    * Setting a field to null now throws NullPointerException.
+    * Fixed tendency for TextFormat's parsing to overflow the stack when
+      parsing large string values.  The underlying problem is with Java's
+      regex implementation (which unfortunately uses recursive backtracking
+      rather than building an NFA).  Worked around by making use of possesive
+      quantifiers.
+    
+    Python
+    * Updated RPC interfaces to allow for blocking operation.  A client may
+      now pass None for a callback when making an RPC, in which case the
+      call will block until the response is received, and the response
+      object will be returned directly to the caller.  This interface change
+      cannot be used in practice until RPC implementations are updated to
+      implement it.
+
+commit 26bd9eee6ee6d116e1cc0dedeb660cd69d7aac45
+Author: kenton@google.com <kenton@google.com@630680e5-0e50-0410-840e-4b1c322b438d>
+Date:   Fri Nov 21 00:06:27 2008 +0000
+
+    Integrate changes from internal code.
+    
+    protoc
+    * Enum values may now have custom options, using syntax similar to field
+      options.
+    * Fixed bug where .proto files which use custom options but don't actually
+      define them (i.e. they import another .proto file defining the options)
+      had to explicitly import descriptor.proto.
+    * Adjacent string literals in .proto files will now be concatenated, like in
+      C.
+    
+    C++
+    * Generated message classes now have a Swap() method which efficiently swaps
+      the contents of two objects.
+    * All message classes now have a SpaceUsed() method which returns an estimate
+      of the number of bytes of allocated memory currently owned by the object.
+      This is particularly useful when you are reusing a single message object
+      to improve performance but want to make sure it doesn't bloat up too large.
+    * New method Message::SerializeAsString() returns a string containing the
+      serialized data.  May be more convenient than calling
+      SerializeToString(string*).
+    * In debug mode, log error messages when string-type fields are found to
+      contain bytes that are not valid UTF-8.
+    * Fixed bug where a message with multiple extension ranges couldn't parse
+      extensions.
+    * Fixed bug where MergeFrom(const Message&) didn't do anything if invoked on
+      a message that contained no fields (but possibly contained extensions).
+    * Fixed ShortDebugString() to not be O(n^2).  Durr.
+    * Fixed crash in TextFormat parsing if the first token in the input caused a
+      tokenization error.
+    
+    Java
+    * New overload of mergeFrom() which parses a slice of a byte array instead
+      of the whole thing.
+    * New method ByteString.asReadOnlyByteBuffer() does what it sounds like.
+    * Improved performance of isInitialized() when optimizing for code size.
+    
+    Python
+    * Corrected ListFields() signature in Message base class to match what
+      subclasses actually implement.
+    * Some minor refactoring.

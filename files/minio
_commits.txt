@@ -1,0 +1,243 @@
+commit 839276521352575a6ef1037dcde1b3005fb7f623
+Author: Harshavardhana <harsha@minio.io>
+Date:   Tue Sep 21 14:55:17 2021 -0700
+
+    healObjects() should cancel() context before writing to errCh (#13262)
+    
+    also remove HealObjects() code from dataScanner running another
+    listing from the data-scanner is super in-efficient and in-fact
+    this code is redundant since we already attempt to heal all
+    dangling objects anyways.
+
+commit 92bb2928e427fe35e43f2b026118786df872630e
+Author: Klaus Post <klauspost@gmail.com>
+Date:   Mon Aug 16 20:55:07 2021 +0200
+
+    Compress better on amd64 (#12974)
+    
+    Since S2 has amd64 assembly, it now operates at a reasonable
+    speed to use by default.
+    
+    Here are some examples of stream compression speed, 16 cores:
+    ```
+    nyc-taxi-data-10M.csv   s2      1       3325605752      -> 1095998837   312ms   10139.07MB/s            67.04% reduction
+    nyc-taxi-data-10M.csv   s2      2       3325605752      -> 917905514    428ms   7393.74MB/s             72.40%
+    
+    github-june-2days-2019.json     s2      1       6273951764      -> 1043196283   391ms   15301.99 MB/s           83.37%
+    github-june-2days-2019.json     s2      2       6273951764      -> 955924506    519ms   11510.81MB/s            84.76%
+    
+    github-ranks-backup.bin s2      1       1862623243      -> 623911363    146ms   12133MB/s               66.50%
+    github-ranks-backup.bin s2      2       1862623243      -> 563752759    230ms   7705.26MB/s             69.73%
+    ```
+    
+    We keep non-assembly platforms on the faster, but less efficient mode.
+
+commit 6b484f45c6cadb9b7f5c0fd30ab7b254b023bb27
+Author: Anis Elleuch <vadmeste@users.noreply.github.com>
+Date:   Wed Mar 31 10:15:08 2021 +0100
+
+    crawling: Apply lifecycle then decide healing action (#11563)
+    
+    It is inefficient to decide to heal an object before checking its
+    lifecycle for expiration or transition. This commit will just reverse
+    the order of action: evaluate lifecycle and heal only if asked and
+    lifecycle resulted a NoneAction.
+
+commit 76e2713ffe5f54fda843449e1d9bb7a169907f5d
+Author: Harshavardhana <harsha@minio.io>
+Date:   Wed Jan 6 09:36:55 2021 -0800
+
+    fix: use buffers only when necessary for io.Copy() (#11229)
+    
+    Use separate sync.Pool for writes/reads
+    
+    Avoid passing buffers for io.CopyBuffer()
+    if the writer or reader implement io.WriteTo or io.ReadFrom
+    respectively then its useless for sync.Pool to allocate
+    buffers on its own since that will be completely ignored
+    by the io.CopyBuffer Go implementation.
+    
+    Improve this wherever we see this to be optimal.
+    
+    This allows us to be more efficient on memory usage.
+    ```
+       385  // copyBuffer is the actual implementation of Copy and CopyBuffer.
+       386  // if buf is nil, one is allocated.
+       387  func copyBuffer(dst Writer, src Reader, buf []byte) (written int64, err error) {
+       388          // If the reader has a WriteTo method, use it to do the copy.
+       389          // Avoids an allocation and a copy.
+       390          if wt, ok := src.(WriterTo); ok {
+       391                  return wt.WriteTo(dst)
+       392          }
+       393          // Similarly, if the writer has a ReadFrom method, use it to do the copy.
+       394          if rt, ok := dst.(ReaderFrom); ok {
+       395                  return rt.ReadFrom(src)
+       396          }
+    ```
+    
+    From readahead package
+    ```
+    // WriteTo writes data to w until there's no more data to write or when an error occurs.
+    // The return value n is the number of bytes written.
+    // Any error encountered during the write is also returned.
+    func (a *reader) WriteTo(w io.Writer) (n int64, err error) {
+            if a.err != nil {
+                    return 0, a.err
+            }
+            n = 0
+            for {
+                    err = a.fill()
+                    if err != nil {
+                            return n, err
+                    }
+                    n2, err := w.Write(a.cur.buffer())
+                    a.cur.inc(n2)
+                    n += int64(n2)
+                    if err != nil {
+                            return n, err
+                    }
+    ```
+
+commit 4752323e1c08d1099c70fe0e3dc4177091073b51
+Author: Jorge Israel Peña <jorge.israel.p@gmail.com>
+Date:   Fri Jul 24 11:31:51 2020 -0700
+
+    Use hdfs.Readdir() to optimize HDFS directory listings (#10121)
+    
+    Currently, listing directories on HDFS incurs a per-entry remote Stat() call
+    penalty, the cost of which can really blow up on directories with many
+    entries (+1,000) especially when considered in addition to peripheral
+    calls (such as validation) and the fact that minio is an intermediary to the
+    client (whereas other clients listed below can query HDFS directly).
+    
+    Because listing directories this way is expensive, the Golang HDFS library
+    provides the [`Client.Open()`] function which creates a [`FileReader`] that is
+    able to batch multiple calls together through the [`Readdir()`] function.
+    
+    This is substantially more efficient for very large directories.
+    
+    In one case we were witnessing about +20 seconds to list a directory with 1,500
+    entries, admittedly large, but the Java hdfs ls utility as well as the HDFS
+    library sample ls utility were much faster.
+    
+    Hadoop HDFS DFS (4.02s):
+    
+        λ ~/code/minio → use-readdir
+        » time hdfs dfs -ls /directory/with/1500/entries/
+        …
+        hdfs dfs -ls   5.81s user 0.49s system 156% cpu 4.020 total
+    
+    Golang HDFS library (0.47s):
+    
+        λ ~/code/hdfs → master
+        » time ./hdfs ls -lh /directory/with/1500/entries/
+        …
+        ./hdfs ls -lh   0.13s user 0.14s system 56% cpu 0.478 total
+    
+    mc and minio **without** optimization (16.96s):
+    
+        λ ~/code/minio → master
+        » time mc ls myhdfs/directory/with/1500/entries/
+        …
+        ./mc ls   0.22s user 0.29s system 3% cpu 16.968 total
+    
+    mc and minio **with** optimization (0.40s):
+    
+        λ ~/code/minio → use-readdir
+        » time mc ls myhdfs/directory/with/1500/entries/
+        …
+        ./mc ls   0.13s user 0.28s system 102% cpu 0.403 total
+    
+    [`Client.Open()`]: https://godoc.org/github.com/colinmarc/hdfs#Client.Open
+    [`FileReader`]: https://godoc.org/github.com/colinmarc/hdfs#FileReader
+    [`Readdir()`]: https://godoc.org/github.com/colinmarc/hdfs#FileReader.Readdir
+
+commit f9aa239973a9252dd7c419af7d0e472f03a8c107
+Author: Harshavardhana <harsha@minio.io>
+Date:   Mon Jun 15 09:05:35 2020 -0700
+
+    fix: export prometheus metrics for cache GC triggers (#9815)
+    
+    Bonus change to use channel to serialize triggers,
+    instead of using atomic variables. More efficient
+    mechanism for synchronization.
+    
+    Co-authored-by: Nitish Tiwari <nitish@minio.io>
+
+commit 8d9866263334a644ed8a80a427ed7bad792c1dce
+Author: Klaus Post <klauspost@gmail.com>
+Date:   Thu Mar 19 00:19:29 2020 +0100
+
+    re-implement data usage crawler to be more efficient (#9075)
+    
+    Implementation overview:
+    
+    https://gist.github.com/klauspost/1801c858d5e0df391114436fdad6987b
+
+commit 7b8beecc8102fe26804ad150a46aab9efcd15929
+Author: Cody Maloney <cmaloney@users.noreply.github.com>
+Date:   Sat Jun 15 10:11:10 2019 -0700
+
+    Move lock to not surround pieces which don't use any internal members. (#7779)
+    
+    Previously the read/write lock applied both for gateway use cases as
+    well the object store use case. Nothing from sys is touched or looked
+    at in the gateway usecase though, so we don't need to lock. Don't lock
+    to make the gateway policy getting a little more efficient, particularly
+    as where this is called from (checkRequestAuthType) is quite common.
+
+commit 16c648b1097ff15f28a4f1166f88b5a470ba18f4
+Author: Harshavardhana <harsha@minio.io>
+Date:   Fri May 17 00:22:25 2019 -0700
+
+    Remove "Connection" close instead reduce MaxConns per host (#7654)
+    
+    This is necessary to avoid connection build up between servers
+    unexpectedly for example in a situation where 16 servers are
+    talking to each other and one server now allows a maximum of
+    
+    15*4096 = 61440 idle connections
+    
+    Will be kept in pool. Such a large pool is perhaps inefficient for
+    many reasons and also affects overall system resources.
+    
+    This PR also reduces idleConnection timeout from 120 secs to 60 secs.
+
+commit 64f2c6181312a951905533a04820f4817aa0441b
+Author: Harshavardhana <harsha@minio.io>
+Date:   Thu Aug 9 14:52:29 2018 -0700
+
+    Implement memory efficient readdir for windows (#6247)
+    
+    Fixes #6164
+
+commit 28c5a887de28273e0a9605d7d4b77b84912ed876
+Author: Harshavardhana <harsha@minio.io>
+Date:   Thu Mar 30 08:58:14 2017 -0700
+
+    event: Set contentType as well under NotificationEvent. (#4003)
+    
+    This is an enhancement change to to cater support all
+    the data fields present on the object. Currently
+    we only send a subset of data which object info
+    provides us.
+    
+    It also helps us keep a full namespace mirror on
+    notification targets for efficient query.
+
+commit 38a6ce36e508c3a57d485384f5f9a253c6c8227f
+Author: Harshavardhana <harsha@minio.io>
+Date:   Wed Jul 1 15:49:15 2015 -0700
+
+    Remove slow AppendUniq code, rolling through over a slice is in-efficient
+    
+    Remove it and use map instead
+commit fd530576549fdcd061e64fca71977f00607e4e0e
+Author: Harshavardhana <harsha@minio.io>
+Date:   Thu Sep 26 11:23:13 2019 -0700
+
+    Add InfoCannedPolicy API to fetch only necessary policy (#8307)
+    
+    This PR adds
+    - InfoCannedPolicy() API for efficiency in fetching policies
+    - Send group memberships for LDAPUser if available

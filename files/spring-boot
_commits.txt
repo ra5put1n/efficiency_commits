@@ -1,0 +1,151 @@
+commit a12a3054c9c5dded034ee72faac20e578b5503af
+Author: Brian Clozel <bclozel@vmware.com>
+Date:   Fri May 22 18:35:08 2020 +0200
+
+    Optimize UrlPathHelper configuration for Spring MVC
+    
+    Prior to this commit, Spring Boot would auto-configure Spring MVC and
+    would keep the default `UrlPathHelper` configuration.
+    Since Spring Boot is in charge of configuring the `DispatcherServlet`
+    and its mapping, it is in a position to optimally configure the
+    `UrlPathHelper` depending on the chosen mapping.
+    
+    This commit sets the `alwaysUseFullPath` property of `UrlPathHelper` if
+    the Servlet mapping is `"/"`. This is more efficient since this
+    configuration requires less processing of the request path.
+    
+    Closes gh-21499
+
+commit ab72237b1b707355c8678dc8b2ef644964131c60
+Merge: 37575d78bf ddb5cc3f99
+Author: Stephane Nicoll <snicoll@pivotal.io>
+Date:   Fri Feb 7 14:28:42 2020 +0100
+
+    Merge pull request #19002 from medamines1
+    
+    * pr/19002:
+      Polish "Make Kubernetes detection slightly more efficient"
+      Make Kubernetes detection slightly more efficient
+    
+    Closes gh-19002
+
+commit ddb5cc3f9988bf7540de1a722f3022d865fa931d
+Author: Stephane Nicoll <snicoll@pivotal.io>
+Date:   Fri Feb 7 14:17:56 2020 +0100
+
+    Polish "Make Kubernetes detection slightly more efficient"
+    
+    See gh-19002
+
+commit aee22bfb5120249640c6a5eadc3cc8687c567d01
+Author: med-amine.dahmen <m_amine22@outlook.com>
+Date:   Wed Dec 11 15:38:43 2019 +0100
+
+    Make Kubernetes detection slightly more efficient
+    
+    See gh-19002
+
+commit 5b2de5c81dc1cc3ab4e8c21ae615bc4d19567347
+Author: Brian Clozel <bclozel@pivotal.io>
+Date:   Fri Jun 7 00:14:01 2019 +0200
+
+    Configure PathPattern for RSocket routing
+    
+    This commit configures a `PathPatternRouteMatcher` in the RSocket
+    support if spring-web is on the classpath. This `RouteMatcher`
+    implementation is more efficient than the `SimpleRouteMatcher`, which is
+    based on the `AntPathMatcher`.
+    
+    Closes gh-16865
+
+commit 93ef7951593145800e66e6b7f15769686dc823a5
+Author: Andy Wilkinson <awilkinson@pivotal.io>
+Date:   Fri Jan 15 16:58:21 2016 +0000
+
+    More use entrySet() rather than using keySet() and get(key)
+    
+    This commit replaces some more occurrances of keySet() and get(key)
+    with more efficient usage of the map's entry set.
+    
+    See gh-4813
+
+commit 53a61474aaf1ab8617cc3e6cef43e87f2599621c
+Author: Dave Syer <dsyer@pivotal.io>
+Date:   Mon Mar 30 10:39:41 2015 +0100
+
+    Add counter and gauge services based on in-memory buffers
+    
+    This seems pretty efficient (approx 12M write/s as opposed to 2M with
+    the DefaultCounterService). N.B. there is no need to change most of
+    the rest of the metrics stuff because metrics are write-often, read-
+    seldom, so we don't need high performance reads as much.
+    
+    The Spring Integration configuration and Dropwizard support has changed
+    a bit. Functionally very similar and probably opaque to users, but now
+    the messaging operates as an Exporter on a @Scheduled method, and
+    Dropwizard is a replacement [Gauge,Counter]Service.
+    
+    Metrics are all
+    collected live in-memory (and can be very fast with Java 8), buffered
+    there and shipped out to a MessageChannel (if one exists with id
+    "metricsChannel") in a background thread.
+    
+    We can still use Java 8 library APIs (like LongAdder) but to compile
+    to java 7 compatible byte code we have to forgo the use of lambdas :-(
+    and shorthand generics (<>).
+    
+    Fixes gh-2682, fixes gh-2513 (for Java 8 and Dropwizard users).
+
+commit bd577f15152f5a25271375ae7eb3d7097fb3a9ee
+Author: Andy Wilkinson <awilkinson@gopivotal.com>
+Date:   Mon Jul 28 14:38:11 2014 +0100
+
+    Rework Jetty startup so connectors are only started once
+    
+    Previously the server was started to make the ServletContext
+    available, then, to prevent requests from being handled before the
+    application context had been started, the connectors were stopped.
+    Once application context startup had completed, the connectors were
+    then started again. In addition to being somewhat inefficient, this
+    caused problems on FreeBSD where stopping the connector didn't free
+    up the port quickly enough for the subsequent start to then be able
+    to bind to it.
+    
+    This commit updates the Jetty startup logic to be closer to the logic
+    that's used for Tomcat. Before the server is started, the configured
+    connectors are cached and then removed. The server is then started
+    without any connectors. Once application context startup has
+    completed, the connectors are reinstated and started.
+    
+    Fixes #968
+commit 288889685daaae3feab50c8ad8cedaf01b183a9b
+Author: Scott Frederick <sfrederick@pivotal.io>
+Date:   Tue Jan 21 18:06:27 2020 -0600
+
+    Change default BootstrapMode for JPA repositories
+    
+    Change the default `BootstrapMode` for auto-configured `JpaRepositories`
+    to `BootstrapMode.DEFERRED` to allow the initialization of
+    `EntityManagerFactory` to be parallelized for increased startup efficiency.
+    
+    Prior to this change, the default BootstrapMode for all auto-configured
+    Spring Data repositories was `BootstrapMode.DEFAULT`.
+    
+    Closes gh-16230
+
+commit e2a75942463faac195a90541917067fc95b8d164
+Author: Brian Clozel <bclozel@pivotal.io>
+Date:   Wed Aug 22 19:14:34 2018 +0200
+
+    Configure Reactor HTTP client resources
+    
+    This commit adds support for the new `ReactorResourceFactory` and
+    ensures that such a bean is created and destroyed with the application
+    context. This will create a `ClientHttpConnector` bean, to be configured
+    on the `WebClient.Builder` instance - or let developers create their own
+    `ClientHttpConnector` bean to override that opinion.
+    
+    By default, the `ReactorResourceFactory` is configured to participate
+    with the global resources, for better efficiency.
+    
+    Closes gh-14058

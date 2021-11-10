@@ -1,0 +1,33 @@
+commit a9cf8b58382a0288bab2d3e979c34b079dba69ca
+Author: Manuel Bachmann <tarnyko@tarnyko.net>
+Date:   Wed Nov 26 10:38:12 2014 +0100
+
+    wlfreerdp: add keyboard and mouse wheel support, fix bugs
+    
+    This commit does the following:
+    
+    * fix the keyboard logic (which now fully works), add support for vertical mouse wheel events ;
+    * make the rendering a lot more efficient, by using RDP damage information to refresh only the relevant part of the buffer ;
+    * fix two race conditions. wlfreerdp should not crash anymore now ;
+    * fix shm_open() and shm_unlink() calls ;
+    * improve the code style.
+    
+    Signed-off-by: Manuel Bachmann <tarnyko@tarnyko.net>
+
+commit 81454c1171c02a165d9ed6809c1d177646dce03b
+Author: Marc-André Moreau <marcandre.moreau@gmail.com>
+Date:   Mon Sep 8 15:47:03 2014 -0400
+
+    libfreerdp-primitives: add more YCbCr test coefficients
+
+commit a539e8c20ed3a8aae218018afc97bedab553761b
+Author: Mike McDonald <Mike.McDonald@software.dell.com>
+Date:   Sat Jul 5 06:51:57 2014 -0400
+
+    Updated coefficients for YUV to RGB conversion to match Microsoft, updated clip function, and added an initial implementation for upconverting 4:2:0 to 4:4:4.
+
+commit cd548da226f1b87a2cd3c92e0f6d1223aaae71aa
+Author: Chris <ccpp@gmx.at>
+Date:   Mon Jun 17 21:26:35 2013 +0200
+
+    Using the more efficient code for comparing host names

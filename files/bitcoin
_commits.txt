@@ -1,0 +1,198 @@
+commit 4fc15d15667d9d9c4fb5515ce73c05b4596298ec
+Merge: 192a959b6 47c48b5f3
+Author: MarcoFalke <falke.marco@gmail.com>
+Date:   Fri Aug 20 17:38:38 2021 +0200
+
+    Merge bitcoin/bitcoin#22707: test: refactor use of getrawmempool in functional tests for efficiency
+    
+    47c48b5f35b4910fcf87caa6e37407e67d879c80 test: only use verbose for getrawmempool when necessary in functional tests (Michael Dietz)
+    77349713b189e80f2c140db4df50177353a1cb83 test: use getmempoolentry instead of getrawmempool in functional tests when appropriate (Michael Dietz)
+    86dbd54ae8a8f9c693c0ea67114bbff24a0754df test: improve mempool_updatefrom efficiency by using getmempoolentry for specific txns (Michael Dietz)
+    
+    Pull request description:
+    
+      I don't think this changes the intention of the test. But it does shave ~30 seconds off the time it takes to run. From what I've seen our CI `macOS 11 native [gui] [no depends]` runs `mempool_updatefrom.py` in ~135 seconds. After this PR it should run in ~105 seconds
+    
+      I noticed this improvement should probably be made when testing performance/runtimes of https://github.com/bitcoin/bitcoin/pull/22698. But I wanted to separate this out from that PR so the affects of each is decoupled
+    
+      Edit: The major change in this PR is improving mempool_updatefrom.py's runtime as this is a very long running test. Then made the same efficiency improvements across all the functional tests as it made since to do that here
+    
+    ACKs for top commit:
+      theStack:
+        Tested ACK 47c48b5f35b4910fcf87caa6e37407e67d879c80
+    
+    Tree-SHA512: 40f553715f3d4649dc18c2738554eafaca9ea800c4b028c099217896cc1c466ff457ae814d59cf8564c782a8964d8fac3eda60c1b6ffb08bbee1439b2d34434b
+
+commit 86dbd54ae8a8f9c693c0ea67114bbff24a0754df
+Author: Michael Dietz <michael.dietz@waya.ai>
+Date:   Mon Aug 16 17:56:28 2021 +0500
+
+    test: improve mempool_updatefrom efficiency by using getmempoolentry for specific txns
+
+commit 89895773b72275a620951730aef0b52e9437bc13
+Author: Dmitry Petukhov <dp@simplexum.com>
+Date:   Mon Oct 26 22:03:41 2020 +0500
+
+    Fix length of R check in test/key_tests.cpp:key_signature_tests
+    
+    The code before the fix only checked the length of R value of the last
+    signature in the loop, and only for equality (but the length can be
+    less than 32)
+    
+    The fixed code checks that length of the R value is less than or equal
+    to 32 on each iteration of the loop
+    
+    The BOOST_CHECK(sig.size() <= 70) is merged with sig[3] <= 32 check,
+    and BOOST_CHECKs are moved outside the loop, for efficiency
+
+commit 1c4f59728c35dc61c213932ffa593826db10095a
+Merge: 62e3eb988 a8a64acaf
+Author: fanquake <fanquake@gmail.com>
+Date:   Wed Sep 16 06:05:08 2020 +0800
+
+    Merge #19879: [p2p] miscellaneous wtxid followups
+    
+    a8a64acaf32ac21feeb885671772282b531ef9a2 [BroadcastTransaction] Remove unsafe move operator (Amiti Uttarwar)
+    125c0381266e0e05a408f8e1818501ab73d29110 [p2p] Remove dead code (Amiti Uttarwar)
+    fc66d0a65cdc52a3b259effe0c29b5eafb1b5ff5 [p2p] Check for nullptr before dereferencing pointer (Adam Jonas)
+    cb79b9dbf4cd06e17c8c65b36bf15c3ea2641de4 [mempool] Revert unbroadcast set to tracking just txid (Amiti Uttarwar)
+    
+    Pull request description:
+    
+      Addresses some outstanding review comments from #18044
+    
+      - reverts unbroadcast txids to a set instead of a map (simpler, communicates intent better, takes less space, no efficiency advantages of map)
+      - adds safety around two touchpoints (check for nullptr before dereferencing pointer, remove an inaccurate std::move operator)
+      - removes some dead code
+    
+      Links to comments on wtxid PR: [1](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r460495254) [2](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r460496023) [3](https://github.com/bitcoin/bitcoin/pull/18044#discussion_r463532611)
+    
+      thanks to jnewbery & adamjonas for flagging these ! !
+    
+    ACKs for top commit:
+      sdaftuar:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+      naumenkogs:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+      jnewbery:
+        utACK a8a64acaf32ac21feeb885671772282b531ef9a2
+    
+    Tree-SHA512: 7be669cb30cc17fb9e06b50e636ef7887c6a27354697987e4e4d38dba4b8f50e175647587430cd9bc3295bec01ce8b1e6639a50a4249d8fff9b1ca1b9ead3277
+
+commit 3ce16ad2f91d1e2edc7e7bdc5a19f72aa8c3e739
+Author: Russell Yanofsky <russ@yanofsky.org>
+Date:   Fri Jan 24 17:02:41 2020 -0500
+
+    refactor: Use psbt forward declaration
+    
+    Also clean up forward other forward declarations in interfaces/wallet.h with !sort
+    
+    Original motivation for this change was to fix a circular dependencies lint
+    error: "interfaces/chain.h -> interfaces/wallet.h -> psbt -> node/transaction
+    -> node/context -> interfaces/chain.h" from an earlier commit in this PR adding
+    a "interfaces/chain.h -> interfaces/wallet.h" include. Now, the wallet include
+    is no longer added, but it is still good to clean up the psbt include for
+    efficiency, and to sort the forward declarations.
+
+commit cc7cbd756acd79623230f7a1b0b0e40c772a82e1
+Merge: 4a7e64fc8 86edf4a2a
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Thu Jun 14 19:38:19 2018 +0200
+
+    Merge #13451: rpc: expose CBlockIndex::nTx in getblock(header)
+    
+    86edf4a2a502416ba8d6cebbce61030992f7ff6f expose CBlockIndex::nTx in getblock(header) (Gregory Sanders)
+    
+    Pull request description:
+    
+      Recent publication of a weakness in Bitcoin's merkle tree construction demonstrates many SPV applications vulnerable to an expensive to pull off yet still plausible attack: https://bitslog.wordpress.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/
+    
+      Including the coinbase in the txoutproof seems the most effective fix, however results in a significant efficiency downgrade. Transactors will not even know a priori what the size of their proof will be within a couple orders of magnitude, unless they use the mid-state of SHA2 as detailed in the blog post.
+    
+      Some applications, like Elements blockchain platform that take SPV-style proofs have optional access to a bitcoind to verify these proofs of inclusion and check depth in the chain. Returning `CBlockIndex::nTx` would allow an extremely easy and compact way of checking the depth of the tree, with no additional overhead to the codebase, and works with pruned nodes.
+    
+      `getblockheader` is arguably not the place for it, but as mentioned before, is a natural workflow for us checking depth of a block in a possibly pruned node.
+    
+      We should also ensure that `verifytxoutproof` ends up validating this depth fact as well, but left this for another PR.
+    
+    Tree-SHA512: af4cf48e704c6088f8da06a477fda1aaa6f8770cee9b876c4465d1075966d6a95831a88817673fe5a0d6bbcdc1ffcbc1892e2be0d838c60fc6958d33eacdcc14
+
+commit e4bbd3d230f22401ba0a0a72c8ed41ee1bd098a0
+Merge: c45da3204 4fbae7792
+Author: Pieter Wuille <pieter.wuille@gmail.com>
+Date:   Mon May 1 16:34:45 2017 -0700
+
+    Merge #10292: Improved efficiency in COutPoint constructors
+    
+    4fbae77 Improved efficiency in COutPoint constructors (Marcos Mayorga)
+    
+    Tree-SHA512: 1e402d5021a47724b6159af90955f1a5932c383f48e3e704f1c9a52daa18d2dce5d8e1fcd02fae6977eab04ab83fa22872110b821d4c6593d940d9642abc9bcd
+
+commit 4fbae77929e6344bc49ab60af10a9c5ff21d2cdf
+Author: Marcos Mayorga <mm@mm-studios.com>
+Date:   Fri Apr 28 09:03:51 2017 +0100
+
+    Improved efficiency in COutPoint constructors
+
+commit fc0899400082496bf2b3e061105e1e6a13399889
+Merge: 6a0720838 2409865e1
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Fri Jan 22 15:30:54 2016 +0100
+
+    Merge #7262: Reduce inefficiency of GetAccountAddress()
+    
+    2409865 Reduce inefficiency of GetAccountAddress() (Chris Moore)
+
+commit 2409865e14dca0704e5618915d6ef902610d91be
+Author: Chris Moore <dooglus@gmail.com>
+Date:   Mon Dec 28 16:56:53 2015 -0800
+
+    Reduce inefficiency of GetAccountAddress()
+    
+    Don't scan the wallet to see if the current key has been used if we're going to make a new key anyway.
+    Stop scanning the wallet as soon as we see that the current key has been used.
+    Don't call isValid() twice on the current key.
+
+commit 47162673c79c757a9c038c4ddc41fb3022223bde
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Wed Jul 1 17:38:15 2015 +0200
+
+    Use real number of cores for default -par, ignore virtual cores
+    
+    To determine the default for `-par`, the number of script verification
+    threads, use [boost::thread::physical_concurrency()](http://www.boost.org/doc/libs/1_58_0/doc/html/thread/thread_management.html#thread.thread_management.thread.physical_concurrency)
+    which counts only physical cores, not virtual cores.
+    
+    Virtual cores are roughly a set of cached registers to avoid context
+    switches while threading, they cannot actually perform work, so spawning
+    a verification thread for them could even reduce efficiency and will put
+    undue load on the system.
+    
+    Should fix issue #6358, as well as some other reported system overload
+    issues, especially on Intel processors.
+    
+    The function was only introduced in boost 1.56, so provide a utility
+    function `GetNumCores` to fall back for older Boost versions.
+
+commit fe4a655042f7de31dce120aeed72345579f1b59f
+Author: Wladimir J. van der Laan <laanwj@gmail.com>
+Date:   Sat May 5 16:07:14 2012 +0200
+
+    Fine-grained UI updates
+    
+    Gets rid of `MainFrameRepaint` in favor of specific update functions that tell the UI exactly what changed.
+    
+    This improves the efficiency of various handlers. Also fixes problems with mined transactions not showing up until restart.
+    
+    The following notifications were added:
+    
+    - `NotifyBlocksChanged`: Block chain changed
+    - `NotifyKeyStoreStatusChanged`: Wallet status (encrypted, locked) changed.
+    - `NotifyAddressBookChanged`: Address book entry changed.
+    - `NotifyTransactionChanged`: Wallet transaction added, removed or updated.
+    - `NotifyNumConnectionsChanged`: Number of connections changed.
+    - `NotifyAlertChanged`: New, updated or cancelled alert. As this finally makes it possible for the UI to know when a new alert arrived, it can be shown as OS notification.
+    
+    These notifications could also be useful for RPC clients. However, currently, they are ignored in bitcoind (in noui.cpp).
+    
+    Also brings back polling with timer for numBlocks in ClientModel. This value updates so frequently during initial download that the number of signals clogs the UI thread and causes heavy CPU usage. And after initial block download, the value changes so rarely that a delay of half a second until the UI updates is unnoticable.

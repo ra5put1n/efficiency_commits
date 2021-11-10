@@ -1,0 +1,96 @@
+commit ddbe370d222a8b9f363eedc36d2d4e279613ebfd
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Wed Jul 1 19:10:36 2020 +0100
+
+    Improve the propagation of color attributes over ConPTY (#6506)
+    
+    This PR reimplements the VT rendering engines to do a better job of
+    preserving the original color types when propagating attributes over
+    ConPTY. For the 16-color renderers it provides better support for
+    default colors and improves the efficiency of the color narrowing
+    conversions. It also fixes problems with the ordering of character
+    renditions that could result in attributes being dropped.
+    
+    Originally the base renderer would calculate the RGB color values and
+    legacy/extended attributes up front, passing that data on to the active
+    engine's `UpdateDrawingBrushes` method. With this new implementation,
+    the renderer now just passes through the original `TextAttribute` along
+    with an `IRenderData` interface, and leaves it to the engines to extract
+    the information they need.
+    
+    The GDI and DirectX engines now have to lookup the RGB colors themselves
+    (via simple `IRenderData` calls), but have no need for the other
+    attributes. The VT engines extract the information that they need from
+    the `TextAttribute`, instead of having to reverse engineer it from
+    `COLORREF`s.
+    
+    The process for the 256-color Xterm engine starts with a check for
+    default colors. If both foreground and background are default, it
+    outputs a SGR 0 reset, and clears the `_lastTextAttribute` completely to
+    make sure any reset state is reapplied. With that out the way, the
+    foreground and background are updated (if changed) in one of 4 ways.
+    They can either be a default value (SGR 39 and 49), a 16-color index
+    (using ANSI or AIX sequences), a 256-color index, or a 24-bit RGB value
+    (both using SGR 38 and 48 sequences).
+    
+    Then once the colors are accounted for, there is a separate step that
+    handles the character rendition attributes (bold, italics, underline,
+    etc.) This step must come _after_ the color sequences, in case a SGR
+    reset is required, which would otherwise have cleared any character
+    rendition attributes if it came last (which is what happened in the
+    original implementation).
+    
+    The process for the 16-color engines is a little different. The target
+    client in this case (Windows telnet) is incapable of setting default
+    colors individually, so we need to output an SGR 0 reset if _either_
+    color has changed to default. With that out the way, we use the
+    `TextColor::GetLegacyIndex` method to obtain an approximate 16-color
+    index for each color, and apply the bold attribute by brightening the
+    foreground index (setting bit 8) if the color type permits that.
+    
+    However, since Windows telnet only supports the 8 basic ANSI colors, the
+    best we can do for bright colors is to output an SGR 1 attribute to get
+    a bright foreground. There is nothing we can do about a bright
+    background, so after that we just have to drop the high bit from the
+    colors. If the resulting index values have changed from what they were
+    before, we then output ANSI 8-color SGR sequences to update them.
+    
+    As with the 256-color engine, there is also a final step to handle the
+    character rendition attributes. But in this case, the only supported
+    attributes are underline and reversed video.
+    
+    Since the VT engines no longer depend on the active color table and
+    default color values, there was quite a lot of code that could now be
+    removed. This included the `IDefaultColorProvider` interface and
+    implementations, the `Find(Nearest)TableIndex` functions, and also the
+    associated HLS conversion and difference calculations.
+    
+    VALIDATION
+    
+    Other than simple API parameter changes, the majority of updates
+    required in the unit tests were to correct assumptions about the way the
+    colors should be rendered, which were the source of the narrowing bugs
+    this PR was trying to fix. Like passing white on black to the
+    `UpdateDrawingBrushes` API, and expecting it to output the default `SGR
+    0` sequence, or passing an RGB color and expecting an indexed SGR
+    sequence.
+    
+    In addition to that, I've added some VT renderer tests to make sure the
+    rendition attributes (bold, underline, etc) are correctly retained when
+    a default color update causes an `SGR 0` sequence to be generated (the
+    source of bug #3076). And I've extended the VT renderer color tests
+    (both 256-color and 16-color) to make sure we're covering all of the
+    different color types (default, RGB, and both forms of indexed colors).
+    
+    I've also tried to manually verify that all of the test cases in the
+    linked bug reports (and their associated duplicates) are now fixed when
+    this PR is applied.
+    
+    Closes #2661
+    Closes #3076
+    Closes #3717
+    Closes #5384
+    Closes #5864
+    
+    This is only a partial fix for #293, but I suspect the remaining cases
+    are unfixable.

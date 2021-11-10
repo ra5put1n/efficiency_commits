@@ -1,0 +1,844 @@
+commit 992051231d05ec78f6bf22f596b8b0862b6ae810
+Merge: 525e397a481 6b3b561bc0e
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Thu Feb 25 13:52:27 2021 -0800
+
+    Merge pull request #99021 from wojtek-t/efficient_watch_resumption_beta
+    
+    Efficient watch resumption beta
+
+commit 6b3b561bc0eaba67de5b7543a64cbf3c65cc893a
+Author: wojtekt <wojtekt@google.com>
+Date:   Fri Feb 12 11:33:48 2021 +0100
+
+    Promote efficient watch resumption to beta
+
+commit 0f39af90ed39794ceea426aa0f77de67b1392308
+Merge: d66695653cf af61e8fbdf3
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Sep 25 15:42:48 2020 -0700
+
+    Merge pull request #94364 from wojtek-t/efficient_watch_resumption
+    
+    Efficient watch resumption
+
+commit 4820b6cbdbf4abab4c5b15a1d00b0bd9f1b57f88
+Merge: d92fdebd858 3758ab62d12
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Mon Apr 20 15:54:25 2020 -0700
+
+    Merge pull request #90242 from wojtek-t/efficient_alias_ranges
+    
+    Avoid unnecessary GCE API calls for IP-alias calls
+
+commit 462b75388f2e977774d34151b39e88828d1057f0
+Author: Haowei Cai <haoweic@google.com>
+Date:   Mon Mar 9 23:23:28 2020 -0700
+
+    let image cache do sort on write instead of on read to avoid data
+    
+    race and improve efficienty
+
+commit e397797f9ece9d8a172a6bf08c6cd5b2a9216c70
+Merge: 40df9f82d05 18fa7bdb6ea
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Dec 17 17:35:57 2019 -0800
+
+    Merge pull request #85735 from alvaroaleman/make-node-initialization-more-efficient
+    
+    Cloud node controller: Only call once into cloud provider
+
+commit 6e0c915f43319c8a1d7106f2069dd0f7bcb9e839
+Merge: 74c561ba674 0d704f1ce21
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Nov 1 18:07:41 2019 -0700
+
+    Merge pull request #84060 from yutedz/gc-ref-diff
+    
+    Traverse OwnerReference maps more efficiently
+
+commit 0d704f1ce210e24a5eb7e9357b130321dd23ec78
+Author: Ted Yu <yute@vmware.com>
+Date:   Sat Oct 19 17:56:11 2019 -0700
+
+    Traverse OwnerReference maps more efficiently
+
+commit 8e7de45034226c1339856ceecd31b22fdc5fe0aa
+Author: Rob Scott <robertjscott@google.com>
+Date:   Thu Sep 19 12:58:18 2019 -0700
+
+    Reworking kube-proxy to only compute endpointChanges on apply.
+    
+    Computing EndpointChanges is a relatively expensive operation for
+    kube-proxy when Endpoint Slices are used. This had been computed on
+    every EndpointSlice update which became quite inefficient at high levels
+    of scale when multiple EndpointSlice update events would be triggered
+    before a syncProxyRules call.
+    
+    Profiling results showed that computing this on each update could
+    consume ~80% of total kube-proxy CPU utilization at high levels of
+    scale. This change reduced that to as little as 3% of total kube-proxy
+    utilization at high levels of scale.
+    
+    It's worth noting that the difference is minimal when there is a 1:1
+    relationship between EndpointSlice updates and proxier syncs. This is
+    primarily beneficial when there are many EndpointSlice updates between
+    proxier sync loops.
+
+commit 37b9e6d1eadbf801b3dae4bdf7738b5eae39bf44
+Author: Abdullah Gharaibeh <ahg@google.com>
+Date:   Tue Sep 24 12:39:27 2019 -0400
+
+    An interface that allows pre-filter plugins to update their pre-calculated.
+    
+    This is needed to allow efficient preemption simulations: during preemption, we remove/add pods from each node before running the filter plugins again to evaluate whether removing/adding specific pods will allow the incoming pod to be scheduled on the node. Instead of calling prefilter again, we should allow the plugin to do incremental update to its pre-computed state.
+
+commit 946350d99ee1a4258b2a28bb3a8d4ebced304a16
+Merge: c431353ff6e 12bbbcc61b1
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Sep 17 09:30:33 2019 -0700
+
+    Merge pull request #82780 from wojtek-t/remove_unnecessary_conversions
+    
+    Remove unnecessary (inefficient) manual conversions
+
+commit d631f9b7e9e9bec131d171a7a859455498fdeb49
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Wed Jul 10 18:37:24 2019 -0400
+
+    Use metadata informers instead of dynamic informers in controller manager
+    
+    All controllers in controller-manager that deal with objects generically
+    work with those objects without needing the full object. Update the GC
+    and quota controller to use PartialObjectMetadata input objects which
+    is faster and more efficient.
+
+commit a57af6dadd493b3c629c5c2c636c03e8371f95c3
+Merge: 2933d0ab6c2 9e73e69f494
+Author: Kubernetes Prow Robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Tue Jul 2 14:27:37 2019 -0700
+
+    Merge pull request #79646 from tedyu/backoff-rw
+    
+    Utilize RWMutex for efficient backoff operations
+
+commit 9e73e69f4947c88e0d9b6e35ea115086d917a2a2
+Author: Ted Yu <yuzhihong@gmail.com>
+Date:   Tue Jul 2 16:12:43 2019 +0800
+
+    Utilize RWMutex for efficient backoff operations
+
+commit 89481f8c27cb3cb96e9055eec6fb314fcd138f33
+Author: Alexander Kanevskiy <alexander.kanevskiy@intel.com>
+Date:   Fri May 31 17:07:48 2019 +0300
+
+    Use go standard library for common bit operations
+    
+    PR#72913 introduced own versions of the bit operations that are
+    less efficient than ones from standard library.
+
+commit c8edfa241714009defb7fad608ceb582e7685cdd
+Author: Mike Crute <crutem@amazon.com>
+Date:   Wed Apr 17 21:45:32 2019 -0700
+
+    Avoid using tag filters for EC2 API where possible
+    
+    For very large clusters these tag filters are not efficient within the
+    EC2 API and will result in rate limiting. Most of these queries have
+    filters that are targeted narrowly enough that the elimination of the
+    tags filter will not return significantly more data but will be executed
+    more efficiently by the EC2 API.
+    
+    Additionally, some API wrappers did not support pagination despite the
+    underlying API calls being paginated. This change adds pagination to
+    prevent truncating the returned results.
+
+commit 46436240847abdf5dca0b26010d9ed685b5eecfa
+Author: Patrick Ohly <patrick.ohly@intel.com>
+Date:   Wed Feb 13 20:46:49 2019 +0100
+
+    e2e/storage: remove test pattern filtering
+    
+    The recommended approach for not running unsuitable tests is to skip
+    them at runtime with an explanation. Filtering out unsuitable test
+    patters and thus not even defining unsuitable tests was done earlier
+    because it was faster than skipping tests at runtime.
+    
+    But now these tests can be skipped efficiently, so this special case
+    can be removed.
+
+commit f73ac0da3e647ca5f501b2cd42f651a2349ba176
+Author: Rostislav M. Georgiev <rostislavg@vmware.com>
+Date:   Fri Dec 7 17:15:43 2018 +0200
+
+    kubeadm: Replace MigrateOldConfigFromFile
+    
+    MigrateOldConfigFromFile is a function, whose purpose is to migrate one config
+    into another. It is working OK for now, but it has some issues:
+    
+    - It is incredibly inefficient. It can reload and re-parse a single config file
+      for up to 3 times.
+    
+    - Because of the reloads, it has to take a file containing the configuration
+      (not a byte slice as most of the rest config functions). However, it returns
+      the migrated config in a byte slice (rather asymmetric from the input
+      method).
+    
+    - Due to the above points it's difficult to implement a proper interface for
+      deprecated kubeadm config versions.
+    
+    To fix the issues of MigrateOldConfigFromFile, the following is done:
+    
+    - Re-implement the function by removing the calls to file loading package
+      public APIs and replacing them with newly extracted package private APIs that
+      do the job with pre-provided input data in the form of
+      map[GroupVersionKind][]byte.
+    
+    - Take a byte slice of the input configuration as an argument. This makes the
+      function input symmetric to its output. Also, it's now renamed to
+      MigrateOldConfig to represent the change from config file path as an input
+      to byte slice.
+    
+    - As a bonus (actually forgotten from a previous change) BytesToInternalConfig
+      is renamed to the more descriptive BytesToInitConfiguration.
+    
+    Signed-off-by: Rostislav M. Georgiev <rostislavg@vmware.com>
+
+commit e10dcf07d776897060c367f1ea8cef1defd617de
+Author: Rostislav M. Georgiev <rostislavg@vmware.com>
+Date:   Thu Dec 6 17:06:07 2018 +0200
+
+    kubeadm: Introduce ValidateSupportedVersion in place of DetectUnsupportedVersion
+    
+    DetectUnsupportedVersion is somewhat uncomfortable, complex and inefficient
+    function to use. It takes an entire YAML document as bytes, splits it up to
+    byte slices of the different YAML sub-documents and group-version-kinds and
+    searches through those to detect an unsupported kubeadm config. If such config
+    is detected, the function returns an error, if it is not (i.e. the normal
+    function operation) everything done so far is discarded.
+    
+    This could have been acceptable, if not the fact, that in all cases that this
+    function is called, the YAML document bytes are split up and an iteration on
+    GVK map is performed yet again. Hence, we don't need DetectUnsupportedVersion
+    in its current form as it's inefficient, complex and takes only YAML document
+    bytes.
+    
+    This change replaces DetectUnsupportedVersion with ValidateSupportedVersion,
+    which takes a GroupVersion argument and checks if it is on the list of
+    unsupported config versions. In that case an error is returned.
+    ValidateSupportedVersion relies on the caller to read and split the YAML
+    document and then iterate on its GVK map checking if the particular
+    GroupVersion is supported or not.
+    
+    Signed-off-by: Rostislav M. Georgiev <rostislavg@vmware.com>
+
+commit 1f3057b7fb9b24b8fb20433a77e0e7e8fc625aa1
+Merge: f38cc955057 b4fd11512ac
+Author: k8s-ci-robot <k8s-ci-robot@users.noreply.github.com>
+Date:   Fri Nov 16 20:27:35 2018 -0800
+
+    Merge pull request #70898 from Huang-Wei/preemption-issue
+    
+    ensure scheduler preemptor behaves in an efficient/correct path
+
+commit b4fd11512ac3cce6e7932a08db77db798167af1b
+Author: Wei Huang <wei.huang1@ibm.com>
+Date:   Fri Nov 16 14:22:15 2018 -0800
+
+    ensure scheduler preemptor behaves in an efficient/correct path
+    
+    - don't update nominatedMap cache when Pop() an element from activeQ
+    - instead, delete the nominated info from cache when it's "assumed"
+    - unit test behavior adjusted
+    - expose SchedulingQueue in factory.Config
+
+commit 3222a7033cf9128b76c0677887f4e383821d0475
+Author: Haowei Cai <haoweic@google.com>
+Date:   Thu Nov 15 11:02:11 2018 -0800
+
+    Apiextensions-apiserver aggregates CRD schemas
+    
+    efficiently without checking conflicts, and wire up CRD discovery
+    controller to serve OpenAPI spec.
+
+commit ec77ddfe19166deebc4822c78407894dd58acae1
+Merge: b22b7853459 271ae45901f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Feb 22 23:46:15 2018 -0800
+
+    Merge pull request #59463 from dixudx/add_verify_spelling
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    add spelling checking script
+    
+    **What this PR does / why we need it**:
+    Add spell checking script to avoid involving any typos.
+    
+    Currently many small PRs are fixing those annoying typos, which is time-consuming and low efficient. We should add such a preflight check before a PR gets merged.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    /sig testing
+    /area test-infra
+    /sig release
+    /cc @ixdy
+    /assign @liggitt @smarterclayton
+    
+    **Release note**:
+    
+    ```release-note
+    add spelling checking script
+    ```
+
+commit 45131d7a596d14f674905908850dcb7a9eda2a5b
+Merge: 370540f90df efa63b7a587
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Tue Feb 20 13:51:37 2018 -0800
+
+    Merge pull request #60090 from mikedanese/bzl2
+    
+    Automatic merge from submit-queue (batch tested with PRs 59391, 58097, 60057, 60090). If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    bzl: use --local_test_jobs
+    
+    We originally seperated build and test so that only 4 integration tests
+    would be run at a time, but we didn't want to slow down build, however
+    we didn't know --local_test_jobs existed. This achieves the same result
+    but more efficiently.
+    
+    ```release-note
+    NONE
+    ```
+
+commit efa63b7a5877252a3e542bc866cd0fe637933aed
+Author: Mike Danese <mikedanese@google.com>
+Date:   Tue Feb 20 10:57:39 2018 -0800
+
+    bzl: use --local_test_jobs
+    
+    We originally seperated build and test so that only 4 integration tests
+    would be run at a time, but we didn't want to slow down build, however
+    we didn't know --local_test_jobs existed. This achieves the same result
+    but more efficiently.
+
+commit 317853c90c674920bfbbdac54fe66092ddc9f15f
+Merge: 21eff150569 521146e62dd
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Feb 10 22:12:45 2018 -0800
+
+    Merge pull request #59464 from dixudx/fix_all_typos
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    fix all the typos across the project
+    
+    **What this PR does / why we need it**:
+    There are lots of typos across the project. We should avoid small PRs on fixing those annoying typos, which is time-consuming and low efficient.
+    
+    This PR does fix all the typos across the project currently. And with #59463, typos could be avoided when a new PR gets merged.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    /sig testing
+    /area test-infra
+    /sig release
+    /cc @ixdy
+    /assign @fejta
+    
+    **Release note**:
+    
+    ```release-note
+    None
+    ```
+
+commit 0df0ecd5280fd90f58314aaefc9072bc54b77019
+Merge: ba43ffa9b87 5388e0aa47f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Feb 1 11:23:47 2018 -0800
+
+    Merge pull request #57582 from m1093782566/ipset-owners
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    add pkg/util/ipset OWNERS file
+    
+    **What this PR does / why we need it**:
+    
+    I initialized `pkg/util/ipset` for wraping ipset exec call and authored most of the commits.
+    
+    This package is used in IPVS proxier for reducing iptables call - possibly we can use ipset in iptables proxier in the future. Because reviewing this package needs some ipset background knowledge, I am creating this OWNERS file for efficient code review. Also, I am willing to share code review burden.
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    
+    /assign @brendandburns @thockin because I also added your names.
+
+commit d3ea100ad95ccbc572b4b4562d9a428454b8ef47
+Merge: 8f4f07fcc1b 1793e6eb182
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Wed Dec 20 21:58:58 2017 -0800
+
+    Merge pull request #57292 from m1093782566/ipvs-ownerfile
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    Add pkg/util/ipvs OWNERS file
+    
+    **What this PR does / why we need it**:
+    
+    This PR adds `pkg/util/ipvs/OWNERS` file, including two people: @thockin, @m1093782566(me).
+    
+    I created `pkg/util/ipvs` package for wrapping netlink IPVS call, which is used by IPVS proxier. Because reviewing this package needs some IPVS background knowledge, I create this OWNERS file for efficient code review. And, I am willing to share code review burden of this util package :)
+    
+    **Which issue(s) this PR fixes**:
+    Fixes #57361
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    
+    /sig network
+
+commit 5353d588b6c2dd600f132f5db5c6771d19848744
+Merge: ec036d9c0e2 1a11a1886f4
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Tue Nov 21 05:58:23 2017 -0800
+
+    Merge pull request #55611 from stewart-yu/regexMatch
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    using Regexp Match
+    
+    **What this PR does / why we need it**:
+    using regexp match achieve find efficiently
+    
+    **Which issue(s) this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close the issue(s) when PR gets merged)*:
+    Fixes #
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+
+commit 1a11a1886f47267f0be90186f42f60280449a5e1
+Author: stewart-yu <yuchuanjian@huawei.com>
+Date:   Mon Nov 13 22:31:33 2017 +0800
+
+    using regexp match achieve find efficiently
+
+commit 12e5db561e5c4fb5b837e61a01265666dc81f6ba
+Merge: c87d3d91dbe 4780ad02978
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sun Oct 29 15:59:54 2017 -0700
+
+    Merge pull request #53768 from smarterclayton/chunking_cli
+    
+    Automatic merge from submit-queue. If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>.
+    
+    Support api chunking in kubectl get
+    
+    This enables chunking in the resource builder to make it easy to
+    retrieve resources in pages and visit partial result sets. This adds
+    `--chunk-size` to `kubectl get` only so that users can get comfortable
+    with the use of chunking in beta. Future changes will enable chunking
+    for all CLI commands so that bulk actions can be performed more
+    efficiently.
+    
+    ```
+    $ kubectl get pods --all-namespaces
+    ... print batch of 500 pods ...
+    ... print second batch of 500 pods ...
+    ...
+    ```
+    
+    @kubernetes/sig-cli-pr-reviews @kubernetes/sig-api-machinery-pr-reviews
+    
+    ```release-note
+    `kubectl get` will by default fetch large lists of resources in chunks of up to 500 items rather than requesting all resources up front from the server. This reduces the perceived latency of managing large clusters since the server returns the first set of results to the client much more quickly.  A new flag `--chunk-size=SIZE` may be used to alter the number of items or disable this feature when `0` is passed.  This is a beta feature.
+    ```
+
+commit 4780ad02978e7aea80f3b50ec20c9abeec13ce69
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Thu Oct 12 00:06:17 2017 -0400
+
+    Support api chunking in kubectl get
+    
+    This enables chunking in the resource builder to make it easy to
+    retrieve resources in pages and visit partial result sets. This adds
+    `--chunk-size` to `kubectl get` only so that users can get comfortable
+    with the use of chunking in beta. Future changes will enable chunking
+    for all CLI commands so that bulk actions can be performed more
+    efficiently.
+
+commit 4d5bcda6640d21ee5157807f39eb66d3766c9565
+Merge: 3f3e8a732cd 7fa9f2ad590
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Sep 23 06:16:09 2017 -0700
+
+    Merge pull request #52015 from m1093782566/flush-ipvs
+    
+    Automatic merge from submit-queue (batch tested with PRs 51929, 52015, 51906, 52069, 51542). If you want to cherry-pick this change to another branch, please follow the instructions <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/cherry-picks.md">here</a>..
+    
+    Support IPVS Flush API
+    
+    **What this PR does / why we need it**:
+    
+    Currently, we implement IPVS flush API by deleting IPVS services one by one, which is inefficient.
+    
+    **Which issue this PR fixes**:
+    
+    fixes #52070
+    
+    **Special notes for your reviewer**:
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+
+commit 4ba2b625c5b4867e84f4e7b82a57820722d1e4e4
+Merge: 2a2f499455f 87d406569d7
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Mon Aug 28 05:11:19 2017 -0700
+
+    Merge pull request #50805 from bsalamat/preemption_metacompute
+    
+    Automatic merge from submit-queue
+    
+    Add support to modify precomputed predicate metadata upon adding/removal of a pod
+    
+    **What this PR does / why we need it**: This PR adds capability to change precomputed predicate metadata and let's us add/remove pods to the precomputed metadata efficiently without the need ot recomputing everything upon addition/removal of pods. This PR is needed as a part of adding preemption logic to the scheduler.
+    
+    **Which issue this PR fixes** *(optional, in `fixes #<issue number>(, fixes #<issue_number>, ...)` format, will close that issue when PR gets merged)*: fixes #
+    
+    **Special notes for your reviewer**:
+    To make the review process a bit easier, there are three commits. The cleanup commit is only moving code and renaming some functions, without logic changes.
+    
+    **Release note**:
+    
+    ```release-note
+    NONE
+    ```
+    ref/ #47604
+    ref/ #48646
+    
+    /assign @wojtek-t
+    
+    @kubernetes/sig-scheduling-pr-reviews @davidopp
+
+commit d1783e0bd61efe259b78b8ff6b05cda3c83ed856
+Merge: d7102a0f364 6e08007ce17
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Aug 25 04:11:13 2017 -0700
+
+    Merge pull request #51194 from bskiba/run_on_each_node
+    
+    Automatic merge from submit-queue (batch tested with PRs 51244, 50559, 49770, 51194, 50901)
+    
+    Distribute pods efficiently in CA scalability tests
+    
+    **What this PR does / why we need it**:
+    Instead of using runReplicatedPodOnEachNode method
+    which is suited to a small number of nodes,
+    distribute pods on the nodes with desired load
+    using RCs that eat up all the space we want to be
+    empty after distribution.
+    
+    **Release note**:
+    ```
+    NONE
+    ```
+
+commit 6e08007ce17baaaa224058062ac73f273bfddaff
+Author: Beata Skiba <bskiba@google.com>
+Date:   Wed Aug 23 12:02:55 2017 +0200
+
+    Distribute pods efficiently in CA scalability tests
+    
+    Instead of using runReplicatedPodOnEachNode method
+    which is suited to a small number of nodes,
+    distribute pods on the nodes with desired load
+    using RCs that eat up all the space we want to be
+    empty after distribution.
+
+commit 5727a5d75051035838a20b9253050c6330505a32
+Merge: dc0946b403f bffc827630f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Wed Aug 2 16:25:40 2017 -0700
+
+    Merge pull request #49989 from caesarxuchao/increase-timeout
+    
+    Automatic merge from submit-queue
+    
+    Increase gc e2e test timeout
+    
+    Fix https://github.com/kubernetes/kubernetes/issues/49966. The reasoning is in https://github.com/kubernetes/kubernetes/issues/49966.
+    
+    We should revert the change when we make the GC's periodic API discovery more efficient.
+    
+    cc @liggitt  @jpbetz
+
+commit 8f40622d36bfa7d512b5bee821c7d8ddc737b690
+Merge: f11258ad813 df590da6ab5
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sat Mar 25 14:27:24 2017 -0700
+
+    Merge pull request #42770 from eparis/efficient-debug
+    
+    Automatic merge from submit-queue (batch tested with PRs 42672, 42770, 42818, 42820, 40849)
+    
+    Return early from eviction debug helpers if !glog.V(3)
+    
+    Should keep us from running a bunch of loops needlessly.
+    
+    ```release-note
+    NONE
+    ```
+
+commit ebc8dc85aaa5f7859dbe7981e1bbd453ff4c0433
+Merge: c02a9c6aad0 4f363f54474
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Sun Nov 6 06:42:49 2016 -0800
+
+    Merge pull request #36207 from smarterclayton/optimize_self_link
+    
+    Automatic merge from submit-queue
+    
+    SetSelfLink is inefficient
+    
+    Generating self links, especially for lists, is inefficient.  Replace
+    use of net.URL.String() call with direct encoding that reduces number of
+    allocations. Switch from calling meta.ExtractList|SetList to a function
+    that iterates over each object in the list.
+    
+    In steady state for nodes performing frequently small get/list
+    operations, and for larger LISTs significantly reduces CPU and
+    allocations.
+    
+    @wojtek-t this is the next big chunk of CPU use during the large N nodes simulation test (11% of master CPU). Takes a few allocations out of the critical path
+
+commit 4f363f54474bf363f0890c0c899dc331b7b34673
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Thu Nov 3 23:08:56 2016 -0400
+
+    SetSelfLink is inefficient
+    
+    Generating self links, especially for lists, is inefficient.  Replace
+    use of net.URL.String() with direct encoding that reduces number of
+    allocations. Switch from calling meta.ExtractList|SetList to a function
+    that iterates over each object in the list.
+    
+    In steady state for nodes performing frequently small get/list
+    operations, and for larger LISTs significantly reduces CPU and
+    allocations.
+
+commit c6df88991da0ae90b620337bfc842e9f5ac57f36
+Merge: 90c4a13312e 9c91da7a22c
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Thu Oct 20 20:45:22 2016 -0700
+
+    Merge pull request #35194 from wojtek-t/efficient_selector
+    
+    Automatic merge from submit-queue
+    
+    Optimize label selector
+    
+    The number of values for a given label is generally pretty small (in huge majority of cases it is exactly one value).
+    Currently computing selectors is up to 50% of CPU usage in both apiserver and scheduler.
+    
+    Changing the structure in which those values are stored from map to slice improves the performance of typical usecase for computing selectors.
+    
+    Early results:
+    - scheduler throughput it ~15% higher
+    - apiserver cpu-usage is also lower (seems to be also ~10-15%)
+
+commit 9c91da7a22c9c69170a0acec9b810281880b8b52
+Author: Wojciech Tyczynski <wojtekt@google.com>
+Date:   Thu Oct 20 11:46:03 2016 +0200
+
+    More efficient selector
+
+commit d5a596bca13f5a9678c67957b5b4ffd6229d638e
+Author: Wojciech Tyczynski <wojtekt@google.com>
+Date:   Tue Aug 23 16:34:02 2016 +0200
+
+    More efficient field selectors
+
+commit d12efc4702b1e7646cda8c4541ffdb5c3a91a23c
+Merge: 1e5a5a2eacc 992afd9c45f
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Mon Aug 22 04:17:03 2016 -0700
+
+    Merge pull request #31044 from caesarxuchao/fix-ratelimiter-gc
+    
+    Automatic merge from submit-queue
+    
+    [GarbageCollector] Make Rate Limiter registration more efficient in GC
+    
+    <!--  Thanks for sending a pull request!  Here are some tips for you:
+    1. If this is your first time, read our contributor guidelines https://github.com/kubernetes/kubernetes/blob/master/CONTRIBUTING.md and developer guide https://github.com/kubernetes/kubernetes/blob/master/docs/devel/development.md
+    2. If you want *faster* PR reviews, read how: https://github.com/kubernetes/kubernetes/blob/master/docs/devel/faster_reviews.md
+    3. Follow the instructions for writing a release note: https://github.com/kubernetes/kubernetes/blob/master/docs/devel/pull-requests.md#release-notes
+    -->
+    
+    **What this PR does / why we need it**:
+    Decrease the CPU consumption of the garbage collector
+    
+    **Which issue this PR fixes**
+    #30759
+    
+    **Special notes for your reviewer**:
+    I observed dramatic improvement (dropped from 0.8cpu to 0.3cpu) in load test.
+    
+    **Release note**:
+    <!--  Steps to write your release note:
+    1. Use the release-note-* labels to set the release note state (if you have access)
+    2. Enter your extended release note in the below block; leaving it blank means using the PR title as the release note. If no release note is required, just write `NONE`.
+    -->
+    ```release-note
+    ```
+    
+    
+    
+    @wojtek-t @lavalamp @gmarek
+
+commit e84a8ec45aa2e355080a033e24e3ed6286d20cb6
+Merge: 6f0bc852057 3973856ac29
+Author: Kubernetes Submit Queue <k8s-merge-robot@users.noreply.github.com>
+Date:   Fri Aug 5 15:45:46 2016 -0700
+
+    Merge pull request #28991 from ZTE-PaaS/zhangke-patch-008
+    
+    Automatic merge from submit-queue
+    
+    optimize conditions of ServiceReplenishmentUpdateFunc to replenish service
+    
+    Originally, the  replenishQuota method didn't focus on the third parameter object even if others transfered to it, i think the function is not efficient and perfect. then i use the third param to get MatchResources, it will be more exact. for example, if the old pod was quota tracked and the new was not, the replenishQuota only focus on usage resource of the old pod, still if  the third parameter object is nil, the process will be same as before
+
+commit 9c2566572d3d8c72688d624b872b3171aaf446a6
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Fri Jun 17 23:16:07 2016 -0400
+
+    GCE Multizone: Allow volumes to be created in non-master zone
+    
+    We had a long-lasting bug which prevented creation of volumes in
+    non-master zones, because the cloudprovider in the volume label
+    admission controller is not initialized with the multizone setting
+    (issue #27656).
+    
+    This implements a simple workaround: if the volume is created with the
+    failure-domain zone label, we look for the volume in that zone.  This is
+    more efficient, avoids introducing a new semantic, and allows users (and
+    the dynamic provisioner) to create volumes in non-master zones.
+    
+    Fixes #27657
+
+commit b2a01d4d94090b5efd81d0b71cb21bbb932c053a
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Tue May 17 00:35:40 2016 -0400
+
+    Add an int64 quantity implementation
+    
+    Provides fast transformations of int64 scaled values with overflow to
+    inf.Dec as needed. Attempts to reduce allocations and expensive
+    operations in the critical path.
+    
+    Alters the public signature of Quantity to encourage more efficient use
+
+commit 88d0ac4a67d5dde30eb93636b4963311776e4f90
+Merge: e84fee21898 e2ebc506483
+Author: k8s-merge-robot <k8s.production.user@gmail.com>
+Date:   Mon Mar 7 02:39:24 2016 -0800
+
+    Merge pull request #22628 from wojtek-t/efficient_resource_quota_controller
+    
+    Auto commit by PR queue bot
+
+commit 5367a32ee9ff484acf942bdfd58b7fcdd42046c1
+Author: Abhishek Shah <abshah@google.com>
+Date:   Thu Oct 29 14:45:29 2015 -0700
+
+    Read Iptables-save output in a more-memory-efficient way
+
+commit 8c365d51c77dd8a9e99864da5117acaace7af04d
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Sat Jun 13 12:24:26 2015 -0400
+
+    servicecontroller relies on cloudprovider to delete LB if needed
+    
+    We previously made the cloudproviders take on the responsibility of deleting
+    existing load balancers; this lets us simplify the servicecontroller logic
+    and also lays the groundwork for more efficient cloudprovider LB implementations
+    to do an in-place change on a LB.
+
+commit 87df1d6fb687ca36cdae0a7738b83beaa7e5d9e6
+Author: Justin Santa Barbara <justin@fathomdb.com>
+Date:   Sat Jun 13 11:58:39 2015 -0400
+
+    Change CreateTCPLoadBalancer -> EnsureTCPLoadBalancer; implementations auto-delete if already exists
+    
+    Previously the servicecontroller would do the delete, but by having the cloudprovider
+    take that task on, we can later remove it from the servicecontroller, and the
+    cloudprovider can do something more efficient.
+
+commit c12303eaa373a34dccb9fb25898e13c38ab93630
+Merge: 0682e158148 2ed8eed0044
+Author: Eric Tune <etune@google.com>
+Date:   Fri Mar 6 14:11:12 2015 -0800
+
+    Merge pull request #4749 from derekwaynecarr/make_quota_more_efficient
+    
+    Make admission control plug-ins work from indexes
+
+commit 4859aa7cd8431e68f595a274624b14165163299c
+Merge: c2b7652887b c0ce15c588f
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Tue Feb 17 14:48:11 2015 -0500
+
+    Merge pull request #4453 from derekwaynecarr/make_quota_more_efficient
+    
+    Make ListWatch work with a ListFunc and WatchFunc
+
+commit 899127701edefc682d5198c0ca141a35ccc7fd09
+Author: Clayton Coleman <ccoleman@redhat.com>
+Date:   Fri Jul 25 13:23:23 2014 -0400
+
+    Build all commands at the same time
+    
+    In Go it's much more efficient to build several commands in the same
+    `go build` because the build has to load most of the dependency tree
+    each time.  Roughly 50% on my machine:
+    
+    Together (go1.2 on OS X):
+    
+        real  0m4.049s
+        user  0m8.387s
+        sys   0m2.766s
+    
+    Separate:
+    
+        real  0m13.392s
+        user  0m12.420s
+        sys   0m6.882s

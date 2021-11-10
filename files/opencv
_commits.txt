@@ -1,0 +1,879 @@
+commit 221bfa4c67d672d2981f8357eb2cd2fe233f70af
+Merge: 1a8b7f7513 739ff84732
+Author: Alexander Alekhin <alexander.a.alekhin@gmail.com>
+Date:   Tue Aug 10 22:18:17 2021 +0000
+
+    Merge pull request #20466 from rogday:efficientnet_fix_34
+
+commit 9f3e83baf6f50eed3817c4042d53e08e32ee74b4
+Author: Guillaume Jacob <abun.lp@gmail.com>
+Date:   Fri Apr 30 16:30:09 2021 +0200
+
+    calib3d: Update documentation of calibrateCamera
+    
+    - Added missing documentation for the CALIB_FIX_FOCAL_LENGTH flag
+    - Removed erroneous information about the number of distortion coefficients
+    returned
+    - Added some missing @ref tags
+
+commit e2ca50f1cb87a7c624a1388f9a77d4c9295e3cc0
+Author: Alexander Smorkalov <2536374+asmorkalov@users.noreply.github.com>
+Date:   Wed Mar 3 17:06:59 2021 +0300
+
+    Merge pull request #19539 from asmorkalov:as/calib_fix_focal_length
+    
+    * Added CALIB_FIX_FOCAL_LENGTH to fisheye calibration #13450
+    
+    Sometimes you want to calibrate just the principal point of a camera, or just the distortion coefficients. In this case, you can pass the CALIB_FIX_FOCAL_LENGTH flag to keep Fx and Fy
+    
+    * Added test for CALIB_FIX_FOCAL_LENGTH option in fisheye callinration.
+
+commit 8391a2360080571d15e1b4ad5dc383672105750b
+Author: Vincent Rabaud <vrabaud@google.com>
+Date:   Wed Dec 16 16:06:58 2020 +0100
+
+    Optimize calls to std::string::find() and friends for a single char.
+    
+    The character literal overload is more efficient. More info at:
+    
+    http://clang.llvm.org/extra/clang-tidy/checks/performance-faster-string-find.html
+
+commit 657c8d1c65b88173521b7955ed2f2ac725a5a5b2
+Author: Christoph <creinders@users.noreply.github.com>
+Date:   Sat Jul 4 00:59:19 2020 +0200
+
+    Merge pull request #17454 from creinders:master
+    
+    fix instable fisheye undistortPoints
+    
+    * remove artefacts when (un)distorting fisheye images with large distortion coefficient values
+    
+    * fix fisheye undistortion when theta is close to zero
+    
+    * add fisheye image undistort and distort test
+    
+    * Fixed type conversion warnings
+    
+    * fixed trailing whitespace
+
+commit 79c5d07abe22cc4f0cbb2a96bdeb36661f3af5ec
+Author: Alexander Alekhin <alexander.a.alekhin@gmail.com>
+Date:   Sun May 31 16:18:37 2020 +0000
+
+    dnn(test): file 'dnn/efficientdet-d0.pb' is optional
+
+commit 319db07b6b2ade27c98a8eacfde0269fb2865238
+Merge: 407cc5f1b6 d9bada9867
+Author: Alexander Alekhin <alexander.a.alekhin@gmail.com>
+Date:   Thu May 28 22:48:52 2020 +0000
+
+    Merge pull request #17384 from dkurt:efficientdet
+
+commit f351653589d823ab3234469cbaa285168dffedaa
+Author: Pierre Chatelier <chacha21@users.noreply.github.com>
+Date:   Mon Apr 13 08:59:31 2020 +0200
+
+    Merge pull request #13869 from chacha21:LineVirtualIterator
+    
+    * LineVirtualIterator
+    
+    Proposal of LineVirtualIterator, an alternative to "LineIterator not attached to any mat".
+    This is basically the same implementation, replacing the address difference by a single "offset" variable. elemsize becomes irrelevant and considered to be 1. "step" is thus equal to size.width since no stride is expected.
+    
+    * Update drawing.cpp
+    
+    fixed warning
+    
+    * improvement of LineVirtualIterator
+    
+    instead of being too conservative, the new implementation gets rid of "offset/step" and only keeps a "Point currentPos" up to date.
+    
+    left_to_right is renamed to forceLeftToRight as suggested (even for the old LineIterator)
+    
+    assert() replaced by CV_Assert() (even for the old LineIterator)
+    
+    * fixed implementation
+    
+    +fixed last commit so that LineVirtualIterator gives at least the same results as LineIterator
+    
+    +added a new constructor that does not require any Size, so that no clipping is done and iteration occurs from pt1 to pt2. This is done by adding a spatial offset to pt1 and pt2 so that the same implementation is used, the size being in that case the spatial size between pt1 and pt2
+    
+    * Update imgproc.hpp
+    
+    fixed warnings
+    
+    * Update drawing.cpp
+    
+    fixed whitespace
+    
+    * Update drawing.cpp
+    
+    trailing whitespace
+    
+    * Update imgproc.hpp
+    
+    +added a new constructor that takes a Rect rather than a Size. It computes the line pt1->pt2 that clips that rect.
+    Yet again, this is still based on the same implementation, thanks to the Size and the currentPosOffset that can artifically consider the origin of the rect at (0,0)
+    
+    * revert changes
+    
+    revert changes on  original LineIterator implementation, that will be superseded by the new LineVirtualIterator anyway
+    
+    * added test of LineVirtualIterator
+    
+    * More tests
+    
+    * refactoring
+    
+    Use C++11 chained constructors
+    Improved code style
+    
+    * improve test
+    
+    Added offset as random test data.
+    
+    * fixed order of initialization
+    
+    * merged LineIterator and VirtualLineIterator
+    
+    * merged LineIterator & VirtualLineIterator
+    
+    * merged LineIterator & VirtualLineIterator
+    
+    * merged LineIterator & VirtualLineIterator
+    
+    * made LineIterator::operator ++() more efficient
+    
+    added one perfectly predictable check; in theory, since ptmode is set in the end of the constructor in the header file, the compiler can figure out that it's always true/false and eliminate the check from the inline `LineIterator::operator++()` completely
+    
+    * optimized Line() function
+    
+    in the most common case (CV_8UC3) eliminated the check from the loop
+    
+    Co-authored-by: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+
+commit 09df7810d1dbaad2411a42a9af4584c8b4109371
+Author: Ganesh Kathiresan <ganesh3597@gmail.com>
+Date:   Wed Feb 26 20:18:50 2020 +0530
+
+    Merge pull request #16457 from ganesh-k13:bugfix/getCPUCount-fix
+    
+    * Fixed getCPUCount
+    
+    Minor new line changes
+    
+    Android fix | efficient linux checks
+    
+    Android fix 2
+    
+    Fixed cpu logic for non linux platforms
+    
+    Android fix 3
+    
+    Android fix 4
+    
+    * No v1 case handle | Refactor long lines
+    
+    * Refined Cgroups logic | Combine Android and Linux
+    
+    * Fixed directives
+    
+    * Added support for --cpus | Fixed minor bug in Andriod | Change file read logic
+    
+    * Added macro checks for apple errors
+    
+    * Fixed macro to include android
+    
+    * Addressed review comments
+    
+    * Fixed android macro
+    
+    * Refined return values
+    
+    * Fixed apple warning
+    
+    * Addressed review comments
+    
+    * Fixed whitespace
+    
+    * Android Fix try 1
+    
+    * Android Fix try 2
+    
+    * Android Fix try 3
+    
+    * Removed unwanted endif
+    
+    * Android Fix try 4
+    
+    * Android Fix try 5
+    
+    * Macro Restructure
+    
+    * core: updates to CPUs detection (minor)
+
+commit 07b475062fa2ca671d61639a3bae1e5c86718001
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Fri Feb 21 16:13:41 2020 +0300
+
+    Merge pull request #16608 from vpisarev:fix_mac_ocl_tests
+    
+    * fixed several problems when running tests on Mac:
+    * OCL_pyrUp
+    * OCL_flip
+    * some basic UMat tests
+    * histogram badarg test (out of range access)
+    
+    * retained the storepix fix in ocl_flip only for 16U/16S datatype, where the OpenCL compiler on Mac generates incorrect code
+    
+    * moved deletion of ACCESS_FAST flag to non-SVM branch (where SVM is shared virtual memory (in OpenCL 2.x), not support vector machine)
+    
+    * force OpenCL to use read/write for GPU<=>CPU memory transfers on machines with discrete video only on Macs. On Windows/Linux the drivers are seemingly smart enough to implement map/unmap properly (and maybe more efficiently than explicit read/write)
+
+commit 178c4810e6ef6e6aebbcfd17d186bfe656626137
+Author: Janusz Lisiecki <jlisiecki@nvidia.com>
+Date:   Fri Dec 20 17:54:37 2019 +0100
+
+    Fix swapped channels in BGR* conversion utility function
+    
+    - some of `icvCvt_BGR*` functions have R with B channels
+      swapped what leads to the wrong conversion
+    - renames misleading `rgb` variable name to `bgr`
+    - swap back the conversion coefficients, `cB` should be the first
+    
+    Signed-off-by: Janusz Lisiecki <jlisiecki@nvidia.com>
+
+commit 4733a19babec760ba237b8c277bb1de664a641c1
+Author: Alexander Alekhin <alexander.a.alekhin@gmail.com>
+Date:   Thu Dec 19 13:20:42 2019 +0300
+
+    Merge pull request #16194 from alalek:fix_16192
+    
+    * imgproc(test): resize(LANCZOS4) reproducer 16192
+    
+    * imgproc: fix resize LANCZOS4 coefficients generation
+
+commit 3d44e9ad927f48ef0a44af97a7ed557a4fc3fe10
+Author: WuZhiwen <zhiwen.wu@intel.com>
+Date:   Thu Dec 27 20:06:44 2018 +0800
+
+    Merge pull request #13520 from wzw-intel:hang
+    
+    * dnn/Vulkan: fix GPU hang for heavy convolution tasks
+    
+    Intel i915 driver will declare GPU hang if the compute shader
+    takes too long to complete. See
+    https://bugs.freedesktop.org/show_bug.cgi?id=108947 for details.
+    
+    The idea in this commit is to divide heavy task into several light
+    ones and run compute shader multiple times to make each run take
+    short time enough.
+    
+    TODO: Add more efficient compute shader
+    
+    Signed-off-by: Wu Zhiwen <zhiwen.wu@intel.com>
+    
+    * dnn/Vulkan: add a more efficient conv shader
+
+commit a518e7063df64ed3564ef9bf5dcfda6702d6d54b
+Author: Dmitry Budnikov <Dmitry.Budnikov@intel.com>
+Date:   Fri Nov 23 17:51:15 2018 +0300
+
+    Merge pull request #13120 from dbudniko:dbudniko/gapi_opencl_kernel_example
+    
+    * custom OpenCL G-API kernel draft
+    
+    * clean up and warnings fix
+    
+    * more warnings
+    
+    * white space
+    
+    * new blank line at the EOF removed
+    
+    * HAVE_OPENCL guard
+    
+    * remove unnecessary ocl API call
+    
+    * remove sum test workaround
+    
+    * check if opencl activated
+    
+    * fix std::str warning
+    
+    * CPU fall back for symm7x7
+    
+    * gpu test kernel draft
+    
+    * adjust have opencl guard
+    
+    * more guards
+    
+    * one more attempt to adjust guards
+    
+    * empty stub files and kernel source files creation in the test directory
+    
+    * try to force auto generation
+    
+    * one more attempt to force build
+    
+    * remove symm7x7 custom from gapi module
+    
+    * looks like that this version works properly on Win desktop
+    
+    * clean up
+    
+    * more clean up
+    
+    * address some suggestions from Dmitry's review
+    
+    * const kernel coefficients
+    
+    * CV_Error in kernel + try to fix cpu fallback
+    
+    * CV_Error_ instead CV_Error
+    
+    * everything in one gapi_gpu_test.cpp
+    
+    * fix warning
+    
+    * remove kernel generation, add kernel string
+    
+    * avoid generated code and ocl internal namespace
+    
+    * fix misprint
+    
+    * c_str
+
+commit f81370232a651bdac5042efe907bcaa50a66c487
+Author: Evgeny Latkin <evgeny.latkin@intel.com>
+Date:   Thu Nov 15 18:14:27 2018 +0300
+
+    Merge pull request #13162 from elatkin:el/gapi_perf_rgb2gray
+    
+    GAPI (fluid): RGB/BGR to gray: optimization (#13162)
+    
+    * GAPI (fluid): RGB/BGR to Gray: add performance tests
+    
+    * GAPI (fluid): RGB/BGR to Gray: speedup 8-12x with manual CV_SIMD
+    
+    * GAPI (fluid): RGB/BGR to Gray: fix compiler warning
+    
+    * GAPI (fluid): RGB/BGR to Gray: dynamic dispatching to AVX2
+    
+    * GAPI (fluid): RGB/BGR to Gray: check R/G/B coefficients
+    
+    * GAPI (fluid): RGB/BGR to Gray: fixed compilation error (caused by change in master)
+
+commit c8e6ce304f8f113d334227c6fcec3d5f696d1c6e
+Author: Michał Janiszewski <janisozaur+signed@gmail.com>
+Date:   Tue Oct 16 21:09:26 2018 +0200
+
+    Catch exceptions by const-reference
+    
+    Exceptions caught by value incur needless cost in C++, most of them can
+    be caught by const-reference, especially as nearly none are actually
+    used. This could allow compiler generate a slightly more efficient code.
+
+commit 922d5796b90072d2c7a9b3ec659b7778eb79e652
+Author: Dmitry Matveev <dmitry.matveev@intel.com>
+Date:   Mon Oct 15 17:08:18 2018 +0300
+
+    G-API: Introduce LPI (multiple Lines-Per-Iteration) support for Resize
+    
+    Several Resize optimizations count on fetching multiple input lines at
+    once to do interpolation more efficiently.
+    
+    At the moment, Fluid backend supports only LPI=1 for Resize kernels.
+    
+    This patch introduces scheduling support for Resizes with LPI>1 and
+    covers these cases with new tests.
+    
+    The support is initially written by Ruslan Garnov.
+
+commit da7e1cfb495be131fe7d4668b163cd1cd75e7670
+Author: Rostislav Vasilikhin <savuor@gmail.com>
+Date:   Thu Sep 6 13:28:24 2018 +0300
+
+    Merge pull request #12279 from savuor:cvtcolor_bgr2gray_8u_15bits
+    
+    * bgr2gray 8u fixed to be in conformance with IPP code
+    
+    * coefficients fixed so their sum is 32768
+    
+    * java test for CascadeDetect fixed: equalizeHist added
+
+commit 65d816c3b54149b4943ab6940b0ac93224bb4410
+Author: lopespt <guilhermewachs@gmail.com>
+Date:   Wed Apr 4 09:35:58 2018 -0300
+
+    Adds efficient sort algorithm to KNearest
+
+commit fb22028be33de58477d1ee62b445f646eef57a0b
+Author: razerhell <lzh9407@gmail.com>
+Date:   Wed Jan 17 17:05:13 2018 +0800
+
+    Merge pull request #10574 from razerhell:patch-1
+    
+    * Newton's method can be more efficient
+    
+    when we get the result of function distortPoint with a point (0, 0) and then undistortPoint with  the result, we get the point not (0, 0). and then we discovered that the old method is not convergence sometimes. finally we have gotten the right values by Newton's method.
+    
+    * modify by advice  Newton's method...#10574
+    
+    * calib3d(fisheye): fix codestyle, update theta before exit EPS check
+
+commit bb6496d9e5b7f4958595425a8af497e79f06244f
+Author: Jiri Horner <laeqten@gmail.com>
+Date:   Tue Aug 1 14:46:01 2017 +0200
+
+    Merge pull request #8951 from hrnr:akaze_part2
+    
+    [GSOC] Speeding-up AKAZE, part #2 (#8951)
+    
+    * feature2d: instrument more functions used in AKAZE
+    
+    * rework Compute_Determinant_Hessian_Response
+    
+    * this takes 84% of time of Feature_Detection
+    * run everything in parallel
+    * compute Scharr kernels just once
+    * compute sigma more efficiently
+    * allocate all matrices in evolution without zeroing
+    
+    * features2d: add one bigger image to tests
+    
+    * now test have images: 600x768, 900x600 and 1385x700 to cover different resolutions
+    
+    * explicitly zero Lx and Ly
+    
+    * add Lflow and Lstep to evolution as in original AKAZE code
+    
+    * reworked computing keypoints orientation
+    
+    integrated faster function from https://github.com/h2suzuki/fast_akaze
+    
+    * use standard fastAtan2 instead of getAngle
+    
+    * compute keypoints orientation in parallel
+    
+    * fix visual studio warnings
+    
+    * replace some wrapped functions with direct calls to OpenCV functions
+    
+    * improved readability for people familiar with opencv
+    * do not same image twice in base level
+    
+    * rework diffusity stencil
+    
+    * use one pass stencil for diffusity from https://github.com/h2suzuki/fast_akaze
+    * improve locality in Create_Scale_Space
+    
+    * always compute determinat od hessian and spacial derivatives
+    
+    * this needs to be computed always as we need derivatives while computing descriptors
+    * fixed tests of AKAZE with KAZE descriptors which have been affected by this
+    
+    Currently it computes all first and second order derivatives together and the determiant of the hessian. For descriptors it would be enough to compute just first order derivates, but it is not probably worth it optimize for scenario where descriptors and keypoints are computed separately, since it is already very inefficient. When computing keypoint and descriptors together it is faster to do it the current way (preserves locality).
+    
+    * parallelize non linear diffusion computation
+    
+    * do multiplication right in the nlp diffusity kernel
+    
+    * rework kfactor computation
+    
+    * get rid of sharing buffers when creating scale space pyramid, the performace impact is neglegible
+    
+    * features2d: initialize TBB scheduler in perf tests
+    
+    * ensures more stable output
+    * more reasonable profiles, since the first call of parallel_for_ is not getting big performace hit
+    
+    * compute_kfactor: interleave finding of maximum and computing distance
+    
+    * no need to go twice through the data
+    
+    * start to use UMats in AKAZE to leverage OpenCl in the future
+    
+    * fixed bug that prevented computing determinant for scale pyramid of size 1 (just the base image)
+    * all descriptors now support writing to uninitialized memory
+    * use InputArray and OutputArray for input image and descriptors, allows to make use UMAt that user passes to us
+    
+    * enable use of all existing ocl paths in AKAZE
+    
+    * all parts that uses ocl-enabled functions should use ocl by now
+    
+    * imgproc: fix dispatching of IPP version when OCL is disabled
+    
+    * when OCL is disabled IPP version should be always prefered (even when the dst is UMat)
+    
+    * get rid of copy in DeterminantHessian response
+    
+    * this slows CPU version considerably
+    * do no run in parallel when running with OCL
+    
+    * store derivations as UMat in pyramid
+    
+    * enables OCL path computing of determint hessian
+    * will allow to compute descriptors on GPU in the future
+    
+    * port diffusivity to OCL
+    
+    * diffusivity itself is not a blocker, but this saves us downloading and uploading derivations
+    
+    * implement kernel for nonlinear scalar diffusion step
+    
+    * download the pyramid from GPU just once
+    
+    we don't want to downlaod matrices ad hoc from gpu when the function in AKAZE needs it. There is a HUGE mapping overhead and without shared memory support a LOT of unnecessary transfers.
+    
+    This maps/downloads matrices just once.
+    
+    * fix bug with uninitialized values in non linear diffusion
+    
+    * this was causing spurious segfaults in stitching tests due to propagation of NaNs
+    * added new test, which checks for NaNs (added new debug asserts for NaNs)
+    * valgrind now says everything is ok
+    
+    * add nonlinear diffusion step OCL implementation
+    
+    * Lt in pyramid changed to UMat, it will be downlaoded from GPU along with Lx, Ly
+    * fix bug in pm_g2 kernel. OpenCV mangles dimensions passed to OpenCL, so we need to check for boundaries in each OCL kernel.
+    
+    * port computing of determinant to OCL
+    
+    * computing of determinant is not a blocker, but with this change we don't need to download all spatial derivatives to CPU, we only download determinant
+    * make Ldet in the pyramid UMat, download it from CPU together with the other parts of the pyramid
+    * add profiling macros
+    
+    * fix visual studio warning
+    
+    * instrument non_linear_diffusion
+    
+    * remove changes I have made to TEvolution
+    
+    * TEvolution is used only in KAZE now
+    
+    * Revert "features2d: initialize TBB scheduler in perf tests"
+    
+    This reverts commit ba81e2a711ae009ce3c5459775627b6423112669.
+
+commit 635342ab732c3e1036d67969e1691022db86e2e7
+Author: wzw <zhiwen.wu@intel.com>
+Date:   Wed Jul 5 21:24:09 2017 +0800
+
+    ocl_calcHist1: Use proper local size for merge_histogram kernel
+    
+    merge_histogram kernel only need "BINS" theads to accumulate the
+    histgrams, it is not efficient to directly use maxGroupSize as
+    local size if maxGroupSize is far greater then BINS.
+
+commit 7c16ad3f492c431df57008661649bae95d17f97d
+Author: Elad Joseph <eladjoseph@hotmail.com>
+Date:   Sun Aug 30 12:42:30 2015 +0300
+
+    Update documentation in calib3d.hpp
+    
+    Fixed small mistake in documentation.
+    The prism coefficients in y'' equation were mistakenly written as s1,s2 instead of s3,s4
+
+commit a00eb1e9f50e4f1c0fe6edb7356df121e1aab89b
+Author: Yan Wang <yan.wang@linux.intel.com>
+Date:   Wed Jul 22 11:25:18 2015 +0800
+
+    Move coefficient (32.0f) to the end of every iteration.
+    
+    It could reduce 7 multiplications every iteration.
+    
+    Signed-off-by: Yan Wang <yan.wang@linux.intel.com>
+
+commit b8f93e08e955449b7cd373ecd8c1cf4f18d03b01
+Author: themightyoarfish <rdiederichse@uos.de>
+Date:   Fri Jul 17 17:34:33 2015 +0200
+
+    Fixed documentation bug for projectPoints: Distortion coefficients cannot actually be NULL
+
+commit 5a94a95fbfd41e12e694d0527c0e37fb85c8d0dc
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Thu May 28 19:33:21 2015 +0300
+
+    improvements in Haar CascadeClassifier: 1) use CV_32S instead of CV_32F for the integral of squares (which is more accurate and more efficient); 2) skip the window if its contrast is too low
+
+commit 85149f86863266c269d327add70a5753fdc2c554
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Mon May 25 23:43:39 2015 +0300
+
+    hack solvePoly to finds roots of polynoms with zero higher-order coefficients. The roots are populated in this case, which is not valid, strictly speaking, but good enough for function like correctMatches. This solves http://code.opencv.org/issues/4330
+
+commit 7fd5b3a0c54940027be4de052f77605acddb82d5
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Sat May 23 14:15:11 2015 +0300
+
+    added another triangulation test case from http://code.opencv.org/issues/3461; fixed partial derivative on distortion coefficients, as http://code.opencv.org/issues/4101 suggests
+
+commit 2d5e3b57eaefdd1d85fd182107f4790ff0209a58
+Author: Julien Nabet <serval2412@yahoo.fr>
+Date:   Sat Dec 27 10:54:34 2014 +0100
+
+    Fix cppcheck reports warnings:
+    (performance) Possible inefficient checking for 'lmap' emptiness
+    (warning) Assignment of function parameter has no effect outside the function. Did you forget dereferencing it?
+    (style) Array index '<xxx>' is used before limits check
+
+commit 62533d0d26d8e6720e85551ff8c54f6c855e7c91
+Author: Benjamin Flesch <bflesch@bf-itservice.de>
+Date:   Mon Jun 2 00:27:32 2014 +0200
+
+    perspectiveTransform simplify assert() for better debuggin
+    
+    When using perspectiveTransform in rather complicated settings, it would be easier for developers to have two separate assertions for each part of the boolean expression in order to pinpoint problems more efficiently. In my case I am struggling in Python2.7 with finding out whether scn+1 == m.cols or the depth == CV_32F || depth == CV_64F is making a problem, which is kind of hard.
+
+commit 033aebe6684ce80147d00dae74864ec3e9bbd6e7
+Author: Aaron Kunze <aaron.kunze@intel.com>
+Date:   Thu May 15 16:31:24 2014 -0700
+
+    A more efficient workaround for erode
+
+commit 86888bdf7797315731603fd336905793e81120ef
+Author: Ievgen Khvedchenia <ekhvedchenya@gmail.com>
+Date:   Thu Apr 24 22:01:45 2014 +0100
+
+    Replace swap with clear (more efficient)
+
+commit efdfca7a112d118868f5ea0ac653182ccbde14d8
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Fri Mar 7 18:55:45 2014 +0400
+
+    do not use the large "score" buffer; now without non-max suppression OpenCL FAST is pretty efficient
+
+commit e048df51ced6ff5863c806104ae0019deafcbb38
+Author: Anatoly Baksheev <no@email>
+Date:   Sun Dec 8 18:31:04 2013 +0400
+
+    for shapes switched vtkDataSetMapper to more efficient vtkPolyDataMapper
+
+commit fffac2f0859dcd526c5fa2f8999b3477d5463a75
+Author: krodyush <konstantin.rodyushkin@intel.com>
+Date:   Tue Dec 17 14:12:33 2013 +0400
+
+    optimize SURF by
+    Inlining and customizing sampling functions to reduce memory traffic and compute
+    Improve calcOrientation implementation.
+    Using more efficient rounding routines.
+    Removing unnecessary use of local memory
+
+commit a430abd02eaf38e0d42f075acbb47210c2b191c8
+Author: look4pritam <pritam.shete@gmail.com>
+Date:   Mon Sep 16 13:39:11 2013 +0530
+
+    The thin prism distortion coefficient related small bug is fixed.
+
+commit 84022b0c19d324dda9312d1dc32f0638b56d8f6f
+Author: Vadim Pisarevsky <vadim.pisarevsky@gmail.com>
+Date:   Fri Sep 13 13:32:42 2013 +0400
+
+    fix thin-prism coefficients at 0's in the stereo calibration function unless the flag CALIB_THIN_PRISM_MODEL is explicitly set
+
+commit 7fd7bbc9f15dfc6fefdc3dc2888a7f2bbcdb11b5
+Author: look4pritam <pritam.shete@gmail.com>
+Date:   Thu Sep 12 15:17:11 2013 +0530
+
+    The prism distortion coefficients are added for the stereo calibration.
+
+commit affab4f1561971ad2b9707239d5f38b6b1eb3bb2
+Author: Jason Newton <jason@utopiacompression.com>
+Date:   Tue Aug 27 00:34:22 2013 -0700
+
+    correct range computations, it is difficult to do the more efficient single pass 3N/2 implementations correctly in this particular setting without costing more than they save
+
+commit 6e5a712f6e7b008667ade289aa177973e367d59b
+Author: ozantonkal <ozantonkal@gmail.com>
+Date:   Wed Jul 24 10:02:33 2013 +0200
+
+    Gridwidget with plane coefficients
+
+commit 4c3d1d583a3d09194db28e76bb76c55b95de7d00
+Author: ozantonkal <ozantonkal@gmail.com>
+Date:   Thu Jul 4 18:47:52 2013 +0300
+
+    remove ModelCoefficients, remove showShape methods from viz3d
+
+commit f40725bb507f519f434ba57114a3ad014c01f578
+Author: Georgios Evangelidis <georgios.evangelidis@inria.fr>
+Date:   Tue Feb 26 23:27:54 2013 +0100
+
+    Add ECC algorithm
+    
+    Evangelidis, G.D. and Psarakis E.Z. "Parametric Image Alignment using Enhanced
+    Correlation Coefficient Maximization", IEEE Transactions on PAMI, vol. 32, no.
+    10, 2008
+
+commit 03daf44848c7672e8798f392b9710361710ae5b1
+Author: Ilya Lavrenov <ilya.lavrenov@itseez.com>
+Date:   Mon Sep 17 16:31:30 2012 +0400
+
+    added recalculating scale coefficients
+
+commit 676f19233a6185f92cf323a8c93d1fdb09a572c3
+Author: Vadim Pisarevsky <no@email>
+Date:   Tue Jan 24 20:14:07 2012 +0000
+
+    added the abstract cv::Algorithm class; low-level exp & fastAtan etc. functions for more efficient SIFT implementation; fixed bug #1521
+
+commit 99bae771737415c6e48564a0927bdbd219384686
+Author: Ilya Lysenkov <no@email>
+Date:   Wed Jun 8 14:58:46 2011 +0000
+
+    Fixed coefficients order in solvePoly doc (ticket #1060)
+
+commit 767af0f2a7cc5f4aa6206855807f0c38e5dc27a7
+Author: Vladimir Dudnik <no@email>
+Date:   Fri Dec 31 16:45:56 2010 +0000
+
+    added OpenCVFindIPP.cmake script, which will look for IPP installation at CMake configuration time. First, IPPROOT environment variable will be tested, if not found script will look at default install places.
+    The script should support IPP from 5.3 up to 7.x versions (although tested on Windows for IPP 6.1 and IPP 7.0 versions only)
+    
+    Preliminary optimization of HOG with IPP added too. Not yet quite efficient, code for cpu branch should be redesigned in order to have better performance.
+
+commit 6309b2d08d89e998f196f4bac5168ebbda736b30
+Author: Vladimir Dudnik <no@email>
+Date:   Fri Dec 31 16:45:18 2010 +0000
+
+    added OpenCVFindIPP.cmake script, which will look for IPP installation at CMake configuration time. First, IPPROOT environment variable will be tested, if not found script will look at default install places.
+    The script should support IPP from 5.3 up to 7.x versions (although tested on Windows for IPP 6.1 and IPP 7.0 versions only)
+    
+    Preliminary optimization of HOG with IPP added too. Not yet quite efficient, code for cpu branch should be redesigned in order to have better performance.
+
+commit beee6f2f70484ceccfb726ace9e03e5aa9384b10
+Author: Vadim Pisarevsky <no@email>
+Date:   Wed Nov 24 19:50:52 2010 +0000
+
+    pass the correct rgb->gray coefficients to PNG decoder, to match cvtColor's.
+
+commit 525da9ef019d53a496854681b821885f02e1b3de
+Author: Ethan Rublee <no@email>
+Date:   Tue Oct 12 02:23:08 2010 +0000
+
+    working on cleaning up the android port - trying to fix the distortion coefficients bug
+
+commit 7a715aa792a4ec4fa9ccd6c1aa7e22e25ccecbfe
+Author: Vadim Pisarevsky <no@email>
+Date:   Thu Jun 10 23:37:46 2010 +0000
+
+    accept default distortion coefficients (Mat() ~ (0,0,0,0,0))
+commit 4b938208800abc14e4515d71c85cfcc091a48534
+Author: sajarindider <sajarindider@gmail.com>
+Date:   Thu Dec 19 00:46:46 2019 -0500
+
+    Fixed small inefficiency in seamless clone init
+
+commit ad5c50a9231182b6ec384acccb776282a7a41a4b
+Author: Tetragramm <gaussgun+git@gmail.com>
+Date:   Wed Nov 2 17:44:13 2016 -0500
+
+    Improve the efficiency as suggested by vpisarev.
+    Alter the Rotation enum to be unambiguous as to direction.
+
+commit dc64dd731596ad5071892e551b507a3ac781ea1c
+Author: Ovidiu Parvu <ovidiu.parvu@gmail.com>
+Date:   Wed Sep 18 12:21:24 2013 +0100
+
+    Made the following changes after code inspection (min_enclosing_triangle.cpp):
+    * Corrected minor typos in comments/function signatures
+    * Added new details to copyright statement
+    * Removed unreferenced macros
+    * Removed the assert statement which was checking the type of the OutputArray triangle
+    * When returning results using Mat::copyTo instead of Mat::convertTo
+    * Changed C-style casts to static_casts
+    * Added division by zero check to distanceFromPointToLine() function
+    * Updated reference webpages last access dates
+    * Moved the declaration of the gammaOfA variable outside the while loop in moveAIfLowAndBIfHigh() function for efficiency reasons
+
+commit b216c0940cdaac548395bcd401098b146e8d2dd3
+Author: Alex Leontiev <alozz1991@gmail.com>
+Date:   Mon Jun 24 20:27:11 2013 +0300
+
+    Created skeleton for simplex method.
+    
+    Added LPSolver class together with two nested classes: LPFunction and
+    LPConstraints. These represent function to be maximized and constraints
+    imposed respectively. They are implementations of interfaces Function
+    and Constraints respectively (latter ones are nested classes of Solver
+    interface, which is generic interface for all optimization algorithms to
+    be implemented within this project).
+    
+    The next step is to implement the simplex algorithm! First, we shall
+    implement it for the case of constraints of the form Ax<=b and x>=0.
+    Then, we shall extend the sets of problems that can be handled by the
+    conversion to the one we've handled already. Finally, we shale
+    concentrate on numerical stability and efficiency.
+
+commit 84c4797030e981f46257b34a1260892cceabb0a1
+Author: Vincent Rabaud <vrabaud@willowgarage.com>
+Date:   Fri Aug 24 16:23:07 2012 +0200
+
+    revert orientation computation in jeypoint detection for efficiency (like done originally)
+
+commit d72d11d09da7d9f6d77a88bff4ce33334c561159
+Author: Vadim Pisarevsky <no@email>
+Date:   Wed Sep 22 13:07:51 2010 +0000
+
+    improved matrix expressions efficiency in some cases & simplified the code
+commit 4b938208800abc14e4515d71c85cfcc091a48534
+Author: sajarindider <sajarindider@gmail.com>
+Date:   Thu Dec 19 00:46:46 2019 -0500
+
+    Fixed small inefficiency in seamless clone init
+
+commit ad5c50a9231182b6ec384acccb776282a7a41a4b
+Author: Tetragramm <gaussgun+git@gmail.com>
+Date:   Wed Nov 2 17:44:13 2016 -0500
+
+    Improve the efficiency as suggested by vpisarev.
+    Alter the Rotation enum to be unambiguous as to direction.
+
+commit dc64dd731596ad5071892e551b507a3ac781ea1c
+Author: Ovidiu Parvu <ovidiu.parvu@gmail.com>
+Date:   Wed Sep 18 12:21:24 2013 +0100
+
+    Made the following changes after code inspection (min_enclosing_triangle.cpp):
+    * Corrected minor typos in comments/function signatures
+    * Added new details to copyright statement
+    * Removed unreferenced macros
+    * Removed the assert statement which was checking the type of the OutputArray triangle
+    * When returning results using Mat::copyTo instead of Mat::convertTo
+    * Changed C-style casts to static_casts
+    * Added division by zero check to distanceFromPointToLine() function
+    * Updated reference webpages last access dates
+    * Moved the declaration of the gammaOfA variable outside the while loop in moveAIfLowAndBIfHigh() function for efficiency reasons
+
+commit b216c0940cdaac548395bcd401098b146e8d2dd3
+Author: Alex Leontiev <alozz1991@gmail.com>
+Date:   Mon Jun 24 20:27:11 2013 +0300
+
+    Created skeleton for simplex method.
+    
+    Added LPSolver class together with two nested classes: LPFunction and
+    LPConstraints. These represent function to be maximized and constraints
+    imposed respectively. They are implementations of interfaces Function
+    and Constraints respectively (latter ones are nested classes of Solver
+    interface, which is generic interface for all optimization algorithms to
+    be implemented within this project).
+    
+    The next step is to implement the simplex algorithm! First, we shall
+    implement it for the case of constraints of the form Ax<=b and x>=0.
+    Then, we shall extend the sets of problems that can be handled by the
+    conversion to the one we've handled already. Finally, we shale
+    concentrate on numerical stability and efficiency.
+
+commit 84c4797030e981f46257b34a1260892cceabb0a1
+Author: Vincent Rabaud <vrabaud@willowgarage.com>
+Date:   Fri Aug 24 16:23:07 2012 +0200
+
+    revert orientation computation in jeypoint detection for efficiency (like done originally)
+
+commit d72d11d09da7d9f6d77a88bff4ce33334c561159
+Author: Vadim Pisarevsky <no@email>
+Date:   Wed Sep 22 13:07:51 2010 +0000
+
+    improved matrix expressions efficiency in some cases & simplified the code

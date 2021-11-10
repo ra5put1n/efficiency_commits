@@ -1,0 +1,769 @@
+commit ea36d4de17101f05b03d267a4afbae0f7b33a27c
+Author: Viktor Söderqvist <viktor.soderqvist@est.tech>
+Date:   Tue Sep 14 16:48:06 2021 +0200
+
+    Modules: Add remaining list API functions (#8439)
+    
+    List functions operating on elements by index:
+    
+    * RM_ListGet
+    * RM_ListSet
+    * RM_ListInsert
+    * RM_ListDelete
+    
+    Iteration is done using a simple for loop over indices.
+    The index based functions use an internal iterator as an optimization.
+    This is explained in the docs:
+    
+    ```
+     * Many of the list functions access elements by index. Since a list is in
+     * essence a doubly-linked list, accessing elements by index is generally an
+     * O(N) operation. However, if elements are accessed sequentially or with
+     * indices close together, the functions are optimized to seek the index from
+     * the previous index, rather than seeking from the ends of the list.
+     *
+     * This enables iteration to be done efficiently using a simple for loop:
+     *
+     *     long n = RM_ValueLength(key);
+     *     for (long i = 0; i < n; i++) {
+     *         RedisModuleString *elem = RedisModule_ListGet(key, i);
+     *         // Do stuff...
+     *     }
+    ```
+
+commit 01495c674a9b468734f778e29b5176572e73c9dd
+Author: Binbin <binloveplay1314@qq.com>
+Date:   Sun May 30 22:56:04 2021 +0800
+
+    Extend freeSlotsToKeysMapAsync and freeTrackingRadixTreeAsync to check LAZYFREE_THRESHOLD. (#8969)
+    
+    Without this fix, FLUSHALL ASYNC would have freed these in a background thread,
+    even if they didn't contain many elements (unlike how it works with other structures), which could be inefficient.
+
+commit 5b48d900498c85bbf4772c1d466c214439888115
+Author: KinWaiYuen <529054658@qq.com>
+Date:   Fri Mar 12 14:40:35 2021 +0800
+
+    Optimize CLUSTER SLOTS reply by reducing unneeded loops (#8541)
+    
+    This commit more efficiently computes the cluster bulk slots response
+    by looping over the entire slot space once, instead of for each node.
+
+commit 62b1f32062b8f688179a8262959a5b80d0ad4de7
+Author: Oran Agra <oran@redislabs.com>
+Date:   Sun Feb 7 16:55:11 2021 +0200
+
+    Optimize HRANDFIELD and ZRANDMEMBER case 4 when ziplist encoded (#8444)
+    
+    It is inefficient to repeatedly pick a single random element from a
+    ziplist.
+    For CASE4, which is when the user requested a low number of unique
+    random picks from the collectoin, we used thta pattern.
+    
+    Now we use a different algorithm that picks unique elements from a
+    ziplist, and guarentee no duplicate but doesn't provide random order
+    (which is only needed in the non-unique random picks case)
+    
+    Unrelated changes:
+    * change ziplist count and indexes variables to unsigned
+    * solve compilation warnings about uninitialized vars in gcc 10.2
+    
+    Co-authored-by: xinluton <xinluton@qq.com>
+
+commit b9a0500f16d0cd016398133cc7ac256ad927b679
+Author: Yang Bodong <bodong.ybd@alibaba-inc.com>
+Date:   Fri Jan 29 16:47:28 2021 +0800
+
+    Add HRANDFIELD and ZRANDMEMBER. improvements to SRANDMEMBER (#8297)
+    
+    New commands:
+    `HRANDFIELD [<count> [WITHVALUES]]`
+    `ZRANDMEMBER [<count> [WITHSCORES]]`
+    Algorithms are similar to the one in SRANDMEMBER.
+    
+    Both return a simple bulk response when no arguments are given, and an array otherwise.
+    In case values/scores are requested, RESP2 returns a long array, and RESP3 a nested array.
+    note: in all 3 commands, the only option that also provides random order is the one with negative count.
+    
+    Changes to SRANDMEMBER
+    * Optimization when count is 1, we can use the more efficient algorithm of non-unique random
+    * optimization: work with sds strings rather than robj
+    
+    Other changes:
+    * zzlGetScore: when zset needs to convert string to double, we use safer memcpy (in
+      case the buffer is too small)
+    * Solve a "bug" in SRANDMEMBER test: it intended to test a positive count (case 3 or
+      case 4) and by accident used a negative count
+    
+    Co-authored-by: xinluton <xinluton@qq.com>
+    Co-authored-by: Oran Agra <oran@redislabs.com>
+
+commit 6bb5503524fbc15c4d6a5ac5eb08aedee18d3189
+Author: guybe7 <guy.benoish@redislabs.com>
+Date:   Mon Dec 7 20:31:35 2020 +0100
+
+    More efficient self-XCLAIM (#8098)
+    
+    when the same consumer re-claim an entry that it already has, there's
+    no need to remove-and-insert if it's the same rax.
+    we do need to update the idle time though.
+    this commit only improves efficiency (doesn't change behavior).
+
+commit 9122379abc3b15dfd2af3624586cc1e3f826eb55
+Author: Oran Agra <oran@redislabs.com>
+Date:   Tue Nov 3 14:56:57 2020 +0200
+
+    Propagate GETSET and SET-GET as SET (#7957)
+    
+    - Generates a more backwards compatible command stream
+    - Slightly more efficient execution in replica/AOF
+    - Add a test for coverage
+
+commit 7d117d7591656e947f526f5d5f8a022b88b38ad9
+Author: Yossi Gottlieb <yossigo@gmail.com>
+Date:   Mon Oct 5 17:06:35 2020 +0300
+
+    Modules: add RM_GetCommandKeys().
+    
+    This is essentially the same as calling COMMAND GETKEYS but provides a
+    more efficient interface that can be used in every context (i.e. not a
+    Redis command).
+
+commit 445a4b669a3a7232a18bf23340c5f7d580aa92c7
+Author: Wang Yuan <wangyuan21@baidu.com>
+Date:   Thu Sep 17 21:01:45 2020 +0800
+
+    Implement redisAtomic to replace _Atomic C11 builtin (#7707)
+    
+    Redis 6.0 introduces I/O threads, it is so cool and efficient, we use C11
+    _Atomic to establish inter-thread synchronization without mutex. But the
+    compiler that must supports C11 _Atomic can compile redis code, that brings a
+    lot of inconvenience since some common platforms can't support by default such
+    as CentOS7, so we want to implement redis atomic type to make it more portable.
+    
+    We have implemented our atomic variable for redis that only has 'relaxed'
+    operations in src/atomicvar.h, so we implement some operations with
+    'sequentially-consistent', just like the default behavior of C11 _Atomic that
+    can establish inter-thread synchronization. And we replace all uses of C11
+    _Atomic with redis atomic variable.
+    
+    Our implementation of redis atomic variable uses C11 _Atomic, __atomic or
+    __sync macros if available, it supports most common platforms, and we will
+    detect automatically which feature we use. In Makefile we use a dummy file to
+    detect if the compiler supports C11 _Atomic. Now for gcc, we can compile redis
+    code theoretically if your gcc version is not less than 4.1.2(starts to support
+    __sync_xxx operations). Otherwise, we remove use mutex fallback to implement
+    redis atomic variable for performance and test. You will get compiling errors
+    if your compiler doesn't support all features of above.
+    
+    For cover redis atomic variable tests, we add other CI jobs that build redis on
+    CentOS6 and CentOS7 and workflow daily jobs that run the tests on them.
+    For them, we just install gcc by default in order to cover different compiler
+    versions, gcc is 4.4.7 by default installation on CentOS6 and 4.8.5 on CentOS7.
+    
+    We restore the feature that we can test redis with Helgrind to find data race
+    errors. But you need install Valgrind in the default path configuration firstly
+    before running your tests, since we use macros in helgrind.h to tell Helgrind
+    inter-thread happens-before relationship explicitly for avoiding false positives.
+    Please open an issue on github if you find data race errors relate to this commit.
+    
+    Unrelated:
+    - Fix redefinition of typedef 'RedisModuleUserChangedFunc'
+      For some old version compilers, they will report errors or warnings, if we
+      re-define function type.
+
+commit 6f11acbd67f65c5f3fd84223bf07fefd75cfdc37
+Author: Tyson Andre <tyson.andre@uwaterloo.ca>
+Date:   Tue Aug 11 04:55:06 2020 -0400
+
+    Implement SMISMEMBER key member [member ...] (#7615)
+    
+    This is a rebased version of #3078 originally by shaharmor
+    with the following patches by TysonAndre made after rebasing
+    to work with the updated C API:
+    
+    1. Add 2 more unit tests
+       (wrong argument count error message, integer over 64 bits)
+    2. Use addReplyArrayLen instead of addReplyMultiBulkLen.
+    3. Undo changes to src/help.h - for the ZMSCORE PR,
+       I heard those should instead be automatically
+       generated from the redis-doc repo if it gets updated
+    
+    Motivations:
+    
+    - Example use case: Client code to efficiently check if each element of a set
+      of 1000 items is a member of a set of 10 million items.
+      (Similar to reasons for working on #7593)
+    - HMGET and ZMSCORE already exist. This may lead to developers deciding
+      to implement functionality that's best suited to a regular set with a
+      data type of sorted set or hash map instead, for the multi-get support.
+    
+    Currently, multi commands or lua scripting to call sismember multiple times
+    would almost definitely be less efficient than a native smismember
+    for the following reasons:
+    
+    - Need to fetch the set from the string every time
+      instead of reusing the C pointer.
+    - Using pipelining or multi-commands would result in more bytes sent
+      and received by the client for the repeated SISMEMBER KEY sections.
+    - Need to specially encode the data and decode it from the client
+      for lua-based solutions.
+    - Proposed solutions using Lua or SADD/SDIFF could trigger writes to
+      memory, which is undesirable on a redis replica server
+      or when commands get replicated to replicas.
+    
+    Co-Authored-By: Shahar Mor <shahar@peer5.com>
+    Co-Authored-By: Tyson Andre <tysonandre775@hotmail.com>
+
+commit f11f26cc53f25767c26b98ceb21e1b1fc3aef2d2
+Author: Tyson Andre <tyson.andre@uwaterloo.ca>
+Date:   Tue Aug 4 10:49:33 2020 -0400
+
+    Add a ZMSCORE command returning an array of scores. (#7593)
+    
+    Syntax: `ZMSCORE KEY MEMBER [MEMBER ...]`
+    
+    This is an extension of #2359
+    amended by Tyson Andre to work with the changed unstable API,
+    add more tests, and consistently return an array.
+    
+    - It seemed as if it would be more likely to get reviewed
+      after updating the implementation.
+    
+    Currently, multi commands or lua scripting to call zscore multiple times
+    would almost definitely be less efficient than a native ZMSCORE
+    for the following reasons:
+    
+    - Need to fetch the set from the string every time instead of reusing the C
+      pointer.
+    - Using pipelining or multi-commands would result in more bytes sent by
+      the client for the repeated `ZMSCORE KEY` sections.
+    - Need to specially encode the data and decode it from the client
+      for lua-based solutions.
+    - The fastest solution I've seen for large sets(thousands or millions)
+      involves lua and a variadic ZADD, then a ZINTERSECT, then a ZRANGE 0 -1,
+      then UNLINK of a temporary set (or lua). This is still inefficient.
+    
+    Co-authored-by: Tyson Andre <tysonandre775@hotmail.com>
+
+commit 28ef18a8946815e0d83a1c0a9b6baf9d27022461
+Author: Oran Agra <oran@redislabs.com>
+Date:   Wed Feb 5 18:24:14 2020 +0200
+
+    RM_Scan disable dict rehashing
+    
+    The callback approach we took is very efficient, the module can do any
+    filtering of keys without building any list and cloning strings, it can
+    also read data from the key's value. but if the user tries to re-open
+    the key, or any other key, this can cause dict re-hashing (dictFind does
+    that), and that's very bad to do from inside dictScan.
+    
+    this commit protects the dict from doing any rehashing during scan, but
+    also warns the user not to attempt any writes or command calls from
+    within the callback, for fear of unexpected side effects and crashes.
+
+commit a7122f451895200f23f7b5794e5569d374e8356b
+Merge: 70016f786 c426bbf3a
+Author: Salvatore Sanfilippo <antirez@gmail.com>
+Date:   Tue Nov 19 10:54:00 2019 +0100
+
+    Merge pull request #6579 from oranagra/rm_reply_string_opt
+    
+    Slightly more efficient RM_ReplyWithEmptyString
+
+commit c426bbf3a54939775fceac1a318f2fa22778ee08
+Author: Oran Agra <oran@redislabs.com>
+Date:   Thu Nov 14 09:46:46 2019 +0200
+
+    Slightly more efficient RM_ReplyWithEmptyString
+    
+    trimming talk about RESP protocol from API docs (should be independent to that anyway)
+
+commit bf680b6f8cdaee2c5588c5c8932a7f3b7fa70b15
+Author: Oran Agra <oran@redislabs.com>
+Date:   Wed Feb 21 20:18:34 2018 +0200
+
+    slave buffers were wasteful and incorrectly counted causing eviction
+    
+    A) slave buffers didn't count internal fragmentation and sds unused space,
+       this caused them to induce eviction although we didn't mean for it.
+    
+    B) slave buffers were consuming about twice the memory of what they actually needed.
+    - this was mainly due to sdsMakeRoomFor growing to twice as much as needed each time
+      but networking.c not storing more than 16k (partially fixed recently in 237a38737).
+    - besides it wasn't able to store half of the new string into one buffer and the
+      other half into the next (so the above mentioned fix helped mainly for small items).
+    - lastly, the sds buffers had up to 30% internal fragmentation that was wasted,
+      consumed but not used.
+    
+    C) inefficient performance due to starting from a small string and reallocing many times.
+    
+    what i changed:
+    - creating dedicated buffers for reply list, counting their size with zmalloc_size
+    - when creating a new reply node from, preallocate it to at least 16k.
+    - when appending a new reply to the buffer, first fill all the unused space of the
+      previous node before starting a new one.
+    
+    other changes:
+    - expose mem_not_counted_for_evict info field for the benefit of the test suite
+    - add a test to make sure slave buffers are counted correctly and that they don't cause eviction
+
+commit 548e478e4092e8a17faf638d84bb6e05d155f72b
+Author: antirez <antirez@gmail.com>
+Date:   Fri Feb 23 17:42:24 2018 +0100
+
+    ae.c: introduce the concept of read->write barrier.
+    
+    AOF fsync=always, and certain Redis Cluster bus operations, require to
+    fsync data on disk before replying with an acknowledge.
+    In such case, in order to implement Group Commits, we want to be sure
+    that queries that are read in a given cycle of the event loop, are never
+    served to clients in the same event loop iteration. This way, by using
+    the event loop "before sleep" callback, we can fsync the information
+    just one time before returning into the event loop for the next cycle.
+    This is much more efficient compared to calling fsync() multiple times.
+    
+    Unfortunately because of a bug, this was not always guaranteed: the
+    actual way the events are installed was the sole thing that could
+    control. Normally this problem is hard to trigger when AOF is enabled
+    with fsync=always, because we try to flush the output buffers to the
+    socekt directly in the beforeSleep() function of Redis. However if the
+    output buffers are full, we actually install a write event, and in such
+    a case, this bug could happen.
+    
+    This change to ae.c modifies the event loop implementation to make this
+    concept explicit. Write events that are registered with:
+    
+        AE_WRITABLE|AE_BARRIER
+    
+    Are guaranteed to never fire after the readable event was fired for the
+    same file descriptor. In this way we are sure that data is persisted to
+    disk before the client performing the operation receives an
+    acknowledged.
+    
+    However note that this semantics does not provide all the guarantees
+    that one may believe are automatically provided. Take the example of the
+    blocking list operations in Redis.
+    
+    With AOF and fsync=always we could have:
+    
+        Client A doing: BLPOP myqueue 0
+        Client B doing: RPUSH myqueue a b c
+    
+    In this scenario, Client A will get the "a" elements immediately after
+    the Client B RPUSH will be executed, even before the operation is persisted.
+    However when Client B will get the acknowledge, it can be sure that
+    "b,c" are already safe on disk inside the list.
+    
+    What to note here is that it cannot be assumed that Client A receiving
+    the element is a guaranteed that the operation succeeded from the point
+    of view of Client B.
+    
+    This is due to the fact that the barrier exists within the same socket,
+    and not between different sockets. However in the case above, the
+    element "a" was not going to be persisted regardless, so it is a pretty
+    synthetic argument.
+
+commit 0540803288dd137c0a0f3fc345165c6a87f0957e
+Author: antirez <antirez@gmail.com>
+Date:   Fri Sep 29 12:40:29 2017 +0200
+
+    Streams: XADD MAXLEN implementation.
+    
+    The core of this change is the implementation of stream trimming, and
+    the resulting MAXLEN option of XADD as a trivial result of having
+    trimming functionalities. MAXLEN already works but in order to be more
+    efficient listpack GC should be implemented, currently marked as a TODO
+    item inside the comments.
+
+commit f24d3a7de05d213f702621186f31a4c227f366c6
+Author: antirez <antirez@gmail.com>
+Date:   Thu Sep 28 16:55:46 2017 +0200
+
+    Streams: delta encode IDs based on key. Add count + deleted fields.
+    
+    We used to have the master ID stored at the start of the listpack,
+    however using the key directly makes more sense in order to create a
+    space efficient representation: anyway the key at the radix tree is very
+    unlikely to change because of how the stream is implemented. Moreover on
+    nodes merging, to rewrite the merged listpacks is anyway the most
+    sensible operation, and we can use the iterator and the append-to-stream
+    function in order to avoid re-implementing the code needed for merging.
+    
+    This commit also adds two items at the start of the listpack: the
+    number of valid items inside the listpack, and the number of items
+    marked as deleted. This means that there is no need to scan a listpack
+    in order to understand if it's a good candidate for garbage collection,
+    if the ration between valid/deleted items triggers the GC.
+
+commit 6468cb2e825cf8258654f83e82324332e9879745
+Author: antirez <antirez@gmail.com>
+Date:   Sat Sep 9 11:10:59 2017 +0200
+
+    Streams: fix XREAD ready-key signaling.
+    
+    With lists we need to signal only on key creation, but streams can
+    provide data to clients listening at every new item added.
+    To make this slightly more efficient we now track different classes of
+    blocked clients to avoid signaling keys when there is nobody listening.
+    A typical case is when the stream is used as a time series DB and
+    accessed only by range with XRANGE.
+
+commit 5e176e1af599637f4b5df1c60b22d110c6b1ae0c
+Author: antirez <antirez@gmail.com>
+Date:   Mon Jun 27 18:02:33 2016 +0200
+
+    Fix quicklistReplaceAtIndex() by updating the quicklist ziplist size.
+    
+    The quicklist takes a cached version of the ziplist representation size
+    in bytes. The implementation must update this length every time the
+    underlying ziplist changes. However quicklistReplaceAtIndex() failed to
+    fix the length.
+    
+    During LSET calls, the size of the ziplist blob and the cached size
+    inside the quicklist diverged. Later, when this size is used in an
+    authoritative way, for example during nodes splitting in order to copy
+    the nodes, we end with a duplicated node that may contain random
+    garbage.
+    
+    This commit should fix issue #3343, however several problems were found
+    reviewing the quicklist.c code in search of this bug that should be
+    addressed soon or later.
+    
+    For example:
+    
+    1. To take a cached ziplist length is fragile since failing to update it
+    leads to this kind of issues.
+    
+    2. The node splitting code needs auditing. For example it works just for
+    a side effect of ziplistDeleteRange() to be able to cope with a wrong
+    count of elements to remove. The code inside quicklist.c assumes that
+    -1 means "delete till the end" while actually it's just a count of how
+    many elements to delete, and is an unsigned count. So -1 gets converted
+    into the maximum integer, and just by chance the ziplist code stops
+    deleting elements after there are no more to delete.
+    
+    3. Node splitting is extremely inefficient, it copies the node and
+    removes elements from both nodes even when actually there is to move a
+    single entry from one node to the other, or when the new resulting node
+    is empty at all so there is nothing to copy but just to create a new
+    node.
+    
+    However at least for Redis 3.2 to introduce fresh code inside
+    quicklist.c may be even more risky, so instead I'm writing a better
+    fuzzy tester to stress the internals a bit more in order to anticipate
+    other possible bugs.
+    
+    This bug was found using a fuzzy tester written after having some clue
+    about where the bug could be. The tester eventually created a ~2000
+    commands sequence able to always crash Redis. I wrote a better version
+    of the tester that searched for the smallest sequence that could crash
+    Redis automatically. Later this smaller sequence was minimized by
+    removing random commands till it still crashed the server. This resulted
+    into a sequence of 7 commands. With this small sequence it was just a
+    matter of filling the code with enough printf() to understand enough
+    state to fix the bug.
+
+commit 10aafdad56fa79bd7f95d9b190054b2e56b6cddd
+Author: antirez <antirez@gmail.com>
+Date:   Fri Oct 17 11:36:12 2014 +0200
+
+    Diskless replication: rio fdset target new supports buffering.
+    
+    To perform a socket write() for each RDB rio API write call was
+    extremely unefficient, so now rio has minimal buffering capabilities.
+    Writes are accumulated into a buffer and only when a given limit is
+    reacehd are actually wrote to the N slaves FDs.
+    
+    Trivia: rio lacked support for buffering since our targets were:
+    
+    1) Memory buffers.
+    2) C standard I/O.
+    
+    Both were buffered already.
+
+commit a953c883815bada9365504940af52306d9a413ea
+Author: Matt Stancliff <matt@genges.com>
+Date:   Thu Jun 26 08:52:53 2014 -0400
+
+    Allow atomic memory count update with C11 builtins
+    
+    From mailing list post https://groups.google.com/forum/#!topic/redis-db/QLjiQe4D7LA
+    
+    In zmalloc.c the following primitives are currently used
+    to synchronize access to single global variable:
+    __sync_add_and_fetch
+    __sync_sub_and_fetch
+    
+    In some architectures such as powerpc these primitives are overhead
+    intensive. More efficient C11 __atomic builtins are available with
+    newer GCC versions, see
+    http://gcc.gnu.org/onlinedocs/gcc-4.8.2/gcc/_005f_005fatomic-Builtins.html#_005f_005fatomic-Builtins
+    
+    By substituting the following  __atomic… builtins:
+    __atomic_add_fetch
+    __atomic_sub_fetch
+    
+    the performance improvement on certain architectures such as powerpc can be significant,
+    around 10% to 15%, over the implementation using __sync builtins while there is only slight uptick on
+    Intel architectures because it was already enforcing Intel Strongly ordered memory semantics.
+    
+    The selection of __atomic built-ins can be predicated on the definition of ATOMIC_RELAXED
+    which Is available on in gcc 4.8.2 and later versions.
+
+commit 0bd6d68e34bc41cd80cd7fc44aab9cf3884de8dc
+Author: antirez <antirez@gmail.com>
+Date:   Wed May 16 16:23:09 2012 +0200
+
+    New commands: BITOP and BITCOUNT.
+    
+    The motivation for this new commands is to be search in the usage of
+    Redis for real time statistics. See the article "Fast real time metrics
+    using Redis".
+    
+    http://blog.getspool.com/2011/11/29/fast-easy-realtime-metrics-using-redis-bitmaps/
+    
+    In general Redis strings when used as bitmaps using the SETBIT/GETBIT
+    command provide a very space-efficient and fast way to store statistics.
+    For instance in a web application with users, every user can be
+    associated with a key that shows every day in which the user visited the
+    web service. This information can be really valuable to extract user
+    behaviour information.
+    
+    With Redis bitmaps doing this is very simple just saying that a given
+    day is 0 (the data the service was put online) and all the next days are
+    1, 2, 3, and so forth. So with SETBIT it is possible to set the bit
+    corresponding to the current day every time the user visits the site.
+    
+    It is possible to take the count of the bit sets on the run, this is
+    extremely easy using a Lua script. However a fast bit count native
+    operation can be useful, especially if it can operate on ranges, or when
+    the string is small like in the case of days (even if you consider many
+    years it is still extremely little data).
+    
+    For this reason BITOP was introduced. The command counts the number of
+    bits set to 1 in a string, with optional range:
+    
+    BITCOUNT key [start end]
+    
+    The start/end parameters are similar to GETRANGE. If omitted the whole
+    string is tested.
+    
+    Population counting is more useful when bit-level operations like AND,
+    OR and XOR are avaialble. For instance I can test multiple users to see
+    the number of days three users visited the site at the same time. To do
+    this we can take the AND of all the bitmaps, and then count the set bits.
+    
+    For this reason the BITOP command was introduced:
+    
+    BITOP [AND|OR|XOR|NOT] dest_key src_key1 src_key2 src_key3 ... src_keyN
+    
+    In the special case of NOT (that inverts the bits) only one source key
+    can be passed.
+    
+    The judicious use of BITCOUNT and BITOP combined can lead to interesting
+    use cases with very space efficient representation of data.
+    
+    The implementation provided is still not tested and optimized for speed,
+    next commits will introduce unit tests. Later the implementation will be
+    profiled to see if it is possible to gain an important amount of speed
+    without making the code much more complex.
+
+commit c4705381422ead4ad99f4b7a3bc11f059c460401
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Fri Aug 13 19:28:49 2010 +0200
+
+    Make ziplist schema more efficient for strings with length > 15
+commit 77d3c6bff30331fb94a8570adc29872368e15ca2
+Author: perryitay <85821686+perryitay@users.noreply.github.com>
+Date:   Wed Nov 3 14:12:33 2021 +0200
+
+    fix: lookupKey on SETNX and SETXX only once (#9640)
+    
+    When using SETNX and SETXX we could end up doing key lookup twice.
+    This presents a small inefficiency price.
+    Also once we have statistics of write hit and miss they'll be wrong (recording the same key hit twice)
+
+commit c396fd91a039feb5114e79f6f91459a0b1f74346
+Author: Wang Yuan <wangyuan21@baidu.com>
+Date:   Tue Jun 8 18:40:12 2021 +0800
+
+    Mem efficiency, make full use of client struct memory for reply buffers (#8968)
+    
+    When we allocate a client struct with 16k reply buffer, the allocator we may give us 20K,
+    This commit makes use of that extra space.
+    Additionally, it tries to store whatever it can from the reply into the static 'buf' before
+    allocating a new node for the reply list.
+
+commit a9897b0084919d85c64e6a41a0fea0f882550760
+Author: Oran Agra <oran@redislabs.com>
+Date:   Sun Apr 18 15:12:34 2021 +0300
+
+    Fix timing of new replication test (#8807)
+    
+    In github actions CI with valgrind, i saw that even the fast replica
+    (one that wasn't paused), didn't get to complete the replication fast
+    enough, and ended up getting disconnected by timeout.
+    
+    Additionally, due to a typo in uname, we didn't get to actually run the
+    CPU efficiency part of the test.
+
+commit 6bb5503524fbc15c4d6a5ac5eb08aedee18d3189
+Author: guybe7 <guy.benoish@redislabs.com>
+Date:   Mon Dec 7 20:31:35 2020 +0100
+
+    More efficient self-XCLAIM (#8098)
+    
+    when the same consumer re-claim an entry that it already has, there's
+    no need to remove-and-insert if it's the same rax.
+    we do need to update the idle time though.
+    this commit only improves efficiency (doesn't change behavior).
+
+commit f4ca3d8757d6abb3536610ddb7b9ab3ad39e81df
+Author: Egor Seredin <4819888+agmt@users.noreply.github.com>
+Date:   Wed Nov 4 20:38:46 2020 +0900
+
+    Allow '\0' inside of result of sdscatvprintf, and efficiency improvements (#6260)
+    
+    This will allow to use: RedisModule_CreateStringPrintf(ctx, "%s %c %s", "string1", 0, "string2");
+    
+    On large string, the previous code would incrementally retry to double the output buffer.
+    now it uses the the return value of snprintf and grows to the right size in one step.
+    
+    and also avoids an excessive strlen in sdscat at the end.
+
+commit 6b836b6b4148a3623e35807e998097865b9ebb3a
+Author: antirez <antirez@gmail.com>
+Date:   Fri Jul 24 10:15:04 2015 +0200
+
+    Jemalloc: use LG_QUANTUM of 3 for AMD64 and I386.
+    
+    This gives us a 24 bytes size class which is dict.c dictEntry size, thus
+    improving the memory efficiency of Redis significantly.
+    Moreover other non 16 bytes aligned tiny classes are added that further
+    reduce the fragmentation of the allocator.
+    
+    Technically speaking LG_QUANTUM should be 4 on i386 / AMD64 because of
+    SSE types and other 16 bytes types, however we don't use those, and our
+    jemalloc only targets Redis.
+    
+    New versions of Jemalloc will have an explicit configure switch in order
+    to specify the quantum value for a platform without requiring any change
+    to the Jemalloc source code: we'll switch to this system when available.
+    
+    This change was originally proposed by Oran Agra (@oranagra) as a change
+    to the Jemalloc script to generate the size classes define. We ended
+    doing it differently by changing LG_QUANTUM since it is apparently the
+    supported Jemalloc method to obtain a 24 bytes size class, moreover it
+    also provides us other potentially useful size classes.
+    
+    Related to issue #2510.
+
+commit 5e3dcc522b13d5441d6cdf4ee6ff48bd25df13cb
+Author: antirez <antirez@gmail.com>
+Date:   Tue Feb 10 14:47:45 2015 +0100
+
+    Faster memory efficiency test.
+    
+    This test on Linux was extremely slow, since in Tcl we can't enable
+    easily tcp-nodelay, so the busy loop used to take *a lot* with bigger
+    writes. Fixed using pipelining.
+
+commit 8a7ccc58a16954a250fcb8f5ea6d184094d14653
+Author: antirez <antirez@gmail.com>
+Date:   Tue Dec 2 16:57:23 2014 +0100
+
+    Mark PFCOUNT as read-only, even if not true.
+    
+    PFCOUNT is technically speaking a write command, since the cached value
+    of the HLL is exposed in the data structure (design error, mea culpa), and
+    can be modified by PFCOUNT.
+    
+    However if we flag PFCOUNT as "w", read only slaves can't execute the
+    command, which is a problem since there are environments where slaves
+    are used to scale PFCOUNT reads.
+    
+    Nor it is possible to just prevent PFCOUNT to modify the data structure
+    in slaves, since without the cache we lose too much efficiency.
+    
+    So while this commit allows slaves to create a temporary inconsistency
+    (the strings representing the HLLs in the master and slave can be
+    different in certain moments) it is actually harmless.
+    
+    In the long run this should be probably fixed by turning the HLL into a
+    more opaque representation, for example by storing the cached value in
+    the part of the string which is not exposed (this should be possible
+    with SDS strings).
+
+commit fcebd9b0f9a7b1f78abaf556e9d1a8f3b857e614
+Author: antirez <antirez@gmail.com>
+Date:   Mon Nov 25 10:21:18 2013 +0100
+
+    Fix false positive in memory efficiency test.
+    
+    Fixes issue #1298.
+
+commit f79b1cb49e8dec1cb21bd4d7ccdee21931114429
+Author: antirez <antirez@gmail.com>
+Date:   Thu Aug 29 16:23:57 2013 +0200
+
+    Test: added a memory efficiency test.
+
+commit 9555f8f21b9f1780de307c19da268ef63f7c2ae9
+Author: antirez <antirez@gmail.com>
+Date:   Wed Mar 14 10:13:23 2012 +0100
+
+    sds.c new function sdsRemoveFreeSpace().
+    
+    The new function is used in order to resize the string allocation so
+    that only the minimal allocation possible is used, removing all the free
+    space at the end of the string normally used to improve efficiency of
+    concatenation operations.
+
+commit cd8788f26d06d8643828024537b8abe2b702759f
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Fri Oct 15 15:40:25 2010 +0200
+
+    Refactor request parsing code for efficiency
+
+commit d433ebc6810b15c21120e502dea3a27fc2a5b348
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Thu Sep 16 15:36:36 2010 +0200
+
+    Finished code for sorted set memory efficiency
+
+commit 36babc1e31f434e95fc49a6a1f611a75b3827ade
+Author: Pieter Noordhuis <pcnoordhuis@gmail.com>
+Date:   Mon Aug 30 11:14:54 2010 +0200
+
+    Refactor reply parsing code in redis-benchmark for efficiency
+commit f1481d4a03e96c71a664bafadf0241e88794ca60
+Author: antirez <antirez@gmail.com>
+Date:   Fri Dec 14 17:10:40 2012 +0100
+
+    serverCron() frequency is now a runtime parameter (was REDIS_HZ).
+    
+    REDIS_HZ is the frequency our serverCron() function is called with.
+    A more frequent call to this function results into less latency when the
+    server is trying to handle very expansive background operations like
+    mass expires of a lot of keys at the same time.
+    
+    Redis 2.4 used to have an HZ of 10. This was good enough with almost
+    every setup, but the incremental key expiration algorithm was working a
+    bit better under *extreme* pressure when HZ was set to 100 for Redis
+    2.6.
+    
+    However for most users a latency spike of 30 milliseconds when million
+    of keys are expiring at the same time is acceptable, on the other hand a
+    default HZ of 100 in Redis 2.6 was causing idle instances to use some
+    CPU time compared to Redis 2.4. The CPU usage was in the order of 0.3%
+    for an idle instance, however this is a shame as more energy is consumed
+    by the server, if not important resources.
+    
+    This commit introduces HZ as a runtime parameter, that can be queried by
+    INFO or CONFIG GET, and can be modified with CONFIG SET. At the same
+    time the default frequency is set back to 10.
+    
+    In this way we default to a sane value of 10, but allows users to
+    easily switch to values up to 500 for near real-time applications if
+    needed and if they are willing to pay this small CPU usage penalty.

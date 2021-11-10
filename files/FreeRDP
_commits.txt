@@ -1,0 +1,11 @@
+commit d7bae410923c81731fc2744c7f865beee042da24
+Author: Marc-André Moreau <marcandre.moreau@gmail.com>
+Date:   Sun Dec 16 16:51:05 2012 -0500
+
+    libwinpr-crt: improve UTF conversion efficiency
+
+commit 26afdec8cde520c1d5385fc87fc738a745da5009
+Author: C-o-r-E <can.of.tuna@gmail.com>
+Date:   Tue Aug 21 12:50:21 2012 -0400
+
+    wfreerdp-server: efficiency++

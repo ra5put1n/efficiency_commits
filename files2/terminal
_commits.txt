@@ -1,0 +1,260 @@
+commit 0d9a357373cf50aa6bdfa3beb697431bd99c19d8
+Author: Leonard Hecker <lhecker@microsoft.com>
+Date:   Tue Jun 22 22:16:31 2021 +0200
+
+    Introduce til/latch.h, til/mutex.h and til/throttled_func.h (#10403)
+    
+    This commit introduce three new `til` features:
+    * "til/latch.h": A std::latch clone, until we're on C++20.
+    * "til/mutex.h": A safe mutex wrapper, which only allows you access to the protected data after locking it. No more forgetting to lock mutexes!
+    * "til/throttled_func.h": Function invocation throttling used to be available as the `ThrottledFunc` class already. But this class is vastly more efficient and doesn't rely on any WinRT types.
+    
+    This PR also adds a `til::ends_with` string helper which is `til::starts_with` counterpart.
+    
+    ## Validation Steps Performed
+    
+    * Scrollbar throttling still works as it used to ✔️
+    * No performance regressions when printing big.txt ✔️
+    
+    Closes #10393
+
+commit a8e4bedae31d6170c14ac9fc4fcf366f94d8a0ed
+Author: Leonard Hecker <lhecker@microsoft.com>
+Date:   Thu May 20 19:27:50 2021 +0200
+
+    Introduce til::rle - a run length encoded vector (#10099)
+    
+    ## Summary of the Pull Request
+    
+    Introduces `til::rle`, a vector-like container which stores elements of
+    type T in a run length encoded format. This allows efficient compaction
+    of repeated elements within the vector.
+    
+    ## References
+    
+    * #8000 - Supports buffer rewrite work. A re-use of `til::rle` will be
+      useful as a column counter as we pursue NxM storage and presentation.
+    * #3075 - The new iterators allow skipping forward by multiple units,
+      which wasn't possible under `TextBuffer-/OutputCellIterator`.
+      Additionally it also allows a bulk insertions.
+    * #8787 and #410 - High probability this should be `pmr`-ified
+      like `bitmap` for things like `chafa` and `cacafire`
+      which are changing the run length frequently.
+    
+    ## PR Checklist
+    
+    * [x] Closes #8741
+    * [x] I work here.
+    * [x] Tests added.
+    * [x] Tests passed.
+    
+    ## Validation Steps Performed
+    
+    * [x] Ran `cacafire` in `OpenConsole.exe` and it looked beautiful
+    * [x] Ran new suite of `RunLengthEncodingTests.cpp`
+    
+    Co-authored-by: Michael Niksa <miniksa@microsoft.com>
+
+commit cb55cec27547e08d12eb14816e5a7cecb510db29
+Author: Don-Vito <khvitaly@gmail.com>
+Date:   Wed May 5 02:31:15 2021 +0300
+
+    Teach CmdPal search to use user locale (#9943)
+    
+    ## PR Checklist
+    * [x] Closes https://github.com/microsoft/terminal/issues/9941
+    * [x] CLA signed.
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    The bug is due to us using std::tolower, while the default locale is not user's locale.
+    The fix here is to use the same approach as upon sorting: lstrcmpi.
+    While there are additional methods to do locale aware comparison,
+    here we convert chars to string and call lstrcmpi.
+    While this approach seems somewhat inefficient it ensures consistency
+    (with the order of locales that lstrcmi tries to apply internally).
+
+commit 539a5dc0af26f072f6eac450d07d2d1243a34432
+Author: Austin Lamb <austin.lamb@microsoft.com>
+Date:   Wed Dec 16 10:40:30 2020 -0800
+
+    Greatly reduce allocations in the conhost/OpenConsole startup path (#8489)
+    
+    I was looking at conhost/OpenConsole and noticed it was being pretty
+    inefficient with allocations due to some usages of std::deque and
+    std::vector that didn't need to be done quite that way.
+    
+    So this uses std::vector for the TextBuffer's storage of ROW objects,
+    which allows one allocation to contiguously reserve space for all the
+    ROWs - on Desktop this is 9001 ROW objects which means it saves 9000
+    allocations that the std::deque would have done.  Plus it has the
+    benefit of increasing locality of the ROW objects since deque is going
+    to chase pointers more often with its data structure.
+    
+    Then, within each ROW there are CharRow and ATTR_ROW objects that use
+    std::vector today.  This changes them to use Boost's small_vector, which
+    is a variation of vector that allows for the so-called "small string
+    optimization."  Since we know the typical size of these vectors, we can
+    pre-reserve the right number of elements directly in the
+    CharRow/ATTR_ROW instances, avoiding any heap allocations at all for
+    constructing these objects.
+    
+    There are a ton of variations on this "small_vector" concept out there
+    in the world - this one in Boost, LLVM has one called SmallVector,
+    Electronic Arts' STL has a small_vector, Facebook's folly library has
+    one...there are a silly number of these out there.  But Boost seems like
+    it's by far the easiest to consume in terms of integration into this
+    repo, the CI/CD pipeline, licensing, and stuff like that, so I went with
+    the boost version.
+    
+    In terms of numbers, I measured the startup path of OpenConsole.exe on
+    my dev box for Release x64 configuration.  My box is an i7-6700k @ 4
+    Ghz, with 32 GB RAM, not that I think machine config matters much here:
+    
+    |        | Allocation count    | Allocated bytes    | CPU usage (ms) |
+    | ------ | ------------------- | ------------------ | -------------- |
+    | Before | 29,461              | 4,984,640          | 103            |
+    | After  | 2,459 (-91%)        | 4,853,931 (-2.6%)  | 96 (-7%)       |
+    
+    Along the way, I also fixed a dynamic initializer I happened to spot in
+    the registry code, and updated some docs.
+    
+    ## Validation Steps Performed
+    - Ran "runut", "runft" and "runuia" locally and confirmed results are
+      the same as the main branch
+    - Profiled the before/after numbers in the Visual Studio profiler, for
+      the numbers shown in the table
+    
+    Co-authored-by: Austin Lamb <austinl@microsoft.com>
+
+commit 7fcff4d33ad5595192a57b92c5506e6b745071b7
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Tue Aug 18 19:57:52 2020 +0100
+
+    Refactor VT control sequence identification (#7304)
+    
+    This PR changes the way VT control sequences are identified and
+    dispatched, to be more efficient and easier to extend. Instead of
+    parsing the intermediate characters into a vector, and then having to
+    identify a sequence using both that vector and the final char, we now
+    use just a single `uint64_t` value as the identifier.
+    
+    The way the identifier is constructed is by taking the private parameter
+    prefix, each of the intermediate characters, and then the final
+    character, and shifting them into a 64-bit integer one byte at a time,
+    in reverse order. For example, the `DECTLTC` control has a private
+    parameter prefix of `?`, one intermediate of `'`, and a final character
+    of `s`. The ASCII values of those characters are `0x3F`, `0x27`, and
+    `0x73` respectively, and reversing them gets you 0x73273F, so that would
+    then be the identifier for the control.
+    
+    The reason for storing them in reverse order, is because sometimes we
+    need to look at the first intermediate to determine the operation, and
+    treat the rest of the sequence as a kind of sub-identifier (the
+    character set designation sequences are one example of this). When in
+    reverse order, this can easily be achieved by masking off the low byte
+    to get the first intermediate, and then shifting the value right by 8
+    bits to get a new identifier with the rest of the sequence.
+    
+    With 64 bits we have enough space for a private prefix, six
+    intermediates, and the final char, which is way more than we should ever
+    need (the _DEC STD 070_ specification recommends supporting at least
+    three intermediates, but in practice we're unlikely to see more than
+    two).
+    
+    With this new way of identifying controls, it should now be possible for
+    every action code to be unique (for the most part). So I've also used
+    this PR to clean up the action codes a bit, splitting the codes for the
+    escape sequences from the control sequences, and sorting them into
+    alphabetical order (which also does a reasonable job of clustering
+    associated controls).
+    
+    ## Validation Steps Performed
+    
+    I think the existing unit tests should be good enough to confirm that
+    all sequences are still being dispatched correctly. However, I've also
+    manually tested a number of sequences to make sure they were still
+    working as expected, in particular those that used intermediates, since
+    they were the most affected by the dispatch code refactoring.
+    
+    Since these changes also affected the input state machine, I've done
+    some manual testing of the conpty keyboard handling (both with and
+    without the new Win32 input mode enabled) to make sure the keyboard VT
+    sequences were processed correctly. I've also manually tested the
+    various VT mouse modes in Vttest to confirm that they were still working
+    correctly too.
+    
+    Closes #7276
+
+commit b62f5ea85051fbe38d467cccca4d4de42d29ae8c
+Author: Leonard Hecker <leonard@hecker.io>
+Date:   Thu Jul 16 22:49:06 2020 +0200
+
+    Added til::spsc, a lock-free, single-producer/-consumer FIFO queue (#6751)
+    
+    ## Summary of the Pull Request
+    
+    This PR adds the `til::spsc` namespace, which implements a lock-free, single-producer, single-consumer FIFO queue ("channel"). The queue efficiently blocks the caller using Futexes if no data can be written to / read from the queue (e.g. using `WaitOnAddress` on Windows). Furthermore it allows batching of data and contains logic to signal the caller if the other side has been dropped/destructed.
+    
+    ## PR Checklist
+    * [ ] Closes #xxx
+    * [x] CLA signed. If not, go over [here](https://cla.opensource.microsoft.com/microsoft/Terminal) and sign the CLA
+    * [x] Tests added/passed
+    * [ ] Documentation updated. If checked, please file a pull request on [our docs repo](https://github.com/MicrosoftDocs/terminal) and link it here: #xxx
+    * [ ] Schema updated.
+    * [x] I've discussed this with core contributors already. If not checked, I'm ready to accept this work might be rejected in favor of a different grand plan. Issue number where discussion took place: #xxx
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    
+    `til::spsc::details::arc<T>` contains most of the queue's logic and as such has the relevant documentation for its design.
+    
+    ## Validation Steps Performed
+    
+    The queue was tested on Windows, Linux and macOS using MSVC, gcc and llvm and each of their available runtime introspection utilities in order to ensure no race conditions or memory leaks occur.
+
+commit 3388a486dce5a75ec9900b968d6b245be14b1f11
+Author: James Holderness <j4_james@hotmail.com>
+Date:   Fri Jul 10 23:26:34 2020 +0100
+
+    Refactor the renderer color calculations (#6853)
+    
+    This is a refactoring of the renderer color calculations to simplify the
+    implementation, and to make it easier to support additional
+    color-altering rendition attributes in the future (e.g. _faint_ and
+    _conceal_).
+    
+    ## References
+    
+    * This is a followup to PRs #3817 and #6809, which introduced additional
+      complexity in the color calculations, and which suggested the need for
+      refactoring.
+    
+    ## Detailed Description of the Pull Request / Additional comments
+    
+    When we added support for `DECSCNM`, that required the foreground and
+    background color lookup methods to be able to return the opposite of
+    what was requested when the reversed mode was set. That made those
+    methods unnecessarily complicated, and I thought we could simplify them
+    considerably just by combining the calculations into a single method
+    that derived both colors at the same time.
+    
+    And since both conhost and Windows Terminal needed to perform the same
+    calculations, it also made sense to move that functionality into the
+    `TextAttribute` class, where it could easily be shared.
+    
+    In general this way of doing things is a bit more efficient. However, it
+    does result in some unnecessary work when only one of the colors is
+    required, as is the case for the gridline painter. So to make that less
+    of an issue, I've reordered the gridline code a bit so it at least
+    avoids looking up the colors when no gridlines are needed.
+    
+    ## Validation Steps Performed
+    
+    Because of the API changes, quite a lot of the unit tests had to be
+    updated. For example instead of verifying colors with two separate calls
+    to `LookupForegroundColor` and `LookupBackgroundColor`, that's now
+    achieved with a single `LookupAttributeColors` call, comparing against a
+    pair of values. The specifics of the tests haven't changed though, and
+    they're all still working as expected.
+    
+    I've also manually confirmed that the various color sequences and
+    rendition attributes are rendering correctly with the new refactoring.
