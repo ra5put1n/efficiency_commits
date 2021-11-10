@@ -29,13 +29,6 @@ Date:   Fri Feb 7 14:28:42 2020 +0100
     
     Closes gh-19002
 
-commit ddb5cc3f9988bf7540de1a722f3022d865fa931d
-Author: Stephane Nicoll <snicoll@pivotal.io>
-Date:   Fri Feb 7 14:17:56 2020 +0100
-
-    Polish "Make Kubernetes detection slightly more efficient"
-    
-    See gh-19002
 
 commit aee22bfb5120249640c6a5eadc3cc8687c567d01
 Author: med-amine.dahmen <m_amine22@outlook.com>
@@ -118,6 +111,7 @@ Date:   Mon Jul 28 14:38:11 2014 +0100
     completed, the connectors are reinstated and started.
     
     Fixes #968
+    
 commit 288889685daaae3feab50c8ad8cedaf01b183a9b
 Author: Scott Frederick <sfrederick@pivotal.io>
 Date:   Tue Jan 21 18:06:27 2020 -0600
