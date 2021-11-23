@@ -118,24 +118,3 @@ Date:   Sat Mar 17 06:37:36 2018 +0900
     
     * Windows fixes
 
-commit 53229e3d6c544c68137497ed09a074250c1af0fc
-Author: Cheng Zhao <zcbenz@gmail.com>
-Date:   Mon Feb 26 23:24:00 2018 +0900
-
-    Fix network delegate race condition (#12044)
-    
-    * Fix race condition when getting network delegate
-    
-    * Remove the evil URLRequestContextGetter::network_delegate
-    
-    * Move the arguments instead of const referrencing
-    
-    Safer and more efficient.
-commit 633e5d850374694cbe788216dafb22cee788ebc1
-Author: overkill <22098433+0verk1ll@users.noreply.github.com>
-Date:   Sun Sep 13 22:43:16 2020 -0400
-
-    chore: change `== None` to `is None` (#25202)
-    
-    According to LGTM, this change will improve code efficiency.
-    https://lgtm.com/rules/7900090/

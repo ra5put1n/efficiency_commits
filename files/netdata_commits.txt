@@ -27,11 +27,6 @@ Date:   Mon Feb 3 07:30:13 2020 -0500
     
     * Update RPM specfile changelog.
 
-commit 118534bd8b6c900c6b72144aedc253deeff7f06b
-Author: Markos Fountoulakis <44345837+mfundul@users.noreply.github.com>
-Date:   Tue Jun 4 18:20:38 2019 +0300
-
-    Fill chart gaps efficiently. (#6216)
 
 commit fe70512347fabdf662d69ba19796eb2457d22a9d
 Author: George Moschovitis <george.moschovitis@gmail.com>
@@ -59,11 +54,6 @@ Date:   Wed Oct 24 03:03:57 2018 +0300
     
     * fix bug identified by @vlvkobal: use all available points when resampling is required and the timeframe is not enough for a single point
 
-commit 6b268974797817286541235ee94175383c5d51b2
-Author: VPNable <admin@vpnable.com>
-Date:   Mon May 21 14:45:09 2018 +0200
-
-    update very inefficient regex (thanks to @l2isbad in #3734)
 
 commit 4b0a7d8c496c074f7342343c31a822a01213c2f5
 Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
@@ -101,59 +91,8 @@ Author: Costa Tsaousis <costa@tsaousis.gr>
 Date:   Fri May 13 22:00:39 2016 +0300
 
     converted appconfig rwlock to the more efficient mutex, since it uses it only for write locking
-commit d49e6b50ba4a9ff2237685345acf3ded0dbe7a74
-Author: Austin S. Hemmelgarn <austin@netdata.cloud>
-Date:   Mon Mar 9 11:15:46 2020 -0400
 
-    Added various fixes and improvements to the installers. (#8315)
-    
-    * Don't rotate old Netdata config dirs in static installer.
-    
-    This should have been removed when we stopped shipping stock configs in
-    `/etc/netdata`.
-    
-    * Use a single invocation of the package manager to install dependencies.
-    
-    This slightly improves the efficiency of the code in question, and also
-    eliminates a few dozen potential cases of prompting the user if they
-    want to install specific packages.
-    
-    * Add correct package name for ulogd on arch.
-    
-    * Properly finish conversion to Python 3 defaults.
 
-commit 8bf966d6e06281e03333742c5d650bfe60b51ded
-Author: Vilkov Adel <vilkov.adel@gmail.com>
-Date:   Mon Aug 12 11:01:09 2019 +0300
-
-    (re-open) ZRAM info collector module (proc.plugin) (#6424)
-    
-    * ZRAM collector module
-    ZRAM: Implemented zram device id detection
-    
-    ZRAM: Implemented zram device enumeration
-    
-    WIP ZRAM: Memory usage graph (needs other graphs)
-    
-    ZRAM: Added ratio and efficiency graph
-    
-    ZRAM: Added chart description and context names, code formatting
-    
-    * ZRAM: Proper handling of zram device removal
-    
-    * ZRAM: Added additional checks, removed redundant logging
-
-commit 56ac9f514566d0cbfa6125a28c96b759d4de1ff9
-Author: Chris Akritidis <43294513+cakrit@users.noreply.github.com>
-Date:   Mon Mar 4 18:36:08 2019 +0100
-
-    Support legacy Prometheus metric names for source average (#5531)
-    
-    * Support older prometheus metric unit naming and allow removal of units from metrics
-    
-    * Update swagger
-    
-    * Added bats tests, improved efficiency of checking units
 
 commit fa854bdde6a67c49f4cba980dd936441af5fb8f9
 Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
@@ -244,15 +183,6 @@ Date:   Wed Nov 28 15:54:30 2018 -0500
     * Fix incorrect variable name.
     
     * Fix typo.
-commit 0259640be1899063832429deed3536bc875e9800
-Author: Ilya Mashchenko <ilyamaschenko@gmail.com>
-Date:   Mon Feb 18 16:12:22 2019 +0300
-
-    python module sensors fix (#5406)
-    
-    * get_data indentation fix
-    
-    * fix divisor of energy and power charts
 
 commit 8516249ca6e41204c02e8dd97039fbf063096cf0
 Author: Austin S. Hemmelgarn <ahferroin7@gmail.com>
@@ -310,20 +240,4 @@ Date:   Thu Oct 4 07:07:21 2018 -0400
     
     * Remove get_sysfs_value_or_zero.
 
-commit 3dbcbc5d04233a5220f0cc5793fc3611adfc6121
-Author: Chris <github.account@chrigel.net>
-Date:   Fri Jul 7 00:19:27 2017 +0200
 
-    forgot the energy units
-
-commit b25815c0a753516f73f7c288418b3a3a391d94b2
-Author: BrainDoctor <github.account@chrigel.net>
-Date:   Thu Jul 6 15:47:06 2017 +0200
-
-    Improving the dashboard and replaced inverter energy chart with site energy chart.
-
-commit df1913cea2e08a9a02ecb623bec218cec546de3f
-Author: Costa Tsaousis (ktsaou) <costa@tsaousis.gr>
-Date:   Sat Oct 3 21:28:44 2015 +0300
-
-    added all possible sensors (temperature, voltage, current, energy, power, humidity, fans)

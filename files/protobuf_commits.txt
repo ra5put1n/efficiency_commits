@@ -5,22 +5,8 @@ Date:   Wed Jan 13 12:16:25 2021 -0800
     Ported Ruby extension to upb_msg (#8184)
     
     * WIP.
-    
-    * WIP.
-    
-    * WIP.
-    
-    * WIP.
-    
-    * WIP.
-    
-    * WIP.
-    
+  
     * Added some missing files.
-    
-    * WIP.
-    
-    * WIP.
     
     * Updated upb.
     
@@ -144,35 +130,8 @@ Date:   Wed Jan 13 12:16:25 2021 -0800
     
     Co-authored-by: Masaki Hara <hara@wantedly.com>
 
-commit b0649a088a89b65f16b02428208e82afc92e808e
-Author: Jon Skeet <jonskeet@google.com>
-Date:   Wed Apr 15 11:57:38 2020 +0100
 
-    Regenerate C# code with the new generator, adding unittest_proto3_optional.proto
-    
-    The changes in the existing proto2 code are solely around presence bits. The new generator allocated presence bits more efficiently. (Previously bits were sometimes allocated but never used.)
 
-commit 4dcafd12cb6b059a6af3ece3409c63f0b136e6b6
-Author: Jon Skeet <jonskeet@google.com>
-Date:   Wed Apr 15 11:55:05 2020 +0100
-
-    Support proto3 optional fields in the C# generator
-    
-    Most changes are:
-    
-    - Introducing new helpers of SupportsPresenceApi and RequiresPresenceBit. This allows calling code to be a lot clearer about what it's interested in.
-    - Changing most previous IsProto2 calls to use one of the two new helper methods
-    - Avoiding treating synthetic oneofs as regular ones
-    - Some slight refactoring in csharp_primitive_field to avoid code duplication
-    - Comments explaining what we want when, so the next maintainer doesn't need to do the detective work I did!
-    
-    This change deliberately doesn't modify the API surface of any
-    existing code. The only change to previously-generated C# should be
-    making presence bits more efficient in proto2.
-    
-    Once proto3 optional fields are supported, we can consider further
-    changes to make the proto2 and proto3 generated API surface more
-    consistent (e.g. adding presence API for message fields and oneofs).
 
 commit da5740082ef7c39a5503e4d57ee73e11d3b43586
 Author: Tristan Pratt <tpratt@factset.com>
@@ -202,24 +161,7 @@ Date:   Mon Sep 28 17:28:02 2015 +0100
     
     When we support dynamic messages, we'll need to modify JsonFormatter to handle enum values, as they won't come be "real" .NET enums at that point. It shouldn't be hard to do though.
 
-commit f8c151f21e821371c55d1cd02b89ac1b8f50460f
-Author: Jon Skeet <jonskeet@google.com>
-Date:   Fri Jul 3 11:56:29 2015 +0100
 
-    Initial implementation of JSON formatting
-    
-    - No parsing
-    - Reflection based, so not hugely efficient
-    - No line breaks or indentation
-
-commit 35e4dbd51829216fd1ad85a95c01042346b63c6b
-Author: Jon Skeet <skeet@pobox.com>
-Date:   Thu Jun 11 14:19:30 2015 +0100
-
-    Improve string encoding times.
-    
-    Cache a reference to Encoding.UTF8 - the property access is (rather surprisingly) significant.
-    Additionally, when we detect that the string is all ASCII (due to the computed length in bytes being the length in characters), we can perform the encoding very efficiently ourselves.
 
 commit 2d6daa72ab5832bf4cab38df0d911f32df547021
 Author: kenton@google.com <kenton@google.com@630680e5-0e50-0410-840e-4b1c322b438d>

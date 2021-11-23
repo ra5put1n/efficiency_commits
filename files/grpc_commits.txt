@@ -1,20 +1,3 @@
-commit 17174976b6b613bf6d2e41d8b17a75b57252d8ae
-Author: AJ Heller <hork@google.com>
-Date:   Tue Sep 7 13:22:57 2021 -0700
-
-    Remove the TaskHandle return type from EventEngine::Run (#27269)
-    
-    It isn't used in gRPC currently, and would be difficult to implement
-    efficiently in some scenarios.
-
-commit 2f838fd3b1cd89d00c4b583c6a066c22cbee1ca1
-Author: AJ Heller <hork@google.com>
-Date:   Tue Aug 31 17:54:12 2021 -0700
-
-    Remove EventEngine::Shutdown (#27207)
-    
-    It was determined that an explicit Shutdown method is not necessary, and further, it can be challenging to implement efficiently in some cases. Instead, EventEngines are expected to clean themselves up upon destruction. Anything that relies on an EventEngine's existence must coordinate itself to ensure the engine remains alive for as long as it's needed.
-
 commit c55c7c065e271f58f70b660ea7c908e97df5d568
 Author: donnadionne <donnadionne@google.com>
 Date:   Tue May 18 16:00:06 2021 -0700
@@ -197,17 +180,6 @@ Date:   Tue Mar 16 16:49:30 2021 -0700
     
     Additional note: there is no performance difference btw py2 and py3 (~80 minutes to finish)
 
-commit dd2f706b8b9672f31ee40f678afea54c7bab899d
-Author: Craig Tiller <ctiller@google.com>
-Date:   Wed Apr 5 08:11:44 2017 -0700
-
-    Generate slightly more efficient code
-
-commit ef35bc33bdf7cc40ad3ef1fd254b3959ddd9fe6d
-Author: Sree Kuchibhotla <sreek@google.com>
-Date:   Tue Dec 13 23:25:43 2016 -0800
-
-    Code review comment: make maybe_embiggen more efficient and realloc only if necessary
 
 commit 3fcd20fb5aaa920afd8ab8fccaccb5ea7371b02b
 Author: Jon Skeet <jonskeet@google.com>
@@ -275,6 +247,8 @@ Date:   Wed Jan 28 17:00:21 2015 -0800
     
     This is necessary for efficient implementations where multiple threads
     simultaneously sit in epoll_wait and the like on the same pollset.
+    
+    
 commit 393bae7e8824ab3f6532a1f66178038b83ae873b
 Author: Vijay Pai <vpai@google.com>
 Date:   Fri May 21 14:42:41 2021 -0700
@@ -293,8 +267,3 @@ Date:   Fri May 21 14:42:41 2021 -0700
     
     * Don't instantiate ExecCtx in channel_args destructor unless needed
 
-commit aaddd42c00647a0fea619d7dfda090c038f6d7fa
-Author: Jan Tattermusch <jtattermusch@google.com>
-Date:   Wed Jul 31 17:29:04 2019 -0700
-
-    add serializationScope and refactoring for efficiency

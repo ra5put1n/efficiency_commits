@@ -32,16 +32,6 @@ Date:   Mon Aug 16 20:55:07 2021 +0200
     
     We keep non-assembly platforms on the faster, but less efficient mode.
 
-commit 6b484f45c6cadb9b7f5c0fd30ab7b254b023bb27
-Author: Anis Elleuch <vadmeste@users.noreply.github.com>
-Date:   Wed Mar 31 10:15:08 2021 +0100
-
-    crawling: Apply lifecycle then decide healing action (#11563)
-    
-    It is inefficient to decide to heal an object before checking its
-    lifecycle for expiration or transition. This commit will just reverse
-    the order of action: evaluate lifecycle and heal only if asked and
-    lifecycle resulted a NoneAction.
 
 commit 76e2713ffe5f54fda843449e1d9bb7a169907f5d
 Author: Harshavardhana <harsha@minio.io>
@@ -232,6 +222,7 @@ Date:   Wed Jul 1 15:49:15 2015 -0700
     Remove slow AppendUniq code, rolling through over a slice is in-efficient
     
     Remove it and use map instead
+    
 commit fd530576549fdcd061e64fca71977f00607e4e0e
 Author: Harshavardhana <harsha@minio.io>
 Date:   Thu Sep 26 11:23:13 2019 -0700

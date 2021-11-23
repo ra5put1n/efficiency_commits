@@ -19,21 +19,6 @@ Date:   Sat Feb 8 10:58:15 2020 +0100
     instead we set up an own `get_gc` handler and return NULL from it, to
     signal that there are no properties to collect.
 
-commit 657695fe9777d0e91ee988afc8cb8a07120bdd2d
-Author: Christoph M. Becker <cmbecker69@gmx.de>
-Date:   Fri Sep 8 16:24:38 2017 +0200
-
-    Remove unused member
-    
-    The `n_next` member of struct `bc_struct` is unused; the only code that
-    would use this member has been disabled since libbcmath has been
-    bundled nearly 17 years ago.  Apparently, `n_next` has been designed to
-    build a linked list of free numbers, but it is doubtful whether that
-    would be an improvement over relying on the efficiency of the ZendMM,
-    so we remove the remaining support altogether.
-    
-    The ABI break probably affects nobody, but would be okay for a new
-    minor version according to our release process, anyway.
 
 commit ccf15cf2dc92d11f92ee30c97e2d86b07f81e030
 Author: Gustavo Lopes <glopes@nebm.ist.utl.pt>
@@ -61,11 +46,7 @@ Date:   Sun Jul 26 07:21:02 2009 +0000
     in a test, you have to stuff it into a binary string
     or it will be valid unicode by definition.
 
-commit 4ccf0b846e93e927c440af28cddec4b9921c3adb
-Author: Greg Beaver <cellog@php.net>
-Date:   Sun May 11 21:30:05 2008 +0000
 
-    slightly increase efficiency of function interception, and ensure that nothing fails even if the archive is unlinked mid-process
 
 commit d3b653e97b5e226f1f3fad86bb5359557e06f875
 Author: Wez Furlong <wez@php.net>
@@ -101,11 +82,4 @@ Date:   Mon May 31 08:16:46 2021 +0100
     
     PRIO_DARWIN_BG to be on part with pthread QOS class and
      energy efficiency.
-commit 20ef6689781ebaff648f2b6ec9d86d7221df482c
-Author: David CARLIER <devnexen@gmail.com>
-Date:   Mon May 31 08:16:46 2021 +0100
-
-    pcntl add darwin specific flags for who/which especially (#7075)
-    
-    PRIO_DARWIN_BG to be on part with pthread QOS class and
-     energy efficiency.
+     

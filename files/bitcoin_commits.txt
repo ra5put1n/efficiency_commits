@@ -23,11 +23,6 @@ Date:   Fri Aug 20 17:38:38 2021 +0200
     
     Tree-SHA512: 40f553715f3d4649dc18c2738554eafaca9ea800c4b028c099217896cc1c466ff457ae814d59cf8564c782a8964d8fac3eda60c1b6ffb08bbee1439b2d34434b
 
-commit 86dbd54ae8a8f9c693c0ea67114bbff24a0754df
-Author: Michael Dietz <michael.dietz@waya.ai>
-Date:   Mon Aug 16 17:56:28 2021 +0500
-
-    test: improve mempool_updatefrom efficiency by using getmempoolentry for specific txns
 
 commit 89895773b72275a620951730aef0b52e9437bc13
 Author: Dmitry Petukhov <dp@simplexum.com>
@@ -79,20 +74,6 @@ Date:   Wed Sep 16 06:05:08 2020 +0800
     
     Tree-SHA512: 7be669cb30cc17fb9e06b50e636ef7887c6a27354697987e4e4d38dba4b8f50e175647587430cd9bc3295bec01ce8b1e6639a50a4249d8fff9b1ca1b9ead3277
 
-commit 3ce16ad2f91d1e2edc7e7bdc5a19f72aa8c3e739
-Author: Russell Yanofsky <russ@yanofsky.org>
-Date:   Fri Jan 24 17:02:41 2020 -0500
-
-    refactor: Use psbt forward declaration
-    
-    Also clean up forward other forward declarations in interfaces/wallet.h with !sort
-    
-    Original motivation for this change was to fix a circular dependencies lint
-    error: "interfaces/chain.h -> interfaces/wallet.h -> psbt -> node/transaction
-    -> node/context -> interfaces/chain.h" from an earlier commit in this PR adding
-    a "interfaces/chain.h -> interfaces/wallet.h" include. Now, the wallet include
-    is no longer added, but it is still good to clean up the psbt include for
-    efficiency, and to sort the forward declarations.
 
 commit cc7cbd756acd79623230f7a1b0b0e40c772a82e1
 Merge: 4a7e64fc8 86edf4a2a
@@ -128,20 +109,6 @@ Date:   Mon May 1 16:34:45 2017 -0700
     
     Tree-SHA512: 1e402d5021a47724b6159af90955f1a5932c383f48e3e704f1c9a52daa18d2dce5d8e1fcd02fae6977eab04ab83fa22872110b821d4c6593d940d9642abc9bcd
 
-commit 4fbae77929e6344bc49ab60af10a9c5ff21d2cdf
-Author: Marcos Mayorga <mm@mm-studios.com>
-Date:   Fri Apr 28 09:03:51 2017 +0100
-
-    Improved efficiency in COutPoint constructors
-
-commit fc0899400082496bf2b3e061105e1e6a13399889
-Merge: 6a0720838 2409865e1
-Author: Wladimir J. van der Laan <laanwj@gmail.com>
-Date:   Fri Jan 22 15:30:54 2016 +0100
-
-    Merge #7262: Reduce inefficiency of GetAccountAddress()
-    
-    2409865 Reduce inefficiency of GetAccountAddress() (Chris Moore)
 
 commit 2409865e14dca0704e5618915d6ef902610d91be
 Author: Chris Moore <dooglus@gmail.com>
